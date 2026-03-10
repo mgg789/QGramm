@@ -1,0 +1,43 @@
+name: QGramm
+options:
+  minimumXcodeGenVersion: 2.45.0
+  deploymentTarget:
+    iOS: "18.0"
+settings:
+  base:
+    SWIFT_VERSION: 5.0
+    PRODUCT_BUNDLE_IDENTIFIER: com.qgramm.ios
+    MARKETING_VERSION: 1.0
+    CURRENT_PROJECT_VERSION: 1
+    DEVELOPMENT_ASSET_PATHS: "\"QGramm/Resources\""
+targets:
+  QGramm:
+    type: application
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: QGramm
+        excludes:
+          - Resources
+    resources:
+      - path: QGramm/Resources
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+        INFOPLIST_KEY_CFBundleDisplayName: Qgramm
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.social-networking
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: Voice messages are recorded locally on your device.
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: Photos and videos are used for avatars and circular video messages.
+        INFOPLIST_KEY_NSCameraUsageDescription: Camera access is used for circular video messages.
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+        SUPPORTS_MACCATALYST: NO
+schemes:
+  QGramm:
+    build:
+      targets:
+        QGramm: all
+    run:
+      config: Debug

@@ -1,0 +1,450 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		13765391AD7051872908717A /* AppServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31C1DB981A27698D7123D897 /* AppServices.swift */; };
+		1A1AC08828B4772894441FF2 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDA3091FD90038C14C25ED03 /* SettingsView.swift */; };
+		2344E40F1FDE47005E8E45FA /* QGrammApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A66C11B4CA281F0E489DB89 /* QGrammApp.swift */; };
+		2EFFB48402D31A8924A9CD78 /* CommonViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ED25240D799EE4CA799D7A4 /* CommonViews.swift */; };
+		307CD18D7AF3D8E59D42BBC5 /* AuthFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84FE94E4520739DB8B4852DE /* AuthFlowView.swift */; };
+		49D6C1C932AF7072A1A133FF /* ChatListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3795E4DDB5C254B2C4D055 /* ChatListView.swift */; };
+		749DB49AE57C5F8D104B8845 /* QGTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1CAECDDF42F596103CAB26 /* QGTheme.swift */; };
+		BF411978380C8246F9653E1B /* NetworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F935516C444ADC45393661E /* NetworkView.swift */; };
+		E65CE6EBE6389EDB70AFE172 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC1E1F60A4F5AF95AB3DF22 /* Models.swift */; };
+		EF3E1E6E933F5C05375186C4 /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7CC88C9CFC7799EBAD1221C /* AppStore.swift */; };
+		F7B620FB7DDBFD371FDAF348 /* CallsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36A4BB5B9237D1F9D1DFC638 /* CallsView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		2A66C11B4CA281F0E489DB89 /* QGrammApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QGrammApp.swift; sourceTree = "<group>"; };
+		2ED25240D799EE4CA799D7A4 /* CommonViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommonViews.swift; sourceTree = "<group>"; };
+		31C1DB981A27698D7123D897 /* AppServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppServices.swift; sourceTree = "<group>"; };
+		36A4BB5B9237D1F9D1DFC638 /* CallsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallsView.swift; sourceTree = "<group>"; };
+		6F935516C444ADC45393661E /* NetworkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkView.swift; sourceTree = "<group>"; };
+		84FE94E4520739DB8B4852DE /* AuthFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthFlowView.swift; sourceTree = "<group>"; };
+		BDA3091FD90038C14C25ED03 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		BE3346F3709A0205E195E40F /* QGramm.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = QGramm.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C7CC88C9CFC7799EBAD1221C /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
+		EA1CAECDDF42F596103CAB26 /* QGTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QGTheme.swift; sourceTree = "<group>"; };
+		EF3795E4DDB5C254B2C4D055 /* ChatListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatListView.swift; sourceTree = "<group>"; };
+		FBC1E1F60A4F5AF95AB3DF22 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		023D53F1EE7349FDD185FAB9 /* Chats */ = {
+			isa = PBXGroup;
+			children = (
+				EF3795E4DDB5C254B2C4D055 /* ChatListView.swift */,
+			);
+			path = Chats;
+			sourceTree = "<group>";
+		};
+		1DFD4D4887F243EE63A164D4 /* QGramm */ = {
+			isa = PBXGroup;
+			children = (
+				C320DBDA141032E4A5B20B27 /* App */,
+				2BF5A77EA70F19A59669FE25 /* Features */,
+				335F72D5431CF680D800170F /* Shared */,
+			);
+			path = QGramm;
+			sourceTree = "<group>";
+		};
+		2BF5A77EA70F19A59669FE25 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				E841A52A497C1B932556E19A /* Admin */,
+				6D50BDAD9145A87EF32B090F /* Auth */,
+				65E439217A6938ED1F0750C1 /* Calls */,
+				023D53F1EE7349FDD185FAB9 /* Chats */,
+				78BE2B157ADB7B9D823C84E2 /* Settings */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		335F72D5431CF680D800170F /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				7DD9B8B18DB67C6AA54847FD /* Components */,
+				601088479AF8E9951A2FC6DA /* Models */,
+				B9E7470453ABBF63C56AA63C /* Services */,
+				97098DF0EA361DBE395BDFC9 /* State */,
+				86CF22EEB15A66E704952EDB /* Theme */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		601088479AF8E9951A2FC6DA /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				FBC1E1F60A4F5AF95AB3DF22 /* Models.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		65E439217A6938ED1F0750C1 /* Calls */ = {
+			isa = PBXGroup;
+			children = (
+				36A4BB5B9237D1F9D1DFC638 /* CallsView.swift */,
+			);
+			path = Calls;
+			sourceTree = "<group>";
+		};
+		68FA78F7CB3A0B29B345F9B3 = {
+			isa = PBXGroup;
+			children = (
+				1DFD4D4887F243EE63A164D4 /* QGramm */,
+				92787FA44F299A7686F53E91 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		6D50BDAD9145A87EF32B090F /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				84FE94E4520739DB8B4852DE /* AuthFlowView.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		78BE2B157ADB7B9D823C84E2 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				BDA3091FD90038C14C25ED03 /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		7DD9B8B18DB67C6AA54847FD /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				2ED25240D799EE4CA799D7A4 /* CommonViews.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		86CF22EEB15A66E704952EDB /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				EA1CAECDDF42F596103CAB26 /* QGTheme.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		92787FA44F299A7686F53E91 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				BE3346F3709A0205E195E40F /* QGramm.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		97098DF0EA361DBE395BDFC9 /* State */ = {
+			isa = PBXGroup;
+			children = (
+				C7CC88C9CFC7799EBAD1221C /* AppStore.swift */,
+			);
+			path = State;
+			sourceTree = "<group>";
+		};
+		B9E7470453ABBF63C56AA63C /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				31C1DB981A27698D7123D897 /* AppServices.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		C320DBDA141032E4A5B20B27 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				2A66C11B4CA281F0E489DB89 /* QGrammApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		E841A52A497C1B932556E19A /* Admin */ = {
+			isa = PBXGroup;
+			children = (
+				6F935516C444ADC45393661E /* NetworkView.swift */,
+			);
+			path = Admin;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E641038B69A74D1B7F9A06FE /* QGramm */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 73993BD644FD2D2239426311 /* Build configuration list for PBXNativeTarget "QGramm" */;
+			buildPhases = (
+				BDFA7357726B5935425F556A /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = QGramm;
+			packageProductDependencies = (
+			);
+			productName = QGramm;
+			productReference = BE3346F3709A0205E195E40F /* QGramm.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D14A1C12CD7AF91E91ABC1D9 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = C266D2B0EE118BF2128449C7 /* Build configuration list for PBXProject "QGramm" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 68FA78F7CB3A0B29B345F9B3;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 92787FA44F299A7686F53E91 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E641038B69A74D1B7F9A06FE /* QGramm */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		BDFA7357726B5935425F556A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				13765391AD7051872908717A /* AppServices.swift in Sources */,
+				EF3E1E6E933F5C05375186C4 /* AppStore.swift in Sources */,
+				307CD18D7AF3D8E59D42BBC5 /* AuthFlowView.swift in Sources */,
+				F7B620FB7DDBFD371FDAF348 /* CallsView.swift in Sources */,
+				49D6C1C932AF7072A1A133FF /* ChatListView.swift in Sources */,
+				2EFFB48402D31A8924A9CD78 /* CommonViews.swift in Sources */,
+				E65CE6EBE6389EDB70AFE172 /* Models.swift in Sources */,
+				BF411978380C8246F9653E1B /* NetworkView.swift in Sources */,
+				749DB49AE57C5F8D104B8845 /* QGTheme.swift in Sources */,
+				2344E40F1FDE47005E8E45FA /* QGrammApp.swift in Sources */,
+				1A1AC08828B4772894441FF2 /* SettingsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		22D8C17B7A9869FA550FB0A6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Qgramm;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access is used for circular video messages.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Voice messages are recorded locally on your device.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Photos and videos are used for avatars and circular video messages.";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		3A9C149E7A20A532ADEF561D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_ASSET_PATHS = "\"QGramm/Resources\"";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.qgramm.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		926774D42DD0EABDFFB49B4E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Qgramm;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access is used for circular video messages.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Voice messages are recorded locally on your device.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Photos and videos are used for avatars and circular video messages.";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		AAA4FC174C8D50B7DD5E7F35 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_ASSET_PATHS = "\"QGramm/Resources\"";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.qgramm.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		73993BD644FD2D2239426311 /* Build configuration list for PBXNativeTarget "QGramm" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				22D8C17B7A9869FA550FB0A6 /* Debug */,
+				926774D42DD0EABDFFB49B4E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C266D2B0EE118BF2128449C7 /* Build configuration list for PBXProject "QGramm" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAA4FC174C8D50B7DD5E7F35 /* Debug */,
+				3A9C149E7A20A532ADEF561D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = D14A1C12CD7AF91E91ABC1D9 /* Project object */;
+}

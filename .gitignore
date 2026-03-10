@@ -1,0 +1,10 @@
+.DS_Store
+.idea/
+DerivedData/
+build/
+*.swp
+*.xccheckout
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
