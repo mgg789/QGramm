@@ -192,6 +192,180 @@ final class AudioRecorderService: NSObject, ObservableObject, AVAudioRecorderDel
     }
 }
 
+enum CircularVideoRecorderError: LocalizedError {
+    case accessDenied
+    case captureUnavailable
+    case recordingFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .accessDenied:
+            return "Camera or microphone access is denied."
+        case .captureUnavailable:
+            return "Unable to configure camera capture."
+        case .recordingFailed:
+            return "Video recording failed."
+        }
+    }
+}
+
+@MainActor
+final class CircularVideoRecorderService: NSObject, ObservableObject, AVCaptureFileOutputRecordingDelegate {
+    @Published private(set) var isRecording = false
+    @Published private(set) var recordingDuration: TimeInterval = 0
+
+    private let captureSession = AVCaptureSession()
+    private let movieOutput = AVCaptureMovieFileOutput()
+    private var durationTimer: Timer?
+    private var stopContinuation: CheckedContinuation<URL?, Never>?
+
+    func startRecording(useFrontCamera: Bool) async throws {
+        guard !isRecording else { return }
+
+        try await ensurePermissions()
+        try configureSession(useFrontCamera: useFrontCamera)
+
+        if !captureSession.isRunning {
+            captureSession.startRunning()
+        }
+
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playAndRecord, mode: .videoRecording, options: [.defaultToSpeaker, .allowBluetoothHFP])
+        try session.setActive(true)
+
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("mov")
+        if FileManager.default.fileExists(atPath: outputURL.path) {
+            try? FileManager.default.removeItem(at: outputURL)
+        }
+
+        recordingDuration = 0
+        durationTimer?.invalidate()
+        durationTimer = Timer.scheduledTimer(
+            timeInterval: 0.2,
+            target: self,
+            selector: #selector(updateCircularRecordingDuration),
+            userInfo: nil,
+            repeats: true
+        )
+
+        movieOutput.startRecording(to: outputURL, recordingDelegate: self)
+        isRecording = true
+    }
+
+    func stopRecording() async -> URL? {
+        guard isRecording else { return nil }
+        return await withCheckedContinuation { continuation in
+            stopContinuation = continuation
+            movieOutput.stopRecording()
+        }
+    }
+
+    func cancelRecording() async {
+        let url = await stopRecording()
+        if let url {
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
+
+    private func ensurePermissions() async throws {
+        let cameraAllowed = try await ensurePermission(for: .video)
+        let microphoneAllowed = try await ensurePermission(for: .audio)
+        if !cameraAllowed || !microphoneAllowed {
+            throw CircularVideoRecorderError.accessDenied
+        }
+    }
+
+    private func ensurePermission(for mediaType: AVMediaType) async throws -> Bool {
+        switch AVCaptureDevice.authorizationStatus(for: mediaType) {
+        case .authorized:
+            return true
+        case .notDetermined:
+            return await withCheckedContinuation { continuation in
+                AVCaptureDevice.requestAccess(for: mediaType) { granted in
+                    continuation.resume(returning: granted)
+                }
+            }
+        case .denied, .restricted:
+            return false
+        @unknown default:
+            return false
+        }
+    }
+
+    private func configureSession(useFrontCamera: Bool) throws {
+        captureSession.beginConfiguration()
+        defer { captureSession.commitConfiguration() }
+
+        captureSession.sessionPreset = .high
+
+        for input in captureSession.inputs {
+            captureSession.removeInput(input)
+        }
+
+        let desiredPosition: AVCaptureDevice.Position = useFrontCamera ? .front : .back
+        let camera = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.builtInWideAngleCamera],
+            mediaType: .video,
+            position: desiredPosition
+        ).devices.first
+
+        guard let camera else {
+            throw CircularVideoRecorderError.captureUnavailable
+        }
+
+        let videoInput = try AVCaptureDeviceInput(device: camera)
+        guard captureSession.canAddInput(videoInput) else {
+            throw CircularVideoRecorderError.captureUnavailable
+        }
+        captureSession.addInput(videoInput)
+
+        if let microphone = AVCaptureDevice.default(for: .audio) {
+            let audioInput = try AVCaptureDeviceInput(device: microphone)
+            if captureSession.canAddInput(audioInput) {
+                captureSession.addInput(audioInput)
+            }
+        }
+
+        if !captureSession.outputs.contains(movieOutput) && captureSession.canAddOutput(movieOutput) {
+            captureSession.addOutput(movieOutput)
+        }
+    }
+
+    @objc private func updateCircularRecordingDuration() {
+        recordingDuration += 0.2
+    }
+
+    nonisolated func fileOutput(
+        _ output: AVCaptureFileOutput,
+        didFinishRecordingTo outputFileURL: URL,
+        from connections: [AVCaptureConnection],
+        error: (any Error)?
+    ) {
+        Task { @MainActor in
+            durationTimer?.invalidate()
+            durationTimer = nil
+            isRecording = false
+
+            if captureSession.isRunning {
+                captureSession.stopRunning()
+            }
+
+            var finalURL: URL?
+            if error == nil, FileManager.default.fileExists(atPath: outputFileURL.path) {
+                let size = (try? outputFileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+                if size > 0 {
+                    finalURL = outputFileURL
+                }
+            }
+
+            stopContinuation?.resume(returning: finalURL)
+            stopContinuation = nil
+        }
+    }
+}
+
 enum QGMediaTools {
     static func fileSize(for url: URL) -> Int64 {
         let values = try? url.resourceValues(forKeys: [.fileSizeKey])

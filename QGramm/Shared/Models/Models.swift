@@ -319,9 +319,22 @@ struct InviteRecord: Codable, Hashable, Identifiable {
     var inviterUserID: UUID
     var boundDeviceID: String?
     var redeemedByUserID: UUID?
+    var maxUses: Int? = nil
+    var usedCount: Int? = nil
+    var isRevoked: Bool? = nil
+    var serverIsActive: Bool? = nil
 
     var isActive: Bool {
-        redeemedByUserID == nil && expiresAt > Date()
+        if let serverIsActive {
+            return serverIsActive
+        }
+        let maxUsesValue = maxUses ?? 1
+        let usedCountValue = usedCount ?? 0
+        let isRevokedValue = isRevoked ?? false
+        return redeemedByUserID == nil &&
+            !isRevokedValue &&
+            usedCountValue < maxUsesValue &&
+            expiresAt > Date()
     }
 
     var deepLink: String { "qgramm://invite/\(code)" }

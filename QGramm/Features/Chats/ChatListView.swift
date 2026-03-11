@@ -380,6 +380,7 @@ struct ChatRoomView: View {
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var store: AppStore
     @StateObject private var audio = AudioRecorderService()
+    @StateObject private var videoRecorder = CircularVideoRecorderService()
 
     let conversationID: UUID
 
@@ -402,9 +403,6 @@ struct ChatRoomView: View {
     @State private var previewVideoURL: URL?
     @State private var infoMessage = ""
     @State private var captureMode: CaptureMode = .audio
-    @State private var isVideoRecording = false
-    @State private var videoRecordingDuration: TimeInterval = 0
-    @State private var videoRecordingTimer: Timer?
     @State private var useFrontCamera = true
     @State private var jumpToMessageID: UUID?
     @State private var isNearBottom = true
@@ -513,14 +511,14 @@ struct ChatRoomView: View {
             }
         }
         .overlay {
-            if isVideoRecording {
+            if videoRecorder.isRecording {
                 circularRecordingOverlay
                     .allowsHitTesting(false)
                     .transition(.opacity)
             }
         }
         .overlay(alignment: .bottom) {
-            if audio.isRecording || isVideoRecording {
+            if audio.isRecording || videoRecorder.isRecording {
                 recordingStatusBar
                     .padding(.horizontal, QGTheme.pagePadding)
                     .padding(.bottom, 72)
@@ -567,6 +565,7 @@ struct ChatRoomView: View {
             }
         }
         .qgScreenBackground()
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .navigationBarBackButtonHidden(true)
         .simultaneousGesture(chatDismissGesture)
         .onPreferenceChange(MessageFramePreferenceKey.self) { frames in
@@ -778,10 +777,13 @@ struct ChatRoomView: View {
             }
         }
         .onDisappear {
-            videoRecordingTimer?.invalidate()
-            videoRecordingTimer = nil
             if audio.isRecording {
                 cancelVoiceRecording()
+            }
+            if videoRecorder.isRecording {
+                Task { @MainActor in
+                    await cancelVideoRecording()
+                }
             }
         }
         .onChange(of: audio.isRecording) { _, isRecording in
@@ -898,12 +900,14 @@ struct ChatRoomView: View {
             }
             .buttonStyle(.plain)
 
-            if audio.isRecording || isVideoRecording {
+            if audio.isRecording || videoRecorder.isRecording {
                 Button {
                     if audio.isRecording {
                         cancelVoiceRecording()
                     } else {
-                        cancelVideoRecording()
+                        Task { @MainActor in
+                            await cancelVideoRecording()
+                        }
                     }
                 } label: {
                     Text(language.text(ru: "Отменить", en: "Cancel"))
@@ -930,8 +934,10 @@ struct ChatRoomView: View {
 
                 if audio.isRecording {
                     sendVoiceRecording()
-                } else if isVideoRecording {
-                    sendCircularVideo()
+                } else if videoRecorder.isRecording {
+                    Task { @MainActor in
+                        await sendCircularVideo()
+                    }
                 } else if !draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     store.sendTextMessage(
                         draftText,
@@ -1041,7 +1047,7 @@ struct ChatRoomView: View {
     }
 
     private var actionSymbol: String {
-        if audio.isRecording || isVideoRecording {
+        if audio.isRecording || videoRecorder.isRecording {
             return "arrow.up"
         }
         if !draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -1207,25 +1213,22 @@ struct ChatRoomView: View {
     }
 
     private var chatBackground: some View {
-        GeometryReader { geometry in
-            ZStack {
-                Image(colorScheme == .dark ? "ChatBackgroundDark" : "ChatBackgroundLight")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                    .clipped()
-                    .opacity(colorScheme == .dark ? 0.42 : 0.32)
+        ZStack {
+            Image(colorScheme == .dark ? "ChatBackgroundDark" : "ChatBackgroundLight")
+                .resizable()
+                .scaledToFill()
+                .ignoresSafeArea()
+                .opacity(colorScheme == .dark ? 0.42 : 0.32)
 
-                LinearGradient(
-                    colors: [
-                        QGTheme.Palette.screen.opacity(colorScheme == .dark ? 0.28 : 0.22),
-                        QGTheme.Palette.screen.opacity(colorScheme == .dark ? 0.52 : 0.46),
-                        QGTheme.Palette.screen.opacity(colorScheme == .dark ? 0.82 : 0.78)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            }
+            LinearGradient(
+                colors: [
+                    QGTheme.Palette.screen.opacity(colorScheme == .dark ? 0.28 : 0.22),
+                    QGTheme.Palette.screen.opacity(colorScheme == .dark ? 0.52 : 0.46),
+                    QGTheme.Palette.screen.opacity(colorScheme == .dark ? 0.82 : 0.78)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
             .ignoresSafeArea()
         }
     }
@@ -1242,8 +1245,8 @@ struct ChatRoomView: View {
                     en: "Recording \(audio.recordingDuration.formatted(.number.precision(.fractionLength(1)))) sec"
                  )
                  : language.text(
-                    ru: "Видео \(videoRecordingDuration.formatted(.number.precision(.fractionLength(1)))) сек",
-                    en: "Video \(videoRecordingDuration.formatted(.number.precision(.fractionLength(1)))) sec"
+                    ru: "Видео \(videoRecorder.recordingDuration.formatted(.number.precision(.fractionLength(1)))) сек",
+                    en: "Video \(videoRecorder.recordingDuration.formatted(.number.precision(.fractionLength(1)))) sec"
                  )
             )
             .font(.system(size: 14, weight: .bold))
@@ -1251,7 +1254,7 @@ struct ChatRoomView: View {
 
             Spacer()
 
-            if isVideoRecording {
+            if videoRecorder.isRecording {
                 Button {
                     useFrontCamera.toggle()
                     QGHaptics.medium()
@@ -1321,14 +1324,24 @@ struct ChatRoomView: View {
 
     @discardableResult
     private func startCaptureRecording() -> Bool {
-        guard !audio.isRecording, !isVideoRecording, draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard !audio.isRecording, !videoRecorder.isRecording, draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return false
         }
 
         if captureMode == .audio {
             try? audio.startRecording()
         } else {
-            startCircularVideoRecording()
+            Task { @MainActor in
+                do {
+                    try await videoRecorder.startRecording(useFrontCamera: useFrontCamera)
+                    QGHaptics.heavy()
+                } catch {
+                    infoMessage = language.text(
+                        ru: "Не удалось начать запись видео. Проверьте доступ к камере и микрофону.",
+                        en: "Unable to start video recording. Check camera and microphone permissions."
+                    )
+                }
+            }
         }
         return true
     }
@@ -1353,41 +1366,21 @@ struct ChatRoomView: View {
         clearDraftActions()
     }
 
-    private func startCircularVideoRecording() {
-        isVideoRecording = true
-        videoRecordingDuration = 0
-        QGHaptics.heavy()
-        videoRecordingTimer?.invalidate()
-        videoRecordingTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { _ in
-            guard isVideoRecording else { return }
-            videoRecordingDuration += 0.2
-        }
+    private func cancelVideoRecording() async {
+        await videoRecorder.cancelRecording()
     }
 
-    private func cancelVideoRecording() {
-        isVideoRecording = false
-        videoRecordingDuration = 0
-        videoRecordingTimer?.invalidate()
-        videoRecordingTimer = nil
-    }
-
-    private func sendCircularVideo() {
-        defer { cancelVideoRecording() }
-
-        let tempURL = (try? QGMediaTools.makePlaceholderVideo(duration: max(videoRecordingDuration, 1.2)))
-            ?? FileManager.default.temporaryDirectory
-                .appendingPathComponent(UUID().uuidString)
-                .appendingPathExtension("mov")
-        if !FileManager.default.fileExists(atPath: tempURL.path) {
-            try? Data().write(to: tempURL)
+    private func sendCircularVideo() async {
+        guard let videoURL = await videoRecorder.stopRecording() else {
+            return
         }
-        let preview = try? QGMediaTools.makePlaceholderPreviewImage()
+        let preview = try? await QGMediaTools.makeThumbnail(for: videoURL)
 
         store.queueAttachmentMessage(
-            from: tempURL,
+            from: videoURL,
             previewURL: preview,
             kind: .circularVideo,
-            duration: videoRecordingDuration,
+            duration: videoRecorder.recordingDuration,
             in: conversationID,
             replyTo: replyMessageID,
             quotedExcerpt: nil

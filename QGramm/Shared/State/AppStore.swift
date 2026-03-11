@@ -117,7 +117,7 @@ final class AppStore: ObservableObject {
         }
 
         let invites = (try? await backend.listInvites()) ?? []
-        let chats = try await backend.listChats()
+        let chats = (try? await backend.listChats()) ?? []
         let calls = (try? await backend.listCalls()) ?? []
 
         let remoteConversations = try await loadRemoteConversations(chats: chats)
@@ -136,7 +136,11 @@ final class AppStore: ObservableObject {
     }
 
     func decryptedText(for message: MessageRecord, in conversation: ConversationRecord) -> String {
-        crypto.decrypt(message.body, using: conversation.sharedKey)
+        if let envelope = message.body,
+           let systemText = friendlySystemText(ciphertext: envelope.ciphertext) {
+            return systemText
+        }
+        return crypto.decrypt(message.body, using: conversation.sharedKey)
     }
 
     func decryptedQuote(for message: MessageRecord, in conversation: ConversationRecord) -> String {
@@ -359,8 +363,14 @@ final class AppStore: ObservableObject {
                 $0.session.expectedVerificationCode = ""
                 $0.session.safetyMode = safetyMode
                 $0.session.authPurpose = .register
+                $0.users = []
+                $0.conversations = []
+                $0.invites = []
+                $0.calls = []
+                $0.reports = []
             }
-            try await refreshFromServer()
+            upsertUser(from: auth.user)
+            try? await refreshFromServer()
             return .success(recoveryKey)
         } catch {
             return .failure(.message(error.localizedDescription))
@@ -388,8 +398,14 @@ final class AppStore: ObservableObject {
                 $0.session.accessTokenExpiresAt = auth.expiresAt
                 $0.session.expectedVerificationCode = ""
                 $0.session.authPurpose = .login
+                $0.users = []
+                $0.conversations = []
+                $0.invites = []
+                $0.calls = []
+                $0.reports = []
             }
-            try await refreshFromServer()
+            upsertUser(from: auth.user)
+            try? await refreshFromServer()
             return .success(())
         } catch {
             return .failure(.message(error.localizedDescription))
@@ -904,9 +920,7 @@ final class AppStore: ObservableObject {
     }
 
     func invitesForCurrentUser() -> [InviteRecord] {
-        guard let currentUserID = state.session.currentUserID else { return [] }
         return state.invites
-            .filter { $0.inviterUserID == currentUserID }
             .sorted { $0.createdAt > $1.createdAt }
     }
 
@@ -1204,7 +1218,11 @@ final class AppStore: ObservableObject {
             expiresAt: dto.expiresAt,
             inviterUserID: inviterID,
             boundDeviceID: nil,
-            redeemedByUserID: nil
+            redeemedByUserID: nil,
+            maxUses: dto.maxUses,
+            usedCount: dto.usedCount,
+            isRevoked: dto.isRevoked,
+            serverIsActive: dto.isActive
         )
     }
 
@@ -1294,6 +1312,17 @@ final class AppStore: ObservableObject {
 
     private func trustLevel(from raw: Int) -> TrustLevel {
         TrustLevel(rawValue: min(max(raw, 1), 8)) ?? .one
+    }
+
+    private func friendlySystemText(ciphertext: String) -> String? {
+        switch ciphertext {
+        case "WELCOME_QGRAMM":
+            return "Добро пожаловать в QGramm"
+        case "WELCOME_BY_INVITER":
+            return "Вы приглашены в сеть QGramm"
+        default:
+            return nil
+        }
     }
 
     private func backendMessageType(from kind: AttachmentKind) -> String {
