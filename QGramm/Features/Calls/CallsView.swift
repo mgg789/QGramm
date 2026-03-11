@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct CallsView: View {
     @EnvironmentObject private var store: AppStore
@@ -16,22 +17,25 @@ struct CallsView: View {
         }
 
         return [
-            ("Сегодня, \(QGFormatters.dayTitle.string(from: today))", todayCalls),
-            ("Вчера, \(QGFormatters.dayTitle.string(from: yesterday))", yesterdayCalls),
-            ("Ранее", olderCalls)
+            (language.text(ru: "Сегодня, \(QGFormatters.dayTitle.string(from: today))", en: "Today, \(QGFormatters.dayTitle.string(from: today))"), todayCalls),
+            (language.text(ru: "Вчера, \(QGFormatters.dayTitle.string(from: yesterday))", en: "Yesterday, \(QGFormatters.dayTitle.string(from: yesterday))"), yesterdayCalls),
+            (language.text(ru: "Ранее", en: "Earlier"), olderCalls)
         ].filter { !$0.1.isEmpty }
     }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 24) {
-                WordmarkView(title: "Qgramm", size: 38)
+                WordmarkView(title: "QGramm", size: 38)
                     .frame(maxWidth: .infinity)
 
                 if groupedCalls.isEmpty {
                     EmptyStateView(
-                        title: "Пока нет звонков",
-                        message: "Аудио-вызовы V1 появятся здесь после первого соединения.",
+                        title: language.text(ru: "Пока нет звонков", en: "No calls yet"),
+                        message: language.text(
+                            ru: "Аудио-вызовы V1 появятся здесь после первого соединения.",
+                            en: "V1 audio calls will appear here after your first connection."
+                        ),
                         systemImage: "phone.connection.fill"
                     )
                 } else {
@@ -56,7 +60,7 @@ struct CallsView: View {
                 Button {
                     store.clearCallHistory()
                 } label: {
-                    Text("Очистить историю")
+                    Text(language.text(ru: "Очистить историю", en: "Clear history"))
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
@@ -67,24 +71,28 @@ struct CallsView: View {
                 .padding(.top, 24)
             }
             .padding(.horizontal, QGTheme.pagePadding)
-            .padding(.top, 24)
+            .padding(.top, 10)
             .padding(.bottom, QGTheme.floatingBottomInset)
         }
         .qgScreenBackground()
-        .confirmationDialog("Вы хотите позвонить?", isPresented: Binding(
+        .confirmationDialog(language.text(ru: "Вы хотите позвонить?", en: "Do you want to call?"), isPresented: Binding(
             get: { selectedCall != nil },
             set: { if !$0 { selectedCall = nil } }
         ), presenting: selectedCall) { call in
-            Button("Аудио") {
+            Button(language.text(ru: "Аудио", en: "Audio")) {
                 store.startCall(with: call.peerUserID, kind: .audio)
             }
-            Button("Видео") {
-                store.startCall(with: call.peerUserID, kind: .video)
-            }
-            Button("Отмена", role: .cancel) {}
+            Button(language.text(ru: "Отмена", en: "Cancel"), role: .cancel) {}
         } message: { call in
             Text(call.title)
         }
+        .task {
+            await store.refreshCallsFromServer()
+        }
+    }
+
+    private var language: AppLanguage {
+        store.state.session.language
     }
 }
 
@@ -140,6 +148,7 @@ private struct CallRowView: View {
 struct CallSessionView: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
+    @State private var isProximityCovered = false
 
     var body: some View {
         let call = store.activeCall
@@ -153,7 +162,18 @@ struct CallSessionView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 28) {
-                Spacer(minLength: 90)
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(qualityColor)
+                        .frame(width: 10, height: 10)
+                    Text(qualityText)
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.9))
+                    Spacer()
+                }
+                .padding(.top, 18)
+
+                Spacer(minLength: 62)
 
                 if let user = call.flatMap({ store.user(id: $0.userID) }) {
                     QGAvatarView(user: user, size: 104)
@@ -188,7 +208,7 @@ struct CallSessionView: View {
                         store.toggleMute()
                     }
 
-                    SessionControlButton(icon: "phone.down.fill", tint: QGTheme.Palette.destructive) {
+                    SessionControlButton(icon: "phone.down.fill", tint: Color(red: 1, green: 0.14, blue: 0.16)) {
                         store.endActiveCall()
                         dismiss()
                     }
@@ -196,6 +216,23 @@ struct CallSessionView: View {
                 .padding(.bottom, 60)
             }
             .padding(.horizontal, QGTheme.pagePadding)
+
+            if isProximityCovered {
+                Color.black
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+            }
+        }
+        .onAppear {
+            UIDevice.current.isProximityMonitoringEnabled = true
+            isProximityCovered = UIDevice.current.proximityState
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIDevice.proximityStateDidChangeNotification)) { _ in
+            isProximityCovered = UIDevice.current.proximityState
+        }
+        .onDisappear {
+            UIDevice.current.isProximityMonitoringEnabled = false
+            isProximityCovered = false
         }
     }
 
@@ -205,6 +242,19 @@ struct CallSessionView: View {
         let minutes = elapsed / 60
         let seconds = elapsed % 60
         return String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    private var qualityColor: Color {
+        guard store.isOnline else { return .red }
+        let ping = store.connectionPingMs
+        if ping <= 85 { return QGTheme.Palette.online }
+        if ping <= 160 { return .yellow }
+        return .red
+    }
+
+    private var qualityText: String {
+        guard store.isOnline else { return "offline" }
+        return "\(store.connectionPingMs) ms"
     }
 }
 

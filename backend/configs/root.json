@@ -1,0 +1,12 @@
+{
+  "root_email": "root@qgramm.local",
+  "root_nickname": "@root",
+  "root_first_name": "Root",
+  "root_last_name": "Admin",
+  "root_uid": "ROOT-0001",
+  "qgramm_service_email": "updates@qgramm.local",
+  "qgramm_service_nickname": "@qgramm",
+  "qgramm_service_first_name": "QGramm",
+  "qgramm_service_last_name": "Service",
+  "qgramm_service_uid": "QGRAMM-NEWS"
+}

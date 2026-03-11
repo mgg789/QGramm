@@ -1,9 +1,59 @@
 @preconcurrency import AVFoundation
 import CoreImage.CIFilterBuiltins
 import CryptoKit
+import UIKit
 import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
+
+enum QGHaptics {
+    static let powerSavingKey = "qg.powerSavingEnabled"
+
+    static func light() {
+        impact(.medium, intensity: 0.95)
+    }
+
+    static func medium() {
+        impact(.rigid, intensity: 1)
+    }
+
+    static func heavy() {
+        impact(.heavy, intensity: 1)
+    }
+
+    static func forceHeavy() {
+        let generator = UIImpactFeedbackGenerator(style: .heavy)
+        generator.prepare()
+        generator.impactOccurred(intensity: 1)
+    }
+
+    static func error() {
+        notification(.error)
+    }
+
+    private static func impact(_ style: UIImpactFeedbackGenerator.FeedbackStyle, intensity: CGFloat) {
+        guard !UserDefaults.standard.bool(forKey: powerSavingKey) else { return }
+        let generator = UIImpactFeedbackGenerator(style: style)
+        generator.prepare()
+        generator.impactOccurred(intensity: intensity)
+    }
+
+    private static func notification(_ type: UINotificationFeedbackGenerator.FeedbackType) {
+        guard !UserDefaults.standard.bool(forKey: powerSavingKey) else { return }
+        let generator = UINotificationFeedbackGenerator()
+        generator.prepare()
+        generator.notificationOccurred(type)
+    }
+}
+
+@inline(__always)
+func qgAnimate(_ animation: Animation, _ action: () -> Void) {
+    if UserDefaults.standard.bool(forKey: QGHaptics.powerSavingKey) {
+        action()
+    } else {
+        withAnimation(animation, action)
+    }
+}
 
 struct QGCryptoService {
     func makeSharedKey() -> String {
@@ -118,8 +168,12 @@ final class AudioRecorderService: NSObject, ObservableObject, AVAudioRecorderDel
         }
 
         do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default, options: [.defaultToSpeaker])
+            try session.setActive(true)
             player = try AVAudioPlayer(contentsOf: url)
             player?.delegate = self
+            player?.prepareToPlay()
             player?.play()
             playingURL = url
         } catch {
@@ -169,12 +223,12 @@ enum QGMediaTools {
         return destination
     }
 
-    static func makeThumbnail(for videoURL: URL) throws -> URL {
+    static func makeThumbnail(for videoURL: URL) async throws -> URL {
         let asset = AVURLAsset(url: videoURL)
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
 
-        let cgImage = try generator.copyCGImage(at: .zero, actualTime: nil)
+        let cgImage = try await generator.image(at: .zero).image
         let uiImage = UIImage(cgImage: cgImage)
         guard let data = uiImage.jpegData(compressionQuality: 0.82) else {
             throw CocoaError(.fileWriteUnknown)
@@ -211,5 +265,154 @@ enum QGMediaTools {
             .appendingPathComponent("QGramm", isDirectory: true)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
         return url
+    }
+
+    static func saveFileToDownloads(from sourcePath: String) throws -> URL {
+        let sourceURL = URL(fileURLWithPath: sourcePath)
+        let downloadsURL = try FileManager.default
+            .url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+            .appendingPathComponent("Downloads", isDirectory: true)
+        try FileManager.default.createDirectory(at: downloadsURL, withIntermediateDirectories: true)
+
+        let destinationURL = downloadsURL.appendingPathComponent(sourceURL.lastPathComponent)
+        if FileManager.default.fileExists(atPath: destinationURL.path) {
+            try FileManager.default.removeItem(at: destinationURL)
+        }
+        try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+        return destinationURL
+    }
+
+    static func makePlaceholderPreviewImage() throws -> URL {
+        let image = UIImage(named: "ProfilePhoto") ?? UIImage(systemName: "video.fill") ?? UIImage()
+        guard let data = image.jpegData(compressionQuality: 0.86) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        let folderURL = try applicationSupportDirectory().appendingPathComponent("previews", isDirectory: true)
+        try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
+        let destination = folderURL.appendingPathComponent(UUID().uuidString).appendingPathExtension("jpg")
+        try data.write(to: destination)
+        return destination
+    }
+
+    static func makePlaceholderVideo(duration: TimeInterval = 2.0) throws -> URL {
+        let size = CGSize(width: 720, height: 720)
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("mov")
+
+        if FileManager.default.fileExists(atPath: outputURL.path) {
+            try FileManager.default.removeItem(at: outputURL)
+        }
+
+        let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mov)
+        let outputSettings: [String: Any] = [
+            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoWidthKey: Int(size.width),
+            AVVideoHeightKey: Int(size.height)
+        ]
+
+        let input = AVAssetWriterInput(mediaType: .video, outputSettings: outputSettings)
+        input.expectsMediaDataInRealTime = false
+
+        let adapter = AVAssetWriterInputPixelBufferAdaptor(
+            assetWriterInput: input,
+            sourcePixelBufferAttributes: [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32ARGB,
+                kCVPixelBufferWidthKey as String: Int(size.width),
+                kCVPixelBufferHeightKey as String: Int(size.height)
+            ]
+        )
+
+        guard writer.canAdd(input) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        writer.add(input)
+
+        let baseImage = UIImage(named: "ProfilePhoto") ?? UIImage(systemName: "video.fill") ?? UIImage()
+        let renderedImage = UIGraphicsImageRenderer(size: size).image { _ in
+            UIColor.black.setFill()
+            UIBezierPath(rect: CGRect(origin: .zero, size: size)).fill()
+            baseImage.draw(in: CGRect(origin: .zero, size: size))
+        }
+
+        guard let pixelBuffer = makePixelBuffer(from: renderedImage, size: size) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+
+        let fps: Int32 = 24
+        let frameCount = max(Int(duration * Double(fps)), Int(fps))
+
+        guard writer.startWriting() else {
+            throw writer.error ?? CocoaError(.fileWriteUnknown)
+        }
+        writer.startSession(atSourceTime: .zero)
+
+        for frame in 0..<frameCount {
+            while !input.isReadyForMoreMediaData {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.001))
+            }
+
+            let time = CMTime(value: CMTimeValue(frame), timescale: fps)
+            if !adapter.append(pixelBuffer, withPresentationTime: time) {
+                throw writer.error ?? CocoaError(.fileWriteUnknown)
+            }
+        }
+
+        input.markAsFinished()
+
+        let semaphore = DispatchSemaphore(value: 0)
+        var finishError: Error?
+        writer.finishWriting {
+            finishError = writer.error
+            semaphore.signal()
+        }
+        semaphore.wait()
+
+        if let finishError {
+            throw finishError
+        }
+
+        return outputURL
+    }
+
+    private static func makePixelBuffer(from image: UIImage, size: CGSize) -> CVPixelBuffer? {
+        let attributes: [CFString: Any] = [
+            kCVPixelBufferCGImageCompatibilityKey: true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey: true
+        ]
+
+        var pixelBuffer: CVPixelBuffer?
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            Int(size.width),
+            Int(size.height),
+            kCVPixelFormatType_32ARGB,
+            attributes as CFDictionary,
+            &pixelBuffer
+        )
+
+        guard status == kCVReturnSuccess, let pixelBuffer else { return nil }
+        CVPixelBufferLockBaseAddress(pixelBuffer, [])
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, []) }
+
+        guard
+            let context = CGContext(
+                data: CVPixelBufferGetBaseAddress(pixelBuffer),
+                width: Int(size.width),
+                height: Int(size.height),
+                bitsPerComponent: 8,
+                bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer),
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
+            )
+        else {
+            return nil
+        }
+
+        context.clear(CGRect(origin: .zero, size: size))
+        UIGraphicsPushContext(context)
+        image.draw(in: CGRect(origin: .zero, size: size))
+        UIGraphicsPopContext()
+        return pixelBuffer
     }
 }

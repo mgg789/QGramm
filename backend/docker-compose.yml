@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: qgramm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: qgramm
+      POSTGRES_USER: qgramm
+      POSTGRES_PASSWORD: qgramm
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qgramm -d qgramm"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - qgramm-net
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qgramm-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      QGRAMM_ENV: production
+      QGRAMM_SERVER_HOST: 0.0.0.0
+      QGRAMM_SERVER_PORT: 8080
+      QGRAMM_DATABASE_DSN: postgres://qgramm:qgramm@postgres:5432/qgramm?sslmode=disable
+      QGRAMM_JWT_SECRET: CHANGE_ME_LONG_RANDOM_SECRET
+      QGRAMM_CONFIG_DIR: /app/configs
+      QGRAMM_ACCESS_TOKEN_TTL_HOURS: 168
+    volumes:
+      - ./configs:/app/configs
+      - ./data:/app/data
+    ports:
+      - "18080:8080"
+    networks:
+      - qgramm-net
+
+  coturn:
+    image: coturn/coturn:4.6.2-r2
+    container_name: qgramm-coturn
+    restart: unless-stopped
+    command: ["-c", "/etc/coturn/turnserver.conf"]
+    volumes:
+      - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    ports:
+      - "3478:3478/tcp"
+      - "3478:3478/udp"
+      - "49160-49200:49160-49200/udp"
+    networks:
+      - qgramm-net
+
+networks:
+  qgramm-net:
+    driver: bridge

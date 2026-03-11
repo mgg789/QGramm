@@ -1,0 +1,19 @@
+{
+  "max_upload_chunk_size_bytes": 1048576,
+  "max_file_size_bytes": 1073741824,
+  "max_voice_size_bytes": 52428800,
+  "max_video_note_size_bytes": 209715200,
+  "max_avatar_size_bytes": 10485760,
+  "max_storage_per_user_bytes": 2147483648,
+  "max_project_storage_bytes": 53687091200,
+  "max_parallel_uploads_per_user": 4,
+  "message_rate_limit_per_minute": 80,
+  "max_unique_recipients_per_hour": 25,
+  "invite_weekly_limits": {
+    "1": 0,
+    "2": 3,
+    "3": 3,
+    "4": 3,
+    "5": 10
+  }
+}

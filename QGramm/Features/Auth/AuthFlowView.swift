@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct AuthFlowView: View {
+    @Environment(\.openURL) private var openURL
     @EnvironmentObject private var store: AppStore
 
     @State private var inviteCode = ""
@@ -11,23 +12,34 @@ struct AuthFlowView: View {
     @State private var nickname = ""
     @State private var captchaPassed = false
     @State private var selectedSafetyMode: SafetyMode = .classic
+    @State private var acceptedTerms = false
     @State private var infoMessage = ""
     @State private var errorMessage = ""
+    @State private var isLoading = false
+
+    private enum AuthMode: String, CaseIterable, Identifiable {
+        case register
+        case login
+        var id: String { rawValue }
+    }
 
     private enum Step {
         case invite
         case contact
         case profile
+        case loginCode
     }
 
+    @State private var authMode: AuthMode = .register
+
     private var step: Step {
-        if !store.state.session.hasBoundInvite {
+        if authMode == .register && !store.state.session.hasBoundInvite {
             return .invite
         }
         if store.state.session.expectedVerificationCode.isEmpty {
             return .contact
         }
-        return .profile
+        return authMode == .register ? .profile : .loginCode
     }
 
     var body: some View {
@@ -35,7 +47,7 @@ struct AuthFlowView: View {
             VStack(alignment: .leading, spacing: 22) {
                 Spacer(minLength: 36)
 
-                WordmarkView(title: "Qgramm", size: 48)
+                WordmarkView(title: "QGramm", size: 48)
                     .frame(maxWidth: .infinity, alignment: .center)
 
                 Text("Приватный invite-only мессенджер для личных разговоров без перегруженного интерфейса.")
@@ -43,6 +55,23 @@ struct AuthFlowView: View {
                     .foregroundStyle(QGTheme.Palette.muted)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 10)
+
+                Picker("Mode", selection: $authMode) {
+                    Text("Регистрация").tag(AuthMode.register)
+                    Text("Вход").tag(AuthMode.login)
+                }
+                .pickerStyle(.segmented)
+                .disabled(isLoading)
+                .onChange(of: authMode) { _, mode in
+                    errorMessage = ""
+                    infoMessage = ""
+                    verificationCode = ""
+                    if mode == .login {
+                        store.setAuthPurpose(.login)
+                    } else {
+                        store.setAuthPurpose(.register)
+                    }
+                }
 
                 Group {
                     switch step {
@@ -52,6 +81,8 @@ struct AuthFlowView: View {
                         contactStep
                     case .profile:
                         profileStep
+                    case .loginCode:
+                        loginStep
                     }
                 }
 
@@ -67,19 +98,6 @@ struct AuthFlowView: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(QGTheme.Palette.accent)
                         .padding(.horizontal, 4)
-                }
-
-                if !store.state.users.isEmpty {
-                    Button {
-                        store.restoreLocalAccount()
-                    } label: {
-                        Text("Войти в локальный аккаунт")
-                            .font(.system(size: 16, weight: .bold, design: .rounded))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .qgCardStyle(cornerRadius: 22, fill: .white.opacity(0.55))
-                    }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, QGTheme.pagePadding)
@@ -110,18 +128,18 @@ struct AuthFlowView: View {
                 .qgCardStyle(cornerRadius: 20)
 
             Button {
-                let accepted = store.acceptInvite(code: inviteCode)
-                errorMessage = accepted ? "" : "Инвайт не найден или срок его действия истёк."
-                infoMessage = accepted ? "Устройство привязано к приглашению. Теперь можно подтвердить контакт." : ""
+                isLoading = true
+                Task { @MainActor in
+                    let accepted = await store.acceptInvite(code: inviteCode)
+                    isLoading = false
+                    errorMessage = accepted ? "" : "Инвайт не найден или срок его действия истёк."
+                    infoMessage = accepted ? "Устройство привязано к приглашению. Теперь можно подтвердить email." : ""
+                }
             } label: {
-                Text("Активировать приглашение")
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
-                    .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(QGTheme.Palette.accent))
-                    .foregroundStyle(.white)
+                actionTitle("Активировать приглашение")
             }
             .buttonStyle(.plain)
+            .disabled(isLoading)
         }
         .padding(24)
         .qgCardStyle()
@@ -129,15 +147,17 @@ struct AuthFlowView: View {
 
     private var contactStep: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Регистрация")
+            Text(authMode == .register ? "Регистрация" : "Вход")
                 .font(.system(size: 30, weight: .bold, design: .rounded))
                 .foregroundStyle(QGTheme.Palette.ink)
 
-            Text("Подтвердите email или телефон. Для локального V1 код показывается внутри приложения, чтобы поток можно было проверить без бэкенда.")
+            Text(authMode == .register
+                 ? "Подтвердите email. Сервер отправит код на почту после проверки captcha."
+                 : "Введите email аккаунта. Код входа будет отправлен на почту после captcha.")
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(QGTheme.Palette.secondary)
 
-            TextField("email или телефон", text: $contact)
+            TextField("email", text: $contact)
                 .keyboardType(.emailAddress)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -149,7 +169,7 @@ struct AuthFlowView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Captcha")
                         .font(.system(size: 17, weight: .bold))
-                    Text("Имитация успешной проверки перед отправкой кода")
+                    Text("Проверка перед отправкой кода")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(QGTheme.Palette.secondary)
                 }
@@ -159,23 +179,30 @@ struct AuthFlowView: View {
             .qgCardStyle(cornerRadius: 20)
 
             Button {
-                if let code = store.sendVerificationCode(to: contact, captchaPassed: captchaPassed) {
-                    infoMessage = "Демо-код подтверждения: \(code)"
+                isLoading = true
+                Task { @MainActor in
+                    let debugCode = await store.sendVerificationCode(
+                        to: contact,
+                        captchaPassed: captchaPassed,
+                        purpose: authMode == .register ? .register : .login
+                    )
+                    isLoading = false
+                    if store.state.session.expectedVerificationCode.isEmpty {
+                        errorMessage = "Не удалось отправить код. Проверьте email, captcha и доступ к серверу."
+                        infoMessage = ""
+                        return
+                    }
                     errorMessage = ""
-                    verificationCode = code
-                } else {
-                    errorMessage = "Введите контакт и пройдите captcha."
-                    infoMessage = ""
+                    verificationCode = debugCode ?? ""
+                    infoMessage = debugCode == nil
+                        ? "Код отправлен на email. Введите его на следующем шаге."
+                        : "Код отправлен. Debug-code: \(debugCode ?? "")"
                 }
             } label: {
-                Text("Отправить код")
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
-                    .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(QGTheme.Palette.accent))
-                    .foregroundStyle(.white)
+                actionTitle("Отправить код")
             }
             .buttonStyle(.plain)
+            .disabled(isLoading)
         }
         .padding(24)
         .qgCardStyle()
@@ -187,7 +214,7 @@ struct AuthFlowView: View {
                 .font(.system(size: 30, weight: .bold, design: .rounded))
                 .foregroundStyle(QGTheme.Palette.ink)
 
-            Text("Введите код подтверждения, имя и уникальный никнейм. Recovery key будет показан сразу после входа и сохранится в настройках шифрования.")
+            Text("Введите код подтверждения, имя и уникальный никнейм. Recovery key будет показан сразу после входа.")
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(QGTheme.Palette.secondary)
 
@@ -219,34 +246,113 @@ struct AuthFlowView: View {
             .padding(18)
             .qgCardStyle(cornerRadius: 20)
 
-            Button {
-                let result = store.completeRegistration(
-                    firstName: firstName,
-                    lastName: lastName,
-                    nickname: nickname,
-                    enteredCode: verificationCode,
-                    safetyMode: selectedSafetyMode
-                )
+            Toggle(isOn: $acceptedTerms) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Принять пользовательское соглашение")
+                        .font(.system(size: 15, weight: .bold))
+                    Button("Открыть соглашение") {
+                        if let url = URL(string: "https://qgramm.app/terms") {
+                            openURL(url)
+                        }
+                    }
+                    .font(.system(size: 13, weight: .semibold))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(QGTheme.Palette.accent)
+                }
+            }
+            .toggleStyle(.switch)
+            .padding(18)
+            .qgCardStyle(cornerRadius: 20)
 
-                switch result {
-                case .success:
-                    errorMessage = ""
-                    infoMessage = "Профиль создан. Открываю мессенджер."
-                case let .failure(error):
-                    errorMessage = error.localizedDescription
+            Button {
+                guard acceptedTerms else {
+                    errorMessage = "Подтвердите пользовательское соглашение."
                     infoMessage = ""
+                    return
+                }
+
+                isLoading = true
+                Task { @MainActor in
+                    let result = await store.completeRegistration(
+                        firstName: firstName,
+                        lastName: lastName,
+                        nickname: nickname,
+                        enteredCode: verificationCode,
+                        safetyMode: selectedSafetyMode
+                    )
+                    isLoading = false
+                    switch result {
+                    case .success:
+                        errorMessage = ""
+                        infoMessage = "Профиль создан. Открываю мессенджер."
+                    case let .failure(error):
+                        errorMessage = error.localizedDescription
+                        infoMessage = ""
+                    }
                 }
             } label: {
-                Text("Создать аккаунт")
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
-                    .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(QGTheme.Palette.accent))
-                    .foregroundStyle(.white)
+                actionTitle("Создать аккаунт")
             }
             .buttonStyle(.plain)
+            .disabled(isLoading)
         }
         .padding(24)
         .qgCardStyle()
+    }
+
+    private var loginStep: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Код входа")
+                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .foregroundStyle(QGTheme.Palette.ink)
+
+            Text("Введите код, отправленный на email.")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(QGTheme.Palette.secondary)
+
+            TextField("Код подтверждения", text: $verificationCode)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .padding(.horizontal, 18)
+                .padding(.vertical, 16)
+                .qgCardStyle(cornerRadius: 20)
+
+            Button {
+                isLoading = true
+                Task { @MainActor in
+                    let result = await store.login(enteredCode: verificationCode)
+                    isLoading = false
+                    switch result {
+                    case .success:
+                        errorMessage = ""
+                        infoMessage = "Вход выполнен."
+                    case let .failure(error):
+                        errorMessage = error.localizedDescription
+                        infoMessage = ""
+                    }
+                }
+            } label: {
+                actionTitle("Войти")
+            }
+            .buttonStyle(.plain)
+            .disabled(isLoading)
+        }
+        .padding(24)
+        .qgCardStyle()
+    }
+
+    private func actionTitle(_ title: String) -> some View {
+        HStack(spacing: 10) {
+            if isLoading {
+                ProgressView()
+                    .tint(.white)
+            }
+            Text(title)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 18)
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(QGTheme.Palette.accent))
+        .foregroundStyle(.white)
     }
 }

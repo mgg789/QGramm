@@ -9,7 +9,9 @@
 /* Begin PBXBuildFile section */
 		13765391AD7051872908717A /* AppServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31C1DB981A27698D7123D897 /* AppServices.swift */; };
 		1A1AC08828B4772894441FF2 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDA3091FD90038C14C25ED03 /* SettingsView.swift */; };
+		20AA49DC5551201026CCF8A6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F810846FC85D97445A360743 /* Assets.xcassets */; };
 		2344E40F1FDE47005E8E45FA /* QGrammApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A66C11B4CA281F0E489DB89 /* QGrammApp.swift */; };
+		269875A1BE997A44E61E73EB /* BackendAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAFB9B3545DC2A5CB18B140C /* BackendAPI.swift */; };
 		2EFFB48402D31A8924A9CD78 /* CommonViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ED25240D799EE4CA799D7A4 /* CommonViews.swift */; };
 		307CD18D7AF3D8E59D42BBC5 /* AuthFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84FE94E4520739DB8B4852DE /* AuthFlowView.swift */; };
 		49D6C1C932AF7072A1A133FF /* ChatListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3795E4DDB5C254B2C4D055 /* ChatListView.swift */; };
@@ -31,7 +33,9 @@
 		BE3346F3709A0205E195E40F /* QGramm.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = QGramm.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C7CC88C9CFC7799EBAD1221C /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
 		EA1CAECDDF42F596103CAB26 /* QGTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QGTheme.swift; sourceTree = "<group>"; };
+		EAFB9B3545DC2A5CB18B140C /* BackendAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendAPI.swift; sourceTree = "<group>"; };
 		EF3795E4DDB5C254B2C4D055 /* ChatListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatListView.swift; sourceTree = "<group>"; };
+		F810846FC85D97445A360743 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		FBC1E1F60A4F5AF95AB3DF22 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -66,6 +70,15 @@
 			path = Features;
 			sourceTree = "<group>";
 		};
+		332A705A26CAFBF131D91E46 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				F810846FC85D97445A360743 /* Assets.xcassets */,
+			);
+			name = Resources;
+			path = QGramm/Resources;
+			sourceTree = "<group>";
+		};
 		335F72D5431CF680D800170F /* Shared */ = {
 			isa = PBXGroup;
 			children = (
@@ -98,6 +111,7 @@
 			isa = PBXGroup;
 			children = (
 				1DFD4D4887F243EE63A164D4 /* QGramm */,
+				332A705A26CAFBF131D91E46 /* Resources */,
 				92787FA44F299A7686F53E91 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -154,6 +168,7 @@
 			isa = PBXGroup;
 			children = (
 				31C1DB981A27698D7123D897 /* AppServices.swift */,
+				EAFB9B3545DC2A5CB18B140C /* BackendAPI.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -182,6 +197,7 @@
 			buildConfigurationList = 73993BD644FD2D2239426311 /* Build configuration list for PBXNativeTarget "QGramm" */;
 			buildPhases = (
 				BDFA7357726B5935425F556A /* Sources */,
+				FBD5693CEDB6DF043A945CA2 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -201,7 +217,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 				};
 			};
@@ -224,6 +240,17 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		FBD5693CEDB6DF043A945CA2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				20AA49DC5551201026CCF8A6 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		BDFA7357726B5935425F556A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -232,6 +259,7 @@
 				13765391AD7051872908717A /* AppServices.swift in Sources */,
 				EF3E1E6E933F5C05375186C4 /* AppStore.swift in Sources */,
 				307CD18D7AF3D8E59D42BBC5 /* AuthFlowView.swift in Sources */,
+				269875A1BE997A44E61E73EB /* BackendAPI.swift in Sources */,
 				F7B620FB7DDBFD371FDAF348 /* CallsView.swift in Sources */,
 				49D6C1C932AF7072A1A133FF /* ChatListView.swift in Sources */,
 				2EFFB48402D31A8924A9CD78 /* CommonViews.swift in Sources */,
@@ -252,7 +280,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Qgramm;
+				INFOPLIST_KEY_CFBundleDisplayName = QGramm;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access is used for circular video messages.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Voice messages are recorded locally on your device.";
@@ -337,7 +365,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Qgramm;
+				INFOPLIST_KEY_CFBundleDisplayName = QGramm;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access is used for circular video messages.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Voice messages are recorded locally on your device.";

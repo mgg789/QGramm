@@ -1,0 +1,9 @@
+{
+  "data_dir": "./data",
+  "tmp_dir": "./data/tmp",
+  "attachments_dir": "./data/attachments",
+  "avatars_dir": "./data/avatars",
+  "retention_days_tmp_uploads": 3,
+  "retention_days_orphan_chunks": 2,
+  "cleanup_interval_minutes": 30
+}

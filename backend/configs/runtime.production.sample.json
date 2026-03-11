@@ -1,0 +1,31 @@
+{
+  "debug": false,
+  "expose_debug_verification_code": false,
+  "captcha": {
+    "mode": "turnstile",
+    "mock_valid_token": "",
+    "turnstile_secret": "replace-with-turnstile-secret",
+    "verify_url": "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+  },
+  "smtp": {
+    "enabled": true,
+    "host": "smtp.example.com",
+    "port": 587,
+    "username": "smtp-user",
+    "password": "smtp-password",
+    "from": "noreply@qgramm.app"
+  },
+  "trust": {
+    "level2_min_account_age_days": 5,
+    "level2_min_active_days": 5,
+    "level3_min_account_age_days": 14,
+    "level4_min_qualified_days": 25,
+    "qualified_day_min_active_seconds": 300,
+    "level5_min_account_age_days": 60,
+    "level5_min_active_days": 45
+  },
+  "invite": {
+    "invite_lifetime_hours": 96,
+    "device_activation_lifetime_hours": 720
+  }
+}

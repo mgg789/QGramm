@@ -1,0 +1,7 @@
+.git
+.gitignore
+*.md
+*.log
+data
+build
+.idea

@@ -1,4 +1,4 @@
-# Qgramm Roadmap
+# QGramm Roadmap
 
 ## V1 Scope
 
@@ -55,3 +55,68 @@
   - Проверено, что `QGramm.app` создаётся в `build/DerivedData/Build/Products/Debug-iphonesimulator/`.
   - Обычный simulator build с codesign в этой среде падает не на коде, а на sandbox/CoreSimulator и extended-attribute ограничениях хоста.
 - Completion: 100%
+
+### V1.2
+- Date: 2026-03-11
+- Status: In progress
+- Done:
+  - Создан backend-модуль `backend/` на `Go + PostgreSQL` с production-структурой: `cmd`, `internal`, `migrations`, `configs`, `scripts`.
+  - Добавлены серверные JSON-настройки лимитов/хранилища/root/runtime (`limits.json`, `storage.json`, `root.json`, `runtime.json`) + production sample.
+  - Реализована полная SQL-схема (`migrations/001_init.sql`): users, invites, invite activations, invite graph, sessions, trust activity, conversations, messages, reactions, reports, uploads/chunks, attachments, calls, notifications, recovery bundle.
+  - Реализованы бизнес-сервисы:
+    - invite-only onboarding с привязкой устройства,
+    - email verification code + captcha gate,
+    - регистрация/логин/логаут/heartbeat,
+    - trust engine L1-L5 по заданным правилам,
+    - профили и уникальные никнеймы,
+    - восстановление через recovery bundle,
+    - чаты/сообщения/реакции/поиск по nickname,
+    - жалобы и root-модерация,
+    - chunked upload для файлов/голосовых/кружков/аватаров,
+    - call history + websocket signaling,
+    - QGramm broadcast и системные уведомления.
+  - Поднят HTTP API c auth/root middleware и websocket endpoint.
+  - Добавлен deploy-контур: `Dockerfile`, `docker-compose.yml` (backend + postgres + coturn), `scripts/deploy_remote.sh`.
+  - Написана backend-документация: `backend/README.md`.
+- Next:
+  - Привязать iOS-фронт к новым API (убрать локальный стор как источник истины и включить сетевой слой).
+  - Развернуть на сервере `178.140.207.217:2222` и прогнать e2e smoke-тесты на реальном окружении.
+  - Дозакрыть SMTP/CAPTCHA production интеграции и TLS/reverse-proxy.
+- Architecture:
+  - Монолитный API-сервис на Go с PostgreSQL, websocket hub для realtime, файловым storage для chunk-upload, и конфигурируемым trust/invite/storage policy через JSON.
+  - Сервер хранит только зашифрованный контент сообщений (ciphertext envelope), а recovery bundle хранится в encrypted-виде.
+- Testing:
+  - В текущей среде отсутствуют `go` и `docker`, поэтому компиляция/интеграционный запуск не выполнены локально.
+  - Подготовлены полностью воспроизводимые файлы запуска и деплоя для проверки на целевом сервере.
+- Completion: 75%
+
+### V1.3
+- Date: 2026-03-11
+- Status: Completed
+- Done:
+  - Закрыт production-блокер chunk upload: добавлена обработка stale upload-сессий перед созданием новых, добавлен endpoint отмены загрузки `POST /v1/uploads/{uploadID}/cancel`, добавлена валидация размера assembled-файла.
+  - Усилена безопасность отправки сообщений с вложениями:
+    - attachment обязателен для `file/media/voice_note/circular_video`,
+    - attachment запрещён для остальных типов,
+    - attachment должен принадлежать отправителю,
+    - `reply_to_message_id` теперь валидируется на принадлежность текущему диалогу.
+  - Добавлены API для работы с файлами после доставки:
+    - `GET /v1/attachments/{attachmentID}` (метаданные),
+    - `GET /v1/attachments/{attachmentID}/download` (контролируемая выдача файла).
+  - В `ListMessages` добавлен возврат реакций с user list (`reactions[]`) для полноценного рендера фронтом.
+  - Добавлен production captcha mode `turnstile` (Cloudflare Turnstile) + обновлён `runtime.production.sample.json`.
+  - Проверен и стабилизирован деплой на сервере:
+    - пересборка/перезапуск стека docker compose,
+    - исправлена деградация сети контейнера backend после частичного redeploy (полный recreate стека).
+  - Проверен `ufw` на сервере и подтверждены открытые правила для backend/turn.
+- Next:
+  - Подключить iOS-фронт к backend API как к единому source of truth (сейчас UI-стор локальный).
+  - Вынести backend за reverse-proxy с TLS (Nginx/Caddy) и включить реальный SMTP + Turnstile secrets.
+  - Добавить интеграционные автотесты API в CI, чтобы smoke не выполнять вручную.
+- Architecture:
+  - Backend остаётся Go+Postgres монолитом с websocket-хабом и chunk storage, но теперь с полноценным циклом upload lifecycle (create/chunk/complete/cancel/download) и stricter attachment authorization.
+- Testing:
+  - На сервере выполнен полный e2e smoke: invite activation, register/login, автосоздание 2 диалогов, сообщения, реакции, жалобы, звонки, chunk upload, finalize attachment, download attachment, upload cancel.
+  - Отдельно проверен негативный сценарий: root не может отправить attachment, принадлежащий другому пользователю (`forbidden`).
+  - Health-check подтверждён: `GET /healthz -> {"status":"ok","service":"qgramm-backend"}`.
+- Completion: 90%

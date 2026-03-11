@@ -78,16 +78,17 @@ struct SearchField: View {
                 .foregroundStyle(QGTheme.Palette.ink)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .qgCardStyle(cornerRadius: 20, fill: .white.opacity(0.78))
+        .padding(.vertical, 12)
+        .qgCardStyle(cornerRadius: 20, fill: QGTheme.Palette.searchFill)
     }
 }
 
 struct TrustBadgeView: View {
+    @Environment(\.locale) private var locale
     let level: TrustLevel
 
     var body: some View {
-        Text(level.title)
+        Text(level.title(language: appLanguage))
             .font(.system(size: 12, weight: .semibold, design: .rounded))
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
@@ -96,6 +97,10 @@ struct TrustBadgeView: View {
                     .fill(QGTheme.Palette.accent.opacity(0.12))
             )
             .foregroundStyle(QGTheme.Palette.accent)
+    }
+
+    private var appLanguage: AppLanguage {
+        locale.identifier.hasPrefix("en") ? .english : .russian
     }
 }
 
@@ -112,6 +117,7 @@ struct EmptyStateView: View {
             Text(title)
                 .font(.system(size: 22, weight: .bold, design: .rounded))
                 .foregroundStyle(QGTheme.Palette.ink)
+                .multilineTextAlignment(.center)
             Text(message)
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(QGTheme.Palette.secondary)
@@ -125,6 +131,7 @@ struct EmptyStateView: View {
 
 struct InviteQRCodeView: View {
     let payload: String
+    var size: CGFloat = 128
 
     var body: some View {
         Group {
@@ -138,7 +145,7 @@ struct InviteQRCodeView: View {
                     .fill(Color.white)
             }
         }
-        .frame(width: 128, height: 128)
+        .frame(width: size, height: size)
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(.white))
     }
@@ -146,41 +153,34 @@ struct InviteQRCodeView: View {
 
 struct FloatingDock: View {
     @Binding var selectedTab: RootTab
+    private let tabs: [RootTab] = [.chats, .network, .calls, .settings]
 
     var body: some View {
-        HStack(spacing: 10) {
-            ForEach(RootTab.allCases) { tab in
+        HStack(spacing: 6) {
+            ForEach(tabs, id: \.self) { tab in
                 Button {
                     selectedTab = tab
                 } label: {
-                    Group {
-                        if let assetName = assetName(for: tab) {
-                            Image(assetName)
-                                .resizable()
-                                .renderingMode(.template)
-                                .scaledToFit()
-                                .frame(width: 24, height: 24)
-                        } else {
-                            Image(systemName: systemName(for: tab))
-                                .font(.system(size: 21, weight: .semibold))
-                        }
-                    }
-                    .foregroundStyle(selectedTab == tab ? .white : Color.white.opacity(0.74))
-                    .frame(width: 58, height: 58)
+                    Image(systemName: systemName(for: tab))
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(selectedTab == tab ? .white : Color.white.opacity(0.74))
+                        .frame(maxWidth: .infinity, minHeight: 46)
                     .background(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .fill(selectedTab == tab ? QGTheme.Palette.accent : .clear)
                     )
                 }
                 .buttonStyle(.plain)
+                .contentShape(Rectangle())
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(maxWidth: 250)
         .background(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(QGTheme.Palette.dock)
-                .shadow(color: .white.opacity(0.4), radius: 30, y: -6)
+                .shadow(color: .black.opacity(0.35), radius: 24, y: 8)
         )
     }
 
@@ -190,15 +190,6 @@ struct FloatingDock: View {
         case .network: return "point.3.connected.trianglepath.dotted"
         case .calls: return "phone.arrow.up.right.fill"
         case .settings: return "gearshape.fill"
-        }
-    }
-
-    private func assetName(for tab: RootTab) -> String? {
-        switch tab {
-        case .chats: return "CommentsIcon"
-        case .network: return "CloudIcon"
-        case .calls: return nil
-        case .settings: return "SettingsIcon"
         }
     }
 }

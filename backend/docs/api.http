@@ -1,0 +1,109 @@
+### Activate invite on device
+POST http://localhost:8080/v1/auth/invites/activate
+Content-Type: application/json
+
+{
+  "code": "ABCD-EFGH-1234",
+  "device_fingerprint": "ios-device-hash"
+}
+
+### Send register code
+POST http://localhost:8080/v1/auth/send-code
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "purpose": "register",
+  "captcha_token": "pass-captcha",
+  "device_fingerprint": "ios-device-hash"
+}
+
+### Register
+POST http://localhost:8080/v1/auth/register
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "verification_code": "123456",
+  "device_fingerprint": "ios-device-hash",
+  "first_name": "Ivan",
+  "last_name": "Ivanov",
+  "nickname": "@ivan",
+  "recovery_ciphertext": "base64-ciphertext",
+  "recovery_meta": {
+    "kdf": "argon2id",
+    "salt": "base64"
+  }
+}
+
+### Login
+POST http://localhost:8080/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "verification_code": "123456",
+  "device_fingerprint": "ios-device-hash"
+}
+
+### Create upload session (file)
+POST http://localhost:8080/v1/uploads
+Authorization: Bearer {{access_token}}
+Content-Type: application/json
+
+{
+  "kind": "file",
+  "file_name": "video.mov",
+  "mime_type": "video/quicktime",
+  "total_size": 123456789,
+  "chunk_size": 1048576
+}
+
+### Upload chunk
+PUT http://localhost:8080/v1/uploads/{{upload_id}}/chunks/0
+Authorization: Bearer {{access_token}}
+Content-Type: application/octet-stream
+
+< ./chunk-0.bin
+
+### Complete upload
+POST http://localhost:8080/v1/uploads/{{upload_id}}/complete
+Authorization: Bearer {{access_token}}
+
+### Cancel upload
+POST http://localhost:8080/v1/uploads/{{upload_id}}/cancel
+Authorization: Bearer {{access_token}}
+
+### Attachment metadata
+GET http://localhost:8080/v1/attachments/{{attachment_id}}
+Authorization: Bearer {{access_token}}
+
+### Attachment download
+GET http://localhost:8080/v1/attachments/{{attachment_id}}/download
+Authorization: Bearer {{access_token}}
+
+### Send encrypted message with attachment
+POST http://localhost:8080/v1/chats/{{conversation_id}}/messages
+Authorization: Bearer {{access_token}}
+Content-Type: application/json
+
+{
+  "message_type": "file",
+  "body_ciphertext": "base64",
+  "body_nonce": "base64",
+  "body_tag": "base64",
+  "attachment_id": "{{attachment_id}}",
+  "metadata": {
+    "file_name": "video.mov"
+  }
+}
+
+### Report message
+POST http://localhost:8080/v1/chats/{{conversation_id}}/messages/{{message_id}}/report
+Authorization: Bearer {{access_token}}
+Content-Type: application/json
+
+{
+  "reason": "spam",
+  "note": "Suspicious phishing text"
+}

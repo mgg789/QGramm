@@ -16,6 +16,15 @@ enum RootTab: String, Codable, CaseIterable, Identifiable {
         case .settings: "Настройки"
         }
     }
+
+    func title(language: AppLanguage) -> String {
+        switch self {
+        case .chats: return language.text(ru: "Чаты", en: "Chats")
+        case .network: return language.text(ru: "Сеть", en: "Network")
+        case .calls: return language.text(ru: "Звонки", en: "Calls")
+        case .settings: return language.text(ru: "Настройки", en: "Settings")
+        }
+    }
 }
 
 enum ConversationGroup: String, Codable, CaseIterable, Identifiable {
@@ -32,6 +41,15 @@ enum ConversationGroup: String, Codable, CaseIterable, Identifiable {
         case .groups: "Группы"
         case .channels: "Каналы"
         case .threads: "Треды"
+        }
+    }
+
+    func title(language: AppLanguage) -> String {
+        switch self {
+        case .chats: return language.text(ru: "Чаты", en: "Chats")
+        case .groups: return language.text(ru: "Группы", en: "Groups")
+        case .channels: return language.text(ru: "Каналы", en: "Channels")
+        case .threads: return language.text(ru: "Треды", en: "Threads")
         }
     }
 }
@@ -58,6 +76,10 @@ enum TrustLevel: Int, Codable, CaseIterable, Identifiable {
     }
 
     var title: String { "Уровень \(rawValue)" }
+
+    func title(language: AppLanguage) -> String {
+        language.text(ru: "Уровень \(rawValue)", en: "Level \(rawValue)")
+    }
 }
 
 enum SafetyMode: String, Codable, CaseIterable, Identifiable {
@@ -74,6 +96,11 @@ enum SafetyMode: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum AuthPurpose: String, Codable {
+    case register
+    case login
+}
+
 enum AppLanguage: String, Codable, CaseIterable, Identifiable {
     case russian
     case english
@@ -86,16 +113,58 @@ enum AppLanguage: String, Codable, CaseIterable, Identifiable {
         case .english: "English"
         }
     }
+
+    var localeIdentifier: String {
+        switch self {
+        case .russian: return "ru_RU"
+        case .english: return "en_US"
+        }
+    }
+
+    func text(ru: String, en: String) -> String {
+        self == .english ? en : ru
+    }
+}
+
+enum AppThemeMode: String, Codable, CaseIterable, Identifiable {
+    case system
+    case light
+    case dark
+
+    var id: String { rawValue }
+
+    func title(language: AppLanguage) -> String {
+        switch self {
+        case .system:
+            return language.text(ru: "Системная", en: "System")
+        case .light:
+            return language.text(ru: "Светлая", en: "Light")
+        case .dark:
+            return language.text(ru: "Тёмная", en: "Dark")
+        }
+    }
 }
 
 enum PresenceState: String, Codable {
     case online
     case typing
     case offline
+
+    func title(language: AppLanguage) -> String {
+        switch self {
+        case .online:
+            return language.text(ru: "Онлайн", en: "Online")
+        case .typing:
+            return language.text(ru: "Печатает...", en: "Typing...")
+        case .offline:
+            return language.text(ru: "Офлайн", en: "Offline")
+        }
+    }
 }
 
 enum AttachmentKind: String, Codable {
     case file
+    case media
     case voiceNote
     case circularVideo
 }
@@ -119,18 +188,45 @@ enum CallKind: String, Codable {
 
 enum ReportReason: String, Codable, CaseIterable, Identifiable {
     case spam
-    case abuse
-    case malware
-    case impersonation
+    case insult
+    case virus
+    case scam
+    case other
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .spam: "Спам"
-        case .abuse: "Оскорбление"
-        case .malware: "Вредоносный файл"
-        case .impersonation: "Выдача за другого"
+        case .insult: "Оскорбление"
+        case .virus: "Вирус"
+        case .scam: "Обман"
+        case .other: "Другое"
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = try container.decode(String.self)
+        switch raw {
+        case "spam":
+            self = .spam
+        case "abuse":
+            self = .insult
+        case "malware":
+            self = .virus
+        case "impersonation":
+            self = .scam
+        case "insult":
+            self = .insult
+        case "virus":
+            self = .virus
+        case "scam":
+            self = .scam
+        case "other":
+            self = .other
+        default:
+            self = .other
         }
     }
 }
@@ -257,13 +353,90 @@ struct SessionState: Codable, Hashable {
     var pendingContact: String
     var expectedVerificationCode: String
     var currentUserID: UUID?
+    var accessToken: String
+    var accessTokenExpiresAt: Date?
+    var authPurpose: AuthPurpose
     var recoveryKey: String
     var shouldRevealRecoveryKey: Bool
     var language: AppLanguage
     var safetyMode: SafetyMode
+    var appPinCode: String
+    var isFaceIDEnabled: Bool
+    var isPowerSavingEnabled: Bool
 
     var hasBoundInvite: Bool { acceptedInviteCode != nil }
     var isAuthenticated: Bool { currentUserID != nil }
+
+    init(
+        deviceBindingID: String,
+        acceptedInviteCode: String?,
+        pendingContact: String,
+        expectedVerificationCode: String,
+        currentUserID: UUID?,
+        accessToken: String,
+        accessTokenExpiresAt: Date?,
+        authPurpose: AuthPurpose,
+        recoveryKey: String,
+        shouldRevealRecoveryKey: Bool,
+        language: AppLanguage,
+        safetyMode: SafetyMode,
+        appPinCode: String,
+        isFaceIDEnabled: Bool,
+        isPowerSavingEnabled: Bool
+    ) {
+        self.deviceBindingID = deviceBindingID
+        self.acceptedInviteCode = acceptedInviteCode
+        self.pendingContact = pendingContact
+        self.expectedVerificationCode = expectedVerificationCode
+        self.currentUserID = currentUserID
+        self.accessToken = accessToken
+        self.accessTokenExpiresAt = accessTokenExpiresAt
+        self.authPurpose = authPurpose
+        self.recoveryKey = recoveryKey
+        self.shouldRevealRecoveryKey = shouldRevealRecoveryKey
+        self.language = language
+        self.safetyMode = safetyMode
+        self.appPinCode = appPinCode
+        self.isFaceIDEnabled = isFaceIDEnabled
+        self.isPowerSavingEnabled = isPowerSavingEnabled
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case deviceBindingID
+        case acceptedInviteCode
+        case pendingContact
+        case expectedVerificationCode
+        case currentUserID
+        case accessToken
+        case accessTokenExpiresAt
+        case authPurpose
+        case recoveryKey
+        case shouldRevealRecoveryKey
+        case language
+        case safetyMode
+        case appPinCode
+        case isFaceIDEnabled
+        case isPowerSavingEnabled
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.deviceBindingID = try container.decode(String.self, forKey: .deviceBindingID)
+        self.acceptedInviteCode = try container.decodeIfPresent(String.self, forKey: .acceptedInviteCode)
+        self.pendingContact = try container.decode(String.self, forKey: .pendingContact)
+        self.expectedVerificationCode = try container.decode(String.self, forKey: .expectedVerificationCode)
+        self.currentUserID = try container.decodeIfPresent(UUID.self, forKey: .currentUserID)
+        self.accessToken = try container.decodeIfPresent(String.self, forKey: .accessToken) ?? ""
+        self.accessTokenExpiresAt = try container.decodeIfPresent(Date.self, forKey: .accessTokenExpiresAt)
+        self.authPurpose = try container.decodeIfPresent(AuthPurpose.self, forKey: .authPurpose) ?? .register
+        self.recoveryKey = try container.decode(String.self, forKey: .recoveryKey)
+        self.shouldRevealRecoveryKey = try container.decode(Bool.self, forKey: .shouldRevealRecoveryKey)
+        self.language = try container.decodeIfPresent(AppLanguage.self, forKey: .language) ?? .russian
+        self.safetyMode = try container.decodeIfPresent(SafetyMode.self, forKey: .safetyMode) ?? .classic
+        self.appPinCode = try container.decodeIfPresent(String.self, forKey: .appPinCode) ?? ""
+        self.isFaceIDEnabled = try container.decodeIfPresent(Bool.self, forKey: .isFaceIDEnabled) ?? false
+        self.isPowerSavingEnabled = try container.decodeIfPresent(Bool.self, forKey: .isPowerSavingEnabled) ?? false
+    }
 }
 
 struct AppState: Codable, Hashable {

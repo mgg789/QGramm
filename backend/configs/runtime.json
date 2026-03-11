@@ -1,0 +1,29 @@
+{
+  "debug": true,
+  "expose_debug_verification_code": true,
+  "captcha": {
+    "mode": "mock",
+    "mock_valid_token": "pass-captcha"
+  },
+  "smtp": {
+    "enabled": false,
+    "host": "",
+    "port": 587,
+    "username": "",
+    "password": "",
+    "from": "noreply@qgramm.local"
+  },
+  "trust": {
+    "level2_min_account_age_days": 5,
+    "level2_min_active_days": 5,
+    "level3_min_account_age_days": 14,
+    "level4_min_qualified_days": 25,
+    "qualified_day_min_active_seconds": 300,
+    "level5_min_account_age_days": 60,
+    "level5_min_active_days": 45
+  },
+  "invite": {
+    "invite_lifetime_hours": 96,
+    "device_activation_lifetime_hours": 720
+  }
+}

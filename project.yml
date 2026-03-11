@@ -1,6 +1,7 @@
 name: QGramm
 options:
   minimumXcodeGenVersion: 2.45.0
+  xcodeVersion: "26.3"
   deploymentTarget:
     iOS: "18.0"
 settings:
@@ -19,13 +20,13 @@ targets:
       - path: QGramm
         excludes:
           - Resources
-    resources:
       - path: QGramm/Resources
+        buildPhase: resources
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
         TARGETED_DEVICE_FAMILY: "1"
-        INFOPLIST_KEY_CFBundleDisplayName: Qgramm
+        INFOPLIST_KEY_CFBundleDisplayName: QGramm
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.social-networking
         INFOPLIST_KEY_NSMicrophoneUsageDescription: Voice messages are recorded locally on your device.
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: Photos and videos are used for avatars and circular video messages.
