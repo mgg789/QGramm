@@ -181,22 +181,28 @@ struct AuthFlowView: View {
             Button {
                 isLoading = true
                 Task { @MainActor in
-                    let debugCode = await store.sendVerificationCode(
+                    let result = await store.sendVerificationCode(
                         to: contact,
                         captchaPassed: captchaPassed,
                         purpose: authMode == .register ? .register : .login
                     )
                     isLoading = false
-                    if store.state.session.expectedVerificationCode.isEmpty {
-                        errorMessage = "Не удалось отправить код. Проверьте email, captcha и доступ к серверу."
+                    switch result {
+                    case let .success(debugCode):
+                        if store.state.session.expectedVerificationCode.isEmpty {
+                            errorMessage = "Не удалось отправить код."
+                            infoMessage = ""
+                            return
+                        }
+                        errorMessage = ""
+                        verificationCode = debugCode ?? ""
+                        infoMessage = debugCode == nil
+                            ? "Код отправлен на email. Введите его на следующем шаге."
+                            : "Код отправлен. Debug-code: \(debugCode ?? "")"
+                    case let .failure(error):
+                        errorMessage = error.localizedDescription
                         infoMessage = ""
-                        return
                     }
-                    errorMessage = ""
-                    verificationCode = debugCode ?? ""
-                    infoMessage = debugCode == nil
-                        ? "Код отправлен на email. Введите его на следующем шаге."
-                        : "Код отправлен. Debug-code: \(debugCode ?? "")"
                 }
             } label: {
                 actionTitle("Отправить код")

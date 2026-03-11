@@ -288,11 +288,16 @@ final class AppStore: ObservableObject {
         }
     }
 
-    func sendVerificationCode(to contact: String, captchaPassed: Bool, purpose: AuthPurpose) async -> String? {
+    func sendVerificationCode(to contact: String, captchaPassed: Bool, purpose: AuthPurpose) async -> Result<String?, StoreError> {
         let normalized = contact.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalized.isEmpty, captchaPassed else { return nil }
+        guard !normalized.isEmpty else {
+            return .failure(.message("Введите email."))
+        }
+        guard captchaPassed else {
+            return .failure(.message("Подтвердите captcha."))
+        }
         if purpose == .register, !state.session.hasBoundInvite {
-            return nil
+            return .failure(.message("Сначала активируйте инвайт."))
         }
 
         do {
@@ -309,9 +314,9 @@ final class AppStore: ObservableObject {
                 $0.session.authPurpose = purpose
             }
 
-            return response.debugCode
+            return .success(response.debugCode)
         } catch {
-            return nil
+            return .failure(.message(error.localizedDescription))
         }
     }
 
