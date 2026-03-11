@@ -116,19 +116,21 @@ final class AppStore: ObservableObject {
             upsertUser(from: node)
         }
 
-        let invites = (try? await backend.listInvites()) ?? []
+        let invites = try? await backend.listInvites()
         let chats = (try? await backend.listChats()) ?? []
         let calls = (try? await backend.listCalls()) ?? []
 
         let remoteConversations = try await loadRemoteConversations(chats: chats)
-        let remoteInvites = invites.compactMap(mapInvite(_:))
+        let remoteInvites = invites?.compactMap(mapInvite(_:)) ?? []
         let remoteCalls = calls.compactMap { mapCall($0, currentUserID: me.id) }
 
         mutate {
             $0.session.currentUserID = UUID(uuidString: me.id)
             $0.session.authPurpose = .register
             $0.session.expectedVerificationCode = ""
-            $0.invites = remoteInvites
+            if invites != nil {
+                $0.invites = mergeInvites(existing: $0.invites, remote: remoteInvites)
+            }
             $0.conversations = remoteConversations.sorted { $0.lastActivityAt > $1.lastActivityAt }
             $0.calls = remoteCalls.sorted { $0.startedAt > $1.startedAt }
         }
@@ -899,6 +901,12 @@ final class AppStore: ObservableObject {
                 $0.invites.removeAll(where: { $0.id == mapped.id })
                 $0.invites.insert(mapped, at: 0)
             }
+            if let refreshed = try? await backend.listInvites() {
+                let mappedRefreshed = refreshed.compactMap(mapInvite(_:))
+                mutate {
+                    $0.invites = mergeInvites(existing: $0.invites, remote: mappedRefreshed)
+                }
+            }
             return .success(mapped)
         } catch {
             return .failure(.message(error.localizedDescription))
@@ -1323,6 +1331,21 @@ final class AppStore: ObservableObject {
         default:
             return nil
         }
+    }
+
+    private func mergeInvites(existing: [InviteRecord], remote: [InviteRecord]) -> [InviteRecord] {
+        guard !remote.isEmpty else {
+            return existing
+        }
+
+        var byID: [UUID: InviteRecord] = [:]
+        for invite in existing {
+            byID[invite.id] = invite
+        }
+        for invite in remote {
+            byID[invite.id] = invite
+        }
+        return byID.values.sorted { $0.createdAt > $1.createdAt }
     }
 
     private func backendMessageType(from kind: AttachmentKind) -> String {

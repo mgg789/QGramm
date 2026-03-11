@@ -565,7 +565,6 @@ struct ChatRoomView: View {
             }
         }
         .qgScreenBackground()
-        .ignoresSafeArea(.keyboard, edges: .bottom)
         .navigationBarBackButtonHidden(true)
         .simultaneousGesture(chatDismissGesture)
         .onPreferenceChange(MessageFramePreferenceKey.self) { frames in
@@ -1213,22 +1212,25 @@ struct ChatRoomView: View {
     }
 
     private var chatBackground: some View {
-        ZStack {
-            Image(colorScheme == .dark ? "ChatBackgroundDark" : "ChatBackgroundLight")
-                .resizable()
-                .scaledToFill()
-                .ignoresSafeArea()
-                .opacity(colorScheme == .dark ? 0.42 : 0.32)
+        GeometryReader { geometry in
+            ZStack {
+                Image(colorScheme == .dark ? "ChatBackgroundDark" : "ChatBackgroundLight")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .clipped()
+                    .opacity(colorScheme == .dark ? 0.42 : 0.32)
 
-            LinearGradient(
-                colors: [
-                    QGTheme.Palette.screen.opacity(colorScheme == .dark ? 0.28 : 0.22),
-                    QGTheme.Palette.screen.opacity(colorScheme == .dark ? 0.52 : 0.46),
-                    QGTheme.Palette.screen.opacity(colorScheme == .dark ? 0.82 : 0.78)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+                LinearGradient(
+                    colors: [
+                        QGTheme.Palette.screen.opacity(colorScheme == .dark ? 0.28 : 0.22),
+                        QGTheme.Palette.screen.opacity(colorScheme == .dark ? 0.52 : 0.46),
+                        QGTheme.Palette.screen.opacity(colorScheme == .dark ? 0.82 : 0.78)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
             .ignoresSafeArea()
         }
     }
