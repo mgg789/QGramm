@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -259,6 +260,51 @@ WHERE conversation_id = $1
 	return out, rows.Err()
 }
 
+func (s *Service) MarkConversationRead(ctx context.Context, userID, conversationID uuid.UUID, lastReadMessageID *uuid.UUID) error {
+	if err := s.ensureConversationMembership(ctx, userID, conversationID); err != nil {
+		return err
+	}
+
+	if lastReadMessageID != nil {
+		var exists bool
+		err := s.pool.QueryRow(ctx,
+			`SELECT EXISTS (
+                SELECT 1
+                FROM messages
+                WHERE id = $1
+                  AND conversation_id = $2
+            )`,
+			*lastReadMessageID,
+			conversationID,
+		).Scan(&exists)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return fmt.Errorf("%w: last_read_message_id does not belong to conversation", ErrBadRequest)
+		}
+
+		_, err = s.pool.Exec(ctx,
+			`UPDATE conversation_members
+             SET unread_count = 0, last_read_message_id = $3
+             WHERE conversation_id = $1 AND user_id = $2`,
+			conversationID,
+			userID,
+			*lastReadMessageID,
+		)
+		return err
+	}
+
+	_, err := s.pool.Exec(ctx,
+		`UPDATE conversation_members
+         SET unread_count = 0
+         WHERE conversation_id = $1 AND user_id = $2`,
+		conversationID,
+		userID,
+	)
+	return err
+}
+
 func (s *Service) SendMessage(ctx context.Context, senderID uuid.UUID, in SendMessageInput) (MessageView, error) {
 	conversationID, err := uuid.Parse(in.ConversationID)
 	if err != nil {
@@ -291,7 +337,7 @@ func (s *Service) SendMessage(ctx context.Context, senderID uuid.UUID, in SendMe
 	}()
 
 	messageID := uuid.New()
-	metadataBytes, _ := json.Marshal(in.Metadata)
+	metadata := cloneMetadata(in.Metadata)
 
 	var replyToID, fwdMsgID, fwdConvID, attachmentUUID *uuid.UUID
 	if in.ReplyToMessageID != nil && *in.ReplyToMessageID != "" {
@@ -344,12 +390,16 @@ func (s *Service) SendMessage(ctx context.Context, senderID uuid.UUID, in SendMe
 	if attachmentUUID != nil {
 		var ownerID uuid.UUID
 		var attachmentKind string
+		var attachmentFileName string
+		var attachmentSize int64
+		var attachmentDuration sql.NullInt32
+		var attachmentMime sql.NullString
 		err = tx.QueryRow(ctx,
-			`SELECT owner_user_id, kind
+			`SELECT owner_user_id, kind, file_name, size_bytes, duration_seconds, mime_type
              FROM attachments
              WHERE id = $1`,
 			*attachmentUUID,
-		).Scan(&ownerID, &attachmentKind)
+		).Scan(&ownerID, &attachmentKind, &attachmentFileName, &attachmentSize, &attachmentDuration, &attachmentMime)
 		if err != nil {
 			if err == pgx.ErrNoRows {
 				return MessageView{}, fmt.Errorf("%w: attachment not found", ErrNotFound)
@@ -362,7 +412,42 @@ func (s *Service) SendMessage(ctx context.Context, senderID uuid.UUID, in SendMe
 		if expectedAttachmentKind != "" && attachmentKind != expectedAttachmentKind {
 			return MessageView{}, fmt.Errorf("%w: attachment kind %s does not match message_type %s", ErrBadRequest, attachmentKind, messageType)
 		}
+
+		if _, exists := metadata["file_name"]; !exists {
+			metadata["file_name"] = attachmentFileName
+		}
+		if _, exists := metadata["attachment_size_bytes"]; !exists {
+			metadata["attachment_size_bytes"] = attachmentSize
+		}
+		if _, exists := metadata["mime_type"]; !exists && attachmentMime.Valid && attachmentMime.String != "" {
+			metadata["mime_type"] = attachmentMime.String
+		}
+
+		if messageType == "voice_note" || messageType == "circular_video" {
+			durationSeconds := resolveDurationSeconds(metadata, attachmentDuration)
+			if durationSeconds != nil {
+				metadata["duration_seconds"] = *durationSeconds
+				if _, exists := metadata["duration"]; !exists {
+					metadata["duration"] = *durationSeconds
+				}
+
+				if !attachmentDuration.Valid || int(attachmentDuration.Int32) != *durationSeconds {
+					_, err = tx.Exec(ctx,
+						`UPDATE attachments
+                         SET duration_seconds = $2
+                         WHERE id = $1`,
+						*attachmentUUID,
+						*durationSeconds,
+					)
+					if err != nil {
+						return MessageView{}, err
+					}
+				}
+			}
+		}
 	}
+
+	metadataBytes, _ := json.Marshal(metadata)
 
 	if replyToID != nil {
 		var exists bool
@@ -384,7 +469,8 @@ func (s *Service) SendMessage(ctx context.Context, senderID uuid.UUID, in SendMe
 		}
 	}
 
-	_, err = tx.Exec(ctx,
+	var createdAt time.Time
+	err = tx.QueryRow(ctx,
 		`INSERT INTO messages (
             id,
             conversation_id,
@@ -407,7 +493,8 @@ func (s *Service) SendMessage(ctx context.Context, senderID uuid.UUID, in SendMe
             NULLIF($8,''), NULLIF($9,''), NULLIF($10,''),
             $11,$12,$13,$14,
             COALESCE($15::jsonb, '{}'::jsonb)
-         )`,
+         )
+         RETURNING created_at`,
 		messageID,
 		conversationID,
 		senderID,
@@ -423,7 +510,7 @@ func (s *Service) SendMessage(ctx context.Context, senderID uuid.UUID, in SendMe
 		fwdConvID,
 		attachmentUUID,
 		string(metadataBytes),
-	)
+	).Scan(&createdAt)
 	if err != nil {
 		return MessageView{}, err
 	}
@@ -451,18 +538,29 @@ func (s *Service) SendMessage(ctx context.Context, senderID uuid.UUID, in SendMe
 		return MessageView{}, err
 	}
 
-	var result MessageView
-	resultRows, listErr := s.ListMessages(ctx, senderID, conversationID, 1, nil)
-	if listErr == nil && len(resultRows) > 0 {
-		result = resultRows[len(resultRows)-1]
-	} else {
-		result = MessageView{
-			ID:             messageID.String(),
-			ConversationID: conversationID.String(),
-			MessageType:    messageType,
-			CreatedAt:      time.Now().UTC(),
-			Metadata:       in.Metadata,
-		}
+	result := MessageView{
+		ID:                          messageID.String(),
+		ConversationID:              conversationID.String(),
+		MessageType:                 messageType,
+		BodyCiphertext:              in.BodyCiphertext,
+		BodyNonce:                   in.BodyNonce,
+		BodyTag:                     in.BodyTag,
+		QuotedCiphertext:            in.QuotedCiphertext,
+		QuotedNonce:                 in.QuotedNonce,
+		QuotedTag:                   in.QuotedTag,
+		ReplyToMessageID:            in.ReplyToMessageID,
+		ForwardedFromMessageID:      in.ForwardedFromMessageID,
+		ForwardedFromConversationID: in.ForwardedFromConversationID,
+		Metadata:                    metadata,
+		CreatedAt:                   createdAt,
+		ReportCount:                 0,
+		Reactions:                   []MessageReactionView{},
+	}
+	senderIDString := senderID.String()
+	result.SenderUserID = &senderIDString
+	if attachmentUUID != nil {
+		attachmentIDString := attachmentUUID.String()
+		result.AttachmentID = &attachmentIDString
 	}
 
 	memberIDs, membersErr := s.conversationMembers(ctx, conversationID)
@@ -641,4 +739,91 @@ func realtimeEventMessageCreated(message MessageView) realtime.Event {
 	return realtimeEvent("message.created", map[string]any{
 		"message": message,
 	})
+}
+
+func cloneMetadata(in map[string]any) map[string]any {
+	if len(in) == 0 {
+		return map[string]any{}
+	}
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
+func resolveDurationSeconds(metadata map[string]any, attachmentDuration sql.NullInt32) *int {
+	if duration := parseDurationSeconds(metadata["duration_seconds"]); duration != nil {
+		return duration
+	}
+	if duration := parseDurationSeconds(metadata["duration"]); duration != nil {
+		return duration
+	}
+	if attachmentDuration.Valid {
+		value := int(attachmentDuration.Int32)
+		if value > 0 {
+			return &value
+		}
+	}
+	return nil
+}
+
+func parseDurationSeconds(raw any) *int {
+	switch value := raw.(type) {
+	case int:
+		if value > 0 {
+			return &value
+		}
+	case int32:
+		v := int(value)
+		if v > 0 {
+			return &v
+		}
+	case int64:
+		v := int(value)
+		if v > 0 {
+			return &v
+		}
+	case float32:
+		v := int(value + 0.5)
+		if v > 0 {
+			return &v
+		}
+	case float64:
+		v := int(value + 0.5)
+		if v > 0 {
+			return &v
+		}
+	case json.Number:
+		if n, err := value.Int64(); err == nil {
+			v := int(n)
+			if v > 0 {
+				return &v
+			}
+		}
+		if n, err := value.Float64(); err == nil {
+			v := int(n + 0.5)
+			if v > 0 {
+				return &v
+			}
+		}
+	case string:
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			return nil
+		}
+		if n, err := strconv.Atoi(trimmed); err == nil {
+			if n > 0 {
+				return &n
+			}
+			return nil
+		}
+		if n, err := strconv.ParseFloat(trimmed, 64); err == nil {
+			v := int(n + 0.5)
+			if v > 0 {
+				return &v
+			}
+		}
+	}
+	return nil
 }
