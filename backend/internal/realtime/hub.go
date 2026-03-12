@@ -51,6 +51,13 @@ func (h *Hub) Register(conn *websocket.Conn, userID uuid.UUID) *Connection {
     return &Connection{hub: h, c: c}
 }
 
+func (h *Hub) HasConnections(userID uuid.UUID) bool {
+    h.mu.RLock()
+    defer h.mu.RUnlock()
+    set, ok := h.clients[userID]
+    return ok && len(set) > 0
+}
+
 func (h *Hub) unregister(c *client) {
     h.mu.Lock()
     defer h.mu.Unlock()

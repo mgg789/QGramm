@@ -229,7 +229,104 @@ func (s *Service) HandleRealtimeMessage(ctx context.Context, userID uuid.UUID, r
             `UPDATE users SET last_seen_at = NOW() WHERE id = $1`,
             userID,
         )
+    case "typing":
+        conversationRaw, _ := raw["conversation_id"].(string)
+        if conversationRaw == "" {
+            return
+        }
+        conversationID, err := uuid.Parse(conversationRaw)
+        if err != nil {
+            return
+        }
+        if err := s.ensureConversationMembership(ctx, userID, conversationID); err != nil {
+            return
+        }
+
+        isTyping := false
+        switch v := raw["is_typing"].(type) {
+        case bool:
+            isTyping = v
+        case string:
+            isTyping = v == "true" || v == "1"
+        case float64:
+            isTyping = v != 0
+        }
+
+        members, err := s.conversationMembers(ctx, conversationID)
+        if err != nil {
+            return
+        }
+        s.hub.BroadcastToUsers(members, realtimeEvent("typing.changed", map[string]any{
+            "conversation_id": conversationID.String(),
+            "user_id":         userID.String(),
+            "is_typing":       isTyping,
+        }))
     default:
         // ignore unknown events
     }
+}
+
+func (s *Service) NotifyPresenceChanged(ctx context.Context, userID uuid.UUID, online bool) {
+    if !online && s.hub.HasConnections(userID) {
+        return
+    }
+
+    _, _ = s.pool.Exec(ctx,
+        `UPDATE users SET last_seen_at = NOW() WHERE id = $1`,
+        userID,
+    )
+
+    audience, err := s.presenceAudience(ctx, userID)
+    if err != nil || len(audience) == 0 {
+        return
+    }
+
+    payload := map[string]any{
+        "user_id": userID.String(),
+        "online":  online,
+    }
+    if !online {
+        payload["last_seen_at"] = time.Now().UTC()
+    }
+
+    s.hub.BroadcastToUsers(audience, realtimeEvent("presence.changed", payload))
+}
+
+func (s *Service) PushPresenceSnapshot(ctx context.Context, userID uuid.UUID) {
+    audience, err := s.presenceAudience(ctx, userID)
+    if err != nil || len(audience) == 0 {
+        return
+    }
+
+    for _, peerID := range audience {
+        s.hub.SendToUser(userID, realtimeEvent("presence.changed", map[string]any{
+            "user_id": peerID.String(),
+            "online":  s.hub.HasConnections(peerID),
+        }))
+    }
+}
+
+func (s *Service) presenceAudience(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+    rows, err := s.pool.Query(ctx,
+        `SELECT DISTINCT cm_other.user_id
+         FROM conversation_members cm_self
+         JOIN conversation_members cm_other ON cm_other.conversation_id = cm_self.conversation_id
+         WHERE cm_self.user_id = $1
+           AND cm_other.user_id <> $1`,
+        userID,
+    )
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    out := make([]uuid.UUID, 0)
+    for rows.Next() {
+        var id uuid.UUID
+        if scanErr := rows.Scan(&id); scanErr != nil {
+            return nil, scanErr
+        }
+        out = append(out, id)
+    }
+    return out, rows.Err()
 }

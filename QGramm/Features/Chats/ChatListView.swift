@@ -314,11 +314,14 @@ private struct ChatRowView: View {
             QGAvatarView(
                 user: peer,
                 size: 54,
-                showOnlineRing: conversation.category == .chats && conversation.onlineUserID != nil
+                showOnlineRing: {
+                    let presence = store.conversationPeerPresence(conversation)
+                    return conversation.category == .chats && (presence == .online || presence == .typing)
+                }()
             )
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(conversation.title)
+                Text(store.conversationDisplayTitle(conversation))
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundStyle(QGTheme.Palette.ink)
                     .multilineTextAlignment(.leading)
@@ -359,7 +362,8 @@ private struct ChatRowView: View {
     }
 
     private var previewColor: Color {
-        if let peerUser, peerUser.presence == .typing {
+        let presence = store.conversationPeerPresence(conversation)
+        if presence == .typing {
             return QGTheme.Palette.online
         }
         return QGTheme.Palette.muted
@@ -420,6 +424,7 @@ struct ChatRoomView: View {
     @State private var previewMediaAttachment: MessageAttachment?
     @State private var showPeerProfile = false
     @State private var didTriggerCaptureLongPress = false
+    @State private var captureStartedAt: Date?
     @State private var messageFrames: [UUID: CGRect] = [:]
     @State private var headerFrame: CGRect = .zero
     @State private var forwardingNotice = ""
@@ -462,6 +467,9 @@ struct ChatRoomView: View {
                             ForEach(sortedMessages) { message in
                                 messageRow(for: message)
                                     .onAppear {
+                                        if message.attachment?.kind == .voiceNote || message.attachment?.kind == .circularVideo {
+                                            store.ensureAttachmentHydration(conversationID: conversationID, messageID: message.id)
+                                        }
                                         if message.id == sortedMessages.last?.id {
                                             isNearBottom = true
                                         }
@@ -656,11 +664,11 @@ struct ChatRoomView: View {
             NavigationStack {
                 List {
                     ForEach(store.state.conversations.filter { $0.id != conversationID }) { target in
-                        Button(target.title) {
+                        Button(store.conversationDisplayTitle(target)) {
                             if let forwardMessageID {
                                 store.forward(messageID: forwardMessageID, from: conversationID, to: target.id)
                                 QGHaptics.medium()
-                                showForwardNotice(targetTitle: target.title)
+                                showForwardNotice(targetTitle: store.conversationDisplayTitle(target))
                             }
                             forwardMessageID = nil
                             selectedMessageID = nil
@@ -804,6 +812,9 @@ struct ChatRoomView: View {
                 QGHaptics.forceHeavy()
             }
         }
+        .onChange(of: draftText) { _, value in
+            store.updateTypingState(in: conversationID, draftText: value)
+        }
     }
 
     private var topBar: some View {
@@ -823,7 +834,14 @@ struct ChatRoomView: View {
                 QGHaptics.light()
             } label: {
                 HStack(spacing: 12) {
-                    QGAvatarView(user: peerUser, size: 44, showOnlineRing: false)
+                    QGAvatarView(
+                        user: peerUser,
+                        size: 44,
+                        showOnlineRing: {
+                            let presence = store.conversationPeerPresence(conversation)
+                            return presence == .online || presence == .typing
+                        }()
+                    )
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(headerDisplayName)
@@ -941,7 +959,9 @@ struct ChatRoomView: View {
 
             Button {
                 if didTriggerCaptureLongPress {
-                    didTriggerCaptureLongPress = false
+                    return
+                }
+                if let captureStartedAt, Date().timeIntervalSince(captureStartedAt) < 0.7 {
                     return
                 }
 
@@ -977,7 +997,13 @@ struct ChatRoomView: View {
             .highPriorityGesture(
                 LongPressGesture(minimumDuration: 0.35, maximumDistance: 34)
                     .onEnded { _ in
-                        didTriggerCaptureLongPress = startCaptureRecording()
+                        let started = startCaptureRecording()
+                        if started {
+                            didTriggerCaptureLongPress = true
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                                didTriggerCaptureLongPress = false
+                            }
+                        }
                     }
             )
         }
@@ -1199,24 +1225,27 @@ struct ChatRoomView: View {
     }
 
     private var headerDisplayName: String {
-        let first = peerUser?.firstName.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !first.isEmpty {
-            return first
+        if let peerUser {
+            let fullName = peerUser.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !fullName.isEmpty, fullName.lowercased() != "user" {
+                return fullName
+            }
         }
-        return conversation.title
-            .split(separator: " ")
-            .first
-            .map(String.init) ?? conversation.title
+        let fallback = store.conversationDisplayTitle(conversation)
+        if fallback.hasPrefix("@") {
+            return String(fallback.dropFirst())
+        }
+        return fallback
     }
 
     private var headerPresenceText: String {
-        (peerUser?.presence ?? .offline).title(language: language)
+        store.conversationPeerPresence(conversation).title(language: language)
     }
 
     private var headerPresenceColor: Color {
-        switch peerUser?.presence ?? .offline {
+        switch store.conversationPeerPresence(conversation) {
         case .online: return QGTheme.Palette.online
-        case .typing: return QGTheme.Palette.accent
+        case .typing: return QGTheme.Palette.online
         case .offline: return QGTheme.Palette.secondary
         }
     }
@@ -1342,9 +1371,15 @@ struct ChatRoomView: View {
         guard !audio.isRecording, !videoRecorder.isRecording, draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return false
         }
+        captureStartedAt = Date()
 
         if captureMode == .audio {
-            try? audio.startRecording()
+            do {
+                try audio.startRecording()
+            } catch {
+                captureStartedAt = nil
+                return false
+            }
         } else {
             Task { @MainActor in
                 do {
@@ -1355,6 +1390,7 @@ struct ChatRoomView: View {
                         ru: "Не удалось начать запись видео. Проверьте доступ к камере и микрофону.",
                         en: "Unable to start video recording. Check camera and microphone permissions."
                     )
+                    captureStartedAt = nil
                 }
             }
         }
@@ -1365,6 +1401,7 @@ struct ChatRoomView: View {
         if let url = audio.stopRecording() {
             try? FileManager.default.removeItem(at: url)
         }
+        captureStartedAt = nil
     }
 
     private func sendVoiceRecording() {
@@ -1379,10 +1416,12 @@ struct ChatRoomView: View {
             quotedExcerpt: nil
         )
         clearDraftActions()
+        captureStartedAt = nil
     }
 
     private func cancelVideoRecording() async {
         await videoRecorder.cancelRecording()
+        captureStartedAt = nil
     }
 
     private func sendCircularVideo() async {
@@ -1401,6 +1440,7 @@ struct ChatRoomView: View {
             quotedExcerpt: nil
         )
         clearDraftActions()
+        captureStartedAt = nil
     }
 }
 
@@ -1424,6 +1464,11 @@ private struct MessageBubbleView: View {
 
     private var isCircularMessageStyle: Bool {
         message.attachment?.kind == .circularVideo && replyPreview == nil && message.forwardedFromTitle == nil
+    }
+
+    private var useInlineTimestamp: Bool {
+        guard message.attachment == nil else { return false }
+        return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -1470,6 +1515,13 @@ private struct MessageBubbleView: View {
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(isMine ? .white : QGTheme.Palette.ink)
                         .multilineTextAlignment(.leading)
+                        .padding(.trailing, useInlineTimestamp ? 66 : 0)
+                        .overlay(alignment: .bottomTrailing) {
+                            if useInlineTimestamp {
+                                transferMetaRow(showTime: true, compact: true)
+                                    .padding(.leading, 8)
+                            }
+                        }
                 }
 
                 if let forwardedFromTitle = message.forwardedFromTitle {
@@ -1478,26 +1530,9 @@ private struct MessageBubbleView: View {
                         .foregroundStyle(isMine ? .white.opacity(0.82) : QGTheme.Palette.accent)
                 }
 
-                HStack(spacing: 8) {
-                    if message.attachment?.kind != .voiceNote {
-                        Text(QGFormatters.messageTime.string(from: message.sentAt))
-                    }
-                    if message.transfer.phase == .sending {
-                        Image(systemName: "clock")
-                            .font(.system(size: 10, weight: .bold))
-                        if message.attachment != nil {
-                            Text("\(max(Int(message.transfer.progress * 100), 1))%")
-                        }
-                    } else if message.transfer.phase == .failed {
-                        Image(systemName: "exclamationmark.circle.fill")
-                            .font(.system(size: 10, weight: .bold))
-                    }
-                    if message.reportCount > 0 {
-                        Text("жалоб: \(message.reportCount)")
-                    }
+                if !useInlineTimestamp || message.reportCount > 0 || message.attachment != nil {
+                    transferMetaRow(showTime: message.attachment?.kind != .voiceNote, compact: false)
                 }
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(isMine ? .white.opacity(0.78) : QGTheme.Palette.secondary)
             }
             .padding(isCircularMessageStyle ? 0 : 14)
             .background {
@@ -1543,9 +1578,10 @@ private struct MessageBubbleView: View {
             }
         case .voiceNote:
             let voiceURL = attachment.localPath.map { URL(fileURLWithPath: $0) }
+            let voiceReady = voiceURL.map { FileManager.default.fileExists(atPath: $0.path) } ?? false
             let isPlaying = voiceURL.map { audioService.playingURL == $0 } ?? false
             Button {
-                if let voiceURL {
+                if voiceReady, let voiceURL {
                     audioService.togglePlayback(for: voiceURL)
                 }
             } label: {
@@ -1559,7 +1595,9 @@ private struct MessageBubbleView: View {
                         Text(QGFormatters.messageTime.string(from: message.sentAt))
                             .font(.system(size: 12, weight: .bold))
                     }
-                    Text(attachment.duration?.formatted(.number.precision(.fractionLength(1))) ?? "0.0")
+                    Text(voiceReady
+                         ? (attachment.duration?.formatted(.number.precision(.fractionLength(1))) ?? "0.0")
+                         : "Загрузка…")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(isMine ? .white.opacity(0.9) : QGTheme.Palette.secondary)
                 }
@@ -1570,14 +1608,44 @@ private struct MessageBubbleView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
             .buttonStyle(.plain)
+            .disabled(!voiceReady)
         case .circularVideo:
             Button {
                 onOpenCircularVideo(attachment)
             } label: {
-                CircularVideoAttachmentView(previewPath: attachment.previewPath)
+                CircularVideoAttachmentView(localPath: attachment.localPath, previewPath: attachment.previewPath)
             }
             .buttonStyle(.plain)
         }
+    }
+
+    @ViewBuilder
+    private func transferMetaRow(showTime: Bool, compact: Bool) -> some View {
+        HStack(spacing: compact ? 5 : 8) {
+            if showTime {
+                Text(QGFormatters.messageTime.string(from: message.sentAt))
+            }
+            if message.transfer.phase == .sending {
+                Image(systemName: "clock")
+                    .font(.system(size: compact ? 9 : 10, weight: .bold))
+                if message.attachment != nil {
+                    Text("\(max(Int(message.transfer.progress * 100), 1))%")
+                }
+            } else if message.transfer.phase == .failed {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .font(.system(size: compact ? 9 : 10, weight: .bold))
+            } else if isMine {
+                Image(systemName: "checkmark")
+                    .font(.system(size: compact ? 9 : 10, weight: .bold))
+            }
+            if message.reportCount > 0 {
+                Text("жалоб: \(message.reportCount)")
+            }
+        }
+        .font(.system(size: compact ? 10 : 11, weight: .bold))
+        .foregroundStyle(isMine ? .white.opacity(compact ? 0.75 : 0.78) : QGTheme.Palette.secondary)
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: true)
     }
 }
 
@@ -1658,6 +1726,14 @@ private final class CircularCameraPreviewView: UIView {
         }
         previewLayer.videoGravity = .resizeAspectFill
         previewLayer.connection?.videoOrientation = .portrait
+        previewLayer.masksToBounds = true
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        previewLayer.frame = bounds
+        layer.cornerRadius = min(bounds.width, bounds.height) * 0.5
+        layer.masksToBounds = true
     }
 }
 
@@ -1690,19 +1766,38 @@ private final class CircularVideoPlayerView: UIView {
             playerLayer.player = player
         }
         playerLayer.videoGravity = .resizeAspectFill
+        playerLayer.masksToBounds = true
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        playerLayer.frame = bounds
+        layer.cornerRadius = min(bounds.width, bounds.height) * 0.5
+        layer.masksToBounds = true
     }
 }
 
 private struct CircularVideoAttachmentView: View {
+    let localPath: String?
     let previewPath: String?
+
+    private var previewImage: UIImage? {
+        if let previewPath, let image = UIImage(contentsOfFile: previewPath) {
+            return image
+        }
+        if let localPath, let image = UIImage(contentsOfFile: localPath) {
+            return image
+        }
+        return nil
+    }
 
     var body: some View {
         ZStack {
             Circle().fill(QGTheme.Palette.accent.opacity(0.95))
 
             Group {
-                if let previewPath, let image = UIImage(contentsOfFile: previewPath) {
-                    Image(uiImage: image)
+                if let previewImage {
+                    Image(uiImage: previewImage)
                         .resizable()
                         .scaledToFill()
                 } else {

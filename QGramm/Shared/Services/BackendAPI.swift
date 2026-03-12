@@ -349,6 +349,10 @@ struct QGRealtimePayloadDTO: Decodable {
     let emoji: String?
     let userID: String?
     let action: String?
+    let online: Bool?
+    let isTyping: Bool?
+    let title: String?
+    let body: String?
 
     enum CodingKeys: String, CodingKey {
         case message
@@ -357,6 +361,10 @@ struct QGRealtimePayloadDTO: Decodable {
         case emoji
         case userID = "user_id"
         case action
+        case online
+        case isTyping = "is_typing"
+        case title
+        case body
     }
 }
 

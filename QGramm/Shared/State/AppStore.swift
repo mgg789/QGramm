@@ -3,6 +3,8 @@ import Network
 import SwiftUI
 import CryptoKit
 import AVFoundation
+import UserNotifications
+import UIKit
 
 enum StoreError: LocalizedError {
     case message(String)
@@ -31,6 +33,7 @@ final class AppStore: ObservableObject {
     private let pathQueue = DispatchQueue(label: "qgramm.path.monitor")
     private var pingTimer: Timer?
     private var syncTimer: Timer?
+    private var realtimePresencePingTimer: Timer?
     private var activeBackendCallID: String?
     private var realtimeTask: URLSessionWebSocketTask?
     private var realtimeReconnectTask: Task<Void, Never>?
@@ -38,6 +41,11 @@ final class AppStore: ObservableObject {
     private var activeConversationID: UUID?
     private var lastReadReceiptByConversation: [UUID: UUID] = [:]
     private var attachmentHydrationTasks: [UUID: Task<Void, Never>] = [:]
+    private var typingSentStateByConversation: [UUID: Bool] = [:]
+    private var typingStopTaskByConversation: [UUID: Task<Void, Never>] = [:]
+    private var typingResetTaskByUser: [UUID: Task<Void, Never>] = [:]
+    private let notificationCenter = UNUserNotificationCenter.current()
+    private var notificationPermissionRequested = false
 
     private static let legacyE2ESharedKeyMetadataField = "e2e_shared_key_v1"
     private static let clientMessageIDMetadataField = "client_message_id"
@@ -76,9 +84,12 @@ final class AppStore: ObservableObject {
         pathMonitor.cancel()
         pingTimer?.invalidate()
         syncTimer?.invalidate()
+        realtimePresencePingTimer?.invalidate()
         realtimeTask?.cancel(with: .goingAway, reason: nil)
         realtimeReconnectTask?.cancel()
         attachmentHydrationTasks.values.forEach { $0.cancel() }
+        typingStopTaskByConversation.values.forEach { $0.cancel() }
+        typingResetTaskByUser.values.forEach { $0.cancel() }
     }
 
     var currentUser: UserProfile? {
@@ -92,6 +103,48 @@ final class AppStore: ObservableObject {
 
     func conversation(id: UUID) -> ConversationRecord? {
         state.conversations.first { $0.id == id }
+    }
+
+    func conversationDisplayTitle(_ conversation: ConversationRecord) -> String {
+        if conversation.category != .chats {
+            let title = conversation.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            return title.isEmpty ? "Чат" : title
+        }
+
+        if let peerID = peerUserID(for: conversation),
+           let peer = user(id: peerID) {
+            let display = peer.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !display.isEmpty, !isPlaceholderDisplayName(display) {
+                return display
+            }
+
+            let nick = peer.nickname.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !nick.isEmpty {
+                return nick
+            }
+        }
+
+        let title = conversation.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let currentUserID = state.session.currentUserID,
+           let current = user(id: currentUserID)?.displayName.trimmingCharacters(in: .whitespacesAndNewlines),
+           !current.isEmpty,
+           !title.isEmpty,
+           title.caseInsensitiveCompare(current) == .orderedSame,
+           let peerID = peerUserID(for: conversation),
+           let nick = user(id: peerID)?.nickname.trimmingCharacters(in: .whitespacesAndNewlines),
+           !nick.isEmpty {
+            return nick
+        }
+        return title.isEmpty ? "Чат" : title
+    }
+
+    func conversationPeerPresence(_ conversation: ConversationRecord) -> PresenceState {
+        guard conversation.category == .chats,
+              let peerID = peerUserID(for: conversation),
+              let peer = user(id: peerID) else {
+            return .offline
+        }
+        return peer.presence
     }
 
     func setBackendBaseURL(_ value: String) {
@@ -178,6 +231,8 @@ final class AppStore: ObservableObject {
                 $0.calls = remoteCalls.sorted { $0.startedAt > $1.startedAt }
             }
         }
+        recomputeConversationPresenceIndicators()
+        requestNotificationPermissionIfNeeded()
         if let activeConversationID {
             let lastReadMessageID = markConversationReadLocally(activeConversationID)
             Task { @MainActor in
@@ -238,7 +293,7 @@ final class AppStore: ObservableObject {
                         profile.nickname.lowercased().contains(normalized)
                     }
 
-                return conversation.title.lowercased().contains(normalized) || participantMatches
+                return conversationDisplayTitle(conversation).lowercased().contains(normalized) || participantMatches
             }
             .sorted { $0.lastActivityAt > $1.lastActivityAt }
     }
@@ -613,6 +668,12 @@ final class AppStore: ObservableObject {
         if activeConversationID == conversationID {
             activeConversationID = nil
         }
+        sendTypingState(false, in: conversationID)
+    }
+
+    func updateTypingState(in conversationID: UUID, draftText: String) {
+        let isTyping = !draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        sendTypingState(isTyping, in: conversationID)
     }
 
     func logout() {
@@ -636,6 +697,11 @@ final class AppStore: ObservableObject {
         refreshTask?.cancel()
         refreshTask = nil
         lastReadReceiptByConversation.removeAll()
+        typingStopTaskByConversation.values.forEach { $0.cancel() }
+        typingStopTaskByConversation.removeAll()
+        typingSentStateByConversation.removeAll()
+        typingResetTaskByUser.values.forEach { $0.cancel() }
+        typingResetTaskByUser.removeAll()
         stopPingTimer()
         stopAutoSync()
         stopRealtime()
@@ -1003,6 +1069,10 @@ final class AppStore: ObservableObject {
         }
     }
 
+    func ensureAttachmentHydration(conversationID: UUID, messageID: UUID) {
+        queueAttachmentHydrationIfNeeded(conversationID: conversationID, messageID: messageID)
+    }
+
     private func sendMessageWithConversationRecovery(
         conversationID: UUID,
         payload: [String: Any]
@@ -1182,6 +1252,7 @@ final class AppStore: ObservableObject {
                 $0.users[index].presence = .offline
             }
         }
+        recomputeConversationPresenceIndicators()
 
         Task { @MainActor in
             _ = try? await backend.adminBlockUser(userID: userID.uuidString, block: true)
@@ -1195,6 +1266,7 @@ final class AppStore: ObservableObject {
             $0.users[userIndex].isBanned = true
             $0.users[userIndex].presence = .offline
         }
+        recomputeConversationPresenceIndicators()
 
         Task { @MainActor in
             _ = try? await backend.adminBlockUser(userID: userID.uuidString, block: true)
@@ -1349,16 +1421,42 @@ final class AppStore: ObservableObject {
                 }
             }()
 
-            let onlinePeerID: UUID? = {
+            let peerID: UUID? = {
                 let participants = participantIDs
                 guard let currentUserID = state.session.currentUserID else { return participants.first }
                 return participants.first(where: { $0 != currentUserID })
+            }()
+            let resolvedTitle: String = {
+                if category == .chats,
+                   let peerID,
+                   let peer = user(id: peerID) {
+                    let display = peer.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !display.isEmpty, !isPlaceholderDisplayName(display) {
+                        return display
+                    }
+                    let nick = peer.nickname.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !nick.isEmpty {
+                        return nick
+                    }
+                }
+
+                let title = chat.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                return title.isEmpty ? "Чат" : title
+            }()
+            let onlinePeerID: UUID? = {
+                guard let peerID else { return nil }
+                switch user(id: peerID)?.presence ?? .offline {
+                case .online, .typing:
+                    return peerID
+                case .offline:
+                    return nil
+                }
             }()
 
             mapped.append(ConversationRecord(
                 id: conversationID,
                 category: category,
-                title: chat.title,
+                title: resolvedTitle,
                 participantIDs: participantIDs,
                 sharedKey: sharedKey,
                 lastActivityAt: chat.updatedAt,
@@ -1410,10 +1508,22 @@ final class AppStore: ObservableObject {
                 $0.conversations[index].lastActivityAt = max($0.conversations[index].lastActivityAt, last.sentAt)
             }
         }
+        preloadAttachments(for: conversationID)
+        recomputeConversationPresenceIndicators()
     }
 
     private func upsertUser(from dto: QGAuthUserDTO) {
         guard let id = UUID(uuidString: dto.id) else { return }
+        let inferredPresence: PresenceState = {
+            if id == state.session.currentUserID {
+                return .online
+            }
+            if let lastSeenAt = dto.lastSeenAt,
+               Date().timeIntervalSince(lastSeenAt) <= 90 {
+                return .online
+            }
+            return .offline
+        }()
         let profile = UserProfile(
             id: id,
             firstName: dto.firstName,
@@ -1423,7 +1533,7 @@ final class AppStore: ObservableObject {
             emailOrPhone: dto.email,
             bio: "",
             trustLevel: trustLevel(from: dto.trustLevel),
-            presence: .online,
+            presence: inferredPresence,
             joinedAt: dto.createdAt,
             avatarLocalPath: dto.avatarURL,
             avatarAssetName: nil,
@@ -1468,7 +1578,27 @@ final class AppStore: ObservableObject {
 
     private func upsertUser(_ profile: UserProfile) {
         if let index = state.users.firstIndex(where: { $0.id == profile.id }) {
-            mutate { $0.users[index] = profile }
+            mutate {
+                var merged = profile
+                let existing = $0.users[index]
+                // Keep local typing indicator until explicit reset to avoid blinking status.
+                if existing.presence == .typing, profile.presence != .typing {
+                    merged.presence = .typing
+                }
+                if merged.firstName == "User" || merged.firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    let existingFirst = existing.firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !existingFirst.isEmpty, existingFirst != "User" {
+                        merged.firstName = existing.firstName
+                    }
+                }
+                if merged.lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    let existingLast = existing.lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !existingLast.isEmpty {
+                        merged.lastName = existing.lastName
+                    }
+                }
+                $0.users[index] = merged
+            }
         } else {
             mutate { $0.users.append(profile) }
         }
@@ -2221,12 +2351,19 @@ final class AppStore: ObservableObject {
             realtimeTask = task
             task.resume()
             listenRealtime(on: task)
+            startRealtimePresencePing()
+            sendRealtimeEvent(type: "presence.ping", payload: [:])
         } catch {
             scheduleRealtimeReconnect()
         }
     }
 
     private func stopRealtime() {
+        typingStopTaskByConversation.values.forEach { $0.cancel() }
+        typingStopTaskByConversation.removeAll()
+        typingSentStateByConversation.removeAll()
+        realtimePresencePingTimer?.invalidate()
+        realtimePresencePingTimer = nil
         realtimeTask?.cancel(with: .goingAway, reason: nil)
         realtimeTask = nil
         realtimeReconnectTask?.cancel()
@@ -2261,6 +2398,8 @@ final class AppStore: ObservableObject {
                     }
                     self.listenRealtime(on: task)
                 case .failure:
+                    self.realtimePresencePingTimer?.invalidate()
+                    self.realtimePresencePingTimer = nil
                     self.realtimeTask = nil
                     self.scheduleRealtimeReconnect()
                 }
@@ -2277,6 +2416,10 @@ final class AppStore: ObservableObject {
             }
         case "reaction.updated":
             applyRealtimeReaction(envelope.payload)
+        case "presence.changed":
+            applyRealtimePresence(envelope.payload)
+        case "typing.changed":
+            applyRealtimeTyping(envelope.payload)
         default:
             break
         }
@@ -2304,15 +2447,19 @@ final class AppStore: ObservableObject {
             if let ackClientMessageID,
                mappedMessage.senderID == currentUserID,
                let pendingIndex = state.conversations[index].messages.firstIndex(where: { $0.id == ackClientMessageID }) {
-                state.conversations[index].messages[pendingIndex].id = mappedMessage.id
-                state.conversations[index].messages[pendingIndex].sentAt = mappedMessage.sentAt
-                state.conversations[index].messages[pendingIndex].transfer = .sent
-                if state.conversations[index].messages[pendingIndex].attachment?.id == nil,
-                   let remoteAttachmentID = mappedMessage.attachment?.id {
-                    state.conversations[index].messages[pendingIndex].attachment?.id = remoteAttachmentID
-                }
+                var mergedPending = mergeRemoteMessage(
+                    local: state.conversations[index].messages[pendingIndex],
+                    remote: mappedMessage
+                )
+                mergedPending.id = mappedMessage.id
+                mergedPending.sentAt = mappedMessage.sentAt
+                mergedPending.transfer = .sent
+                state.conversations[index].messages[pendingIndex] = mergedPending
             } else if let existingIndex = state.conversations[index].messages.firstIndex(where: { $0.id == mappedMessage.id }) {
-                state.conversations[index].messages[existingIndex] = mappedMessage
+                state.conversations[index].messages[existingIndex] = mergeRemoteMessage(
+                    local: state.conversations[index].messages[existingIndex],
+                    remote: mappedMessage
+                )
             } else {
                 state.conversations[index].messages.append(mappedMessage)
             }
@@ -2332,6 +2479,9 @@ final class AppStore: ObservableObject {
         }
 
         queueAttachmentHydrationIfNeeded(conversationID: conversationID, messageID: mappedMessage.id)
+        if mappedMessage.senderID != currentUserID, !isActiveConversation {
+            scheduleIncomingMessageNotification(for: mappedMessage, conversationID: conversationID)
+        }
 
         if mappedMessage.senderID != currentUserID, isActiveConversation {
             Task { @MainActor in
@@ -2379,6 +2529,182 @@ final class AppStore: ObservableObject {
         }
     }
 
+    private func applyRealtimePresence(_ payload: QGRealtimePayloadDTO) {
+        guard
+            let userRaw = payload.userID,
+            let userID = UUID(uuidString: userRaw),
+            let online = payload.online
+        else {
+            return
+        }
+
+        mutate { state in
+            guard let index = state.users.firstIndex(where: { $0.id == userID }) else { return }
+            if online {
+                if state.users[index].presence != .typing {
+                    state.users[index].presence = .online
+                }
+            } else {
+                state.users[index].presence = .offline
+            }
+        }
+        if !online {
+            typingResetTaskByUser[userID]?.cancel()
+            typingResetTaskByUser[userID] = nil
+        }
+        recomputeConversationPresenceIndicators()
+    }
+
+    private func applyRealtimeTyping(_ payload: QGRealtimePayloadDTO) {
+        guard
+            let userRaw = payload.userID,
+            let userID = UUID(uuidString: userRaw),
+            let conversationRaw = payload.conversationID,
+            let conversationID = UUID(uuidString: conversationRaw),
+            let isTyping = payload.isTyping
+        else {
+            return
+        }
+
+        guard userID != state.session.currentUserID else { return }
+        guard let conversationIndex = state.conversations.firstIndex(where: { $0.id == conversationID }) else { return }
+        guard state.conversations[conversationIndex].participantIDs.contains(userID) else { return }
+
+        if isTyping {
+            mutate { state in
+                guard let userIndex = state.users.firstIndex(where: { $0.id == userID }) else { return }
+                state.users[userIndex].presence = .typing
+            }
+            scheduleTypingPresenceReset(for: userID)
+        } else {
+            typingResetTaskByUser[userID]?.cancel()
+            typingResetTaskByUser[userID] = nil
+            mutate { state in
+                guard let userIndex = state.users.firstIndex(where: { $0.id == userID }) else { return }
+                if state.users[userIndex].presence == .typing {
+                    state.users[userIndex].presence = .online
+                }
+            }
+        }
+        recomputeConversationPresenceIndicators()
+    }
+
+    private func scheduleTypingPresenceReset(for userID: UUID) {
+        typingResetTaskByUser[userID]?.cancel()
+        typingResetTaskByUser[userID] = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            guard let self else { return }
+            guard let userIndex = self.state.users.firstIndex(where: { $0.id == userID }) else { return }
+            if self.state.users[userIndex].presence == .typing {
+                self.mutate { state in
+                    guard let idx = state.users.firstIndex(where: { $0.id == userID }) else { return }
+                    state.users[idx].presence = .online
+                }
+                self.recomputeConversationPresenceIndicators()
+            }
+            self.typingResetTaskByUser[userID] = nil
+        }
+    }
+
+    private func sendTypingState(_ isTyping: Bool, in conversationID: UUID) {
+        guard state.session.isAuthenticated else { return }
+        guard realtimeTask != nil else { return }
+        if typingSentStateByConversation[conversationID] == isTyping {
+            if isTyping {
+                scheduleTypingStopSignal(for: conversationID)
+            }
+            return
+        }
+
+        typingSentStateByConversation[conversationID] = isTyping
+        sendRealtimeEvent(
+            type: "typing",
+            payload: [
+                "conversation_id": conversationID.uuidString,
+                "is_typing": isTyping
+            ]
+        )
+
+        if isTyping {
+            scheduleTypingStopSignal(for: conversationID)
+        } else {
+            typingStopTaskByConversation[conversationID]?.cancel()
+            typingStopTaskByConversation[conversationID] = nil
+        }
+    }
+
+    private func scheduleTypingStopSignal(for conversationID: UUID) {
+        typingStopTaskByConversation[conversationID]?.cancel()
+        typingStopTaskByConversation[conversationID] = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            guard let self else { return }
+            self.sendTypingState(false, in: conversationID)
+        }
+    }
+
+    private func sendRealtimeEvent(type: String, payload: [String: Any]) {
+        guard let realtimeTask else { return }
+        var event: [String: Any] = ["type": type]
+        payload.forEach { event[$0.key] = $0.value }
+        guard let data = try? JSONSerialization.data(withJSONObject: event),
+              let text = String(data: data, encoding: .utf8) else {
+            return
+        }
+        realtimeTask.send(.string(text)) { _ in }
+    }
+
+    private func startRealtimePresencePing() {
+        realtimePresencePingTimer?.invalidate()
+        realtimePresencePingTimer = Timer.scheduledTimer(withTimeInterval: 12, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                guard self.realtimeTask != nil else { return }
+                self.sendRealtimeEvent(type: "presence.ping", payload: [:])
+            }
+        }
+    }
+
+    private func requestNotificationPermissionIfNeeded() {
+        guard !notificationPermissionRequested else { return }
+        notificationPermissionRequested = true
+        notificationCenter.requestAuthorization(options: [.alert, .badge, .sound]) { _, _ in }
+    }
+
+    private func scheduleIncomingMessageNotification(for message: MessageRecord, conversationID: UUID) {
+        guard UIApplication.shared.applicationState != .active else { return }
+        guard let conversation = conversation(id: conversationID) else { return }
+
+        let content = UNMutableNotificationContent()
+        let senderName = user(id: message.senderID)?.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let titleFallback = conversationDisplayTitle(conversation)
+        content.title = (senderName?.isEmpty == false ? senderName! : titleFallback)
+
+        if let attachment = message.attachment {
+            switch attachment.kind {
+            case .voiceNote:
+                content.body = "Голосовое сообщение"
+            case .circularVideo:
+                content.body = "Видео-кружок"
+            case .media:
+                content.body = "Фото/видео"
+            case .file:
+                content.body = "Файл: \(attachment.name)"
+            }
+        } else {
+            let text = decryptedText(for: message, in: conversation).trimmingCharacters(in: .whitespacesAndNewlines)
+            content.body = text.isEmpty ? "Новое сообщение" : text
+        }
+        content.sound = .default
+        content.threadIdentifier = conversationID.uuidString
+
+        let request = UNNotificationRequest(
+            identifier: "incoming.\(message.id.uuidString.lowercased())",
+            content: content,
+            trigger: nil
+        )
+        notificationCenter.add(request)
+    }
+
     private func markConversationReadLocally(_ conversationID: UUID) -> UUID? {
         guard let index = state.conversations.firstIndex(where: { $0.id == conversationID }) else {
             return nil
@@ -2424,6 +2750,47 @@ final class AppStore: ObservableObject {
         connectionPingMs = state.session.isPowerSavingEnabled
             ? Int.random(in: 45...190)
             : Int.random(in: 28...150)
+    }
+
+    private func recomputeConversationPresenceIndicators() {
+        mutate { state in
+            for index in state.conversations.indices {
+                guard state.conversations[index].category == .chats else { continue }
+                guard let peerID = peerUserID(for: state.conversations[index], in: state) else {
+                    state.conversations[index].onlineUserID = nil
+                    continue
+                }
+                let presence = state.users.first(where: { $0.id == peerID })?.presence ?? .offline
+                switch presence {
+                case .online, .typing:
+                    state.conversations[index].onlineUserID = peerID
+                case .offline:
+                    state.conversations[index].onlineUserID = nil
+                }
+            }
+        }
+    }
+
+    private func peerUserID(for conversation: ConversationRecord) -> UUID? {
+        peerUserID(for: conversation, in: state)
+    }
+
+    private func peerUserID(for conversation: ConversationRecord, in state: AppState) -> UUID? {
+        guard let currentUserID = state.session.currentUserID else {
+            return conversation.participantIDs.first
+        }
+        return conversation.participantIDs.first(where: { $0 != currentUserID })
+    }
+
+    private func isPlaceholderDisplayName(_ value: String) -> Bool {
+        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if normalized.isEmpty {
+            return true
+        }
+        if normalized == "user" {
+            return true
+        }
+        return normalized.hasPrefix("user ")
     }
 
     private func mutate(_ transform: (inout AppState) -> Void) {

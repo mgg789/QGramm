@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -456,6 +457,45 @@ func (h *Handler) listMessages(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
+func (h *Handler) markConversationRead(w http.ResponseWriter, r *http.Request) {
+	identity, ok := identityFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		return
+	}
+
+	conversationID, err := uuid.Parse(chi.URLParam(r, "conversationID"))
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	var req struct {
+		LastReadMessageID *string `json:"last_read_message_id"`
+	}
+	if err := readJSON(r, &req); err != nil && !errors.Is(err, io.EOF) {
+		handleError(w, err)
+		return
+	}
+
+	var lastReadID *uuid.UUID
+	if req.LastReadMessageID != nil && strings.TrimSpace(*req.LastReadMessageID) != "" {
+		parsed, parseErr := uuid.Parse(*req.LastReadMessageID)
+		if parseErr != nil {
+			handleError(w, parseErr)
+			return
+		}
+		lastReadID = &parsed
+	}
+
+	if err := h.svc.MarkConversationRead(r.Context(), identity.UserID, conversationID, lastReadID); err != nil {
+		handleError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
 func (h *Handler) sendMessage(w http.ResponseWriter, r *http.Request) {
 	identity, ok := identityFromContext(r.Context())
 	if !ok {
@@ -824,11 +864,15 @@ func (h *Handler) websocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	connection := h.svc.Hub().Register(conn, identity.UserID)
+	h.svc.NotifyPresenceChanged(r.Context(), identity.UserID, true)
+	h.svc.PushPresenceSnapshot(r.Context(), identity.UserID)
 	connection.Run(
 		func(payload map[string]any) {
 			h.svc.HandleRealtimeMessage(r.Context(), identity.UserID, payload)
 		},
-		func() {},
+		func() {
+			h.svc.NotifyPresenceChanged(context.Background(), identity.UserID, false)
+		},
 	)
 }
 
