@@ -140,8 +140,17 @@ struct ChatListView: View {
         return AnyView(VStack(alignment: .leading, spacing: 12) {
             if let discoverable {
                 Button {
-                    let id = store.startConversation(with: discoverable.id)
-                    path.append(id)
+                    guard !isResolvingNickname else { return }
+                    isResolvingNickname = true
+                    Task { @MainActor in
+                        defer { isResolvingNickname = false }
+                        switch await store.startConversation(byNickname: discoverable.nickname) {
+                        case let .success(conversationID):
+                            path.append(conversationID)
+                        case let .failure(error):
+                            infoMessage = error.localizedDescription
+                        }
+                    }
                 } label: {
                     HStack(spacing: 14) {
                         QGAvatarView(user: discoverable, size: 52, showOnlineRing: discoverable.presence == .online)

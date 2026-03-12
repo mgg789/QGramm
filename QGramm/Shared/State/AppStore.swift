@@ -135,12 +135,18 @@ final class AppStore: ObservableObject {
         }
 
         let invites = try? await backend.listInvites()
-        let chats = (try? await backend.listChats()) ?? []
-        let calls = (try? await backend.listCalls()) ?? []
+        let chats = try? await backend.listChats()
+        let calls = try? await backend.listCalls()
 
-        let remoteConversations = try await loadRemoteConversations(chats: chats)
+        let remoteConversations: [ConversationRecord]?
+        if let chats {
+            remoteConversations = try await loadRemoteConversations(chats: chats)
+        } else {
+            remoteConversations = nil
+        }
+
         let remoteInvites = invites?.compactMap(mapInvite(_:)) ?? []
-        let remoteCalls = calls.compactMap { mapCall($0, currentUserID: me.id) }
+        let remoteCalls = calls?.compactMap { mapCall($0, currentUserID: me.id) } ?? []
 
         mutate {
             $0.session.currentUserID = UUID(uuidString: me.id)
@@ -149,8 +155,12 @@ final class AppStore: ObservableObject {
             if invites != nil {
                 $0.invites = mergeInvites(existing: $0.invites, remote: remoteInvites)
             }
-            $0.conversations = remoteConversations.sorted { $0.lastActivityAt > $1.lastActivityAt }
-            $0.calls = remoteCalls.sorted { $0.startedAt > $1.startedAt }
+            if let remoteConversations {
+                $0.conversations = remoteConversations.sorted { $0.lastActivityAt > $1.lastActivityAt }
+            }
+            if calls != nil {
+                $0.calls = remoteCalls.sorted { $0.startedAt > $1.startedAt }
+            }
         }
         if let activeConversationID {
             let lastReadMessageID = markConversationReadLocally(activeConversationID)
@@ -294,11 +304,6 @@ final class AppStore: ObservableObject {
 
             return .failure(.message("Диалог создан, но не был найден в списке чатов. Обновите экран."))
         } catch {
-            if let local = state.users.first(where: {
-                $0.nickname.lowercased() == normalized && $0.id != state.session.currentUserID
-            }) {
-                return .success(startConversation(with: local.id))
-            }
             return .failure(.message(error.localizedDescription))
         }
     }
@@ -671,10 +676,17 @@ final class AppStore: ObservableObject {
             }
 
             do {
-                let remote = try await backend.sendMessage(conversationID: conversationID.uuidString, payload: payload)
+                let (remote, resolvedConversationID) = try await sendMessageWithConversationRecovery(
+                    conversationID: conversationID,
+                    payload: payload
+                )
+                reconcileLocalConversationID(oldID: conversationID, newID: resolvedConversationID)
                 if let remoteID = UUID(uuidString: remote.id),
-                   let conversationIndex = state.conversations.firstIndex(where: { $0.id == conversationID }),
-                   let messageIndex = state.conversations[conversationIndex].messages.firstIndex(where: { $0.id == message.id }) {
+                   let (conversationIndex, messageIndex) = locateMessage(
+                    id: message.id,
+                    preferredConversationID: resolvedConversationID,
+                    fallbackConversationID: conversationID
+                   ) {
                     mutate {
                         $0.conversations[conversationIndex].messages[messageIndex].id = remoteID
                         $0.conversations[conversationIndex].messages[messageIndex].transfer = .sent
@@ -740,10 +752,17 @@ final class AppStore: ObservableObject {
                 payload["attachment_id"] = attachmentID.uuidString
             }
             do {
-                let remote = try await backend.sendMessage(conversationID: targetConversationID.uuidString, payload: payload)
+                let (remote, resolvedConversationID) = try await sendMessageWithConversationRecovery(
+                    conversationID: targetConversationID,
+                    payload: payload
+                )
+                reconcileLocalConversationID(oldID: targetConversationID, newID: resolvedConversationID)
                 if let remoteID = UUID(uuidString: remote.id),
-                   let cIndex = state.conversations.firstIndex(where: { $0.id == targetConversationID }),
-                   let mIndex = state.conversations[cIndex].messages.firstIndex(where: { $0.id == forwarded.id }) {
+                   let (cIndex, mIndex) = locateMessage(
+                    id: forwarded.id,
+                    preferredConversationID: resolvedConversationID,
+                    fallbackConversationID: targetConversationID
+                   ) {
                     mutate {
                         $0.conversations[cIndex].messages[mIndex].id = remoteID
                         $0.conversations[cIndex].messages[mIndex].transfer = .sent
@@ -920,10 +939,17 @@ final class AppStore: ObservableObject {
                 if let replyMessageID {
                     payload["reply_to_message_id"] = replyMessageID.uuidString
                 }
-                let remote = try await backend.sendMessage(conversationID: conversationID.uuidString, payload: payload)
+                let (remote, resolvedConversationID) = try await sendMessageWithConversationRecovery(
+                    conversationID: conversationID,
+                    payload: payload
+                )
+                reconcileLocalConversationID(oldID: conversationID, newID: resolvedConversationID)
                 if let remoteID = UUID(uuidString: remote.id),
-                   let cIndex = state.conversations.firstIndex(where: { $0.id == conversationID }),
-                   let mIndex = state.conversations[cIndex].messages.firstIndex(where: { $0.id == messageID }) {
+                   let (cIndex, mIndex) = locateMessage(
+                    id: messageID,
+                    preferredConversationID: resolvedConversationID,
+                    fallbackConversationID: conversationID
+                   ) {
                     mutate {
                         $0.conversations[cIndex].messages[mIndex].id = remoteID
                         $0.conversations[cIndex].messages[mIndex].attachment?.id = attachmentID
@@ -955,6 +981,88 @@ final class AppStore: ObservableObject {
                 progress: progress
             )
         }
+    }
+
+    private func sendMessageWithConversationRecovery(
+        conversationID: UUID,
+        payload: [String: Any]
+    ) async throws -> (QGMessageDTO, UUID) {
+        do {
+            let remote = try await backend.sendMessage(conversationID: conversationID.uuidString, payload: payload)
+            return (remote, conversationID)
+        } catch {
+            guard shouldRecoverConversationAndRetry(error),
+                  let recoveredConversationID = await recoverConversationIDForRetry(conversationID),
+                  recoveredConversationID != conversationID else {
+                throw error
+            }
+
+            let remote = try await backend.sendMessage(
+                conversationID: recoveredConversationID.uuidString,
+                payload: payload
+            )
+            return (remote, recoveredConversationID)
+        }
+    }
+
+    private func shouldRecoverConversationAndRetry(_ error: Error) -> Bool {
+        guard case let QGBackendError.server(message) = error else { return false }
+        let normalized = message.lowercased()
+        return normalized.contains("conversation access denied")
+            || normalized.contains("invalid conversation_id")
+            || normalized.contains("not found")
+    }
+
+    private func recoverConversationIDForRetry(_ conversationID: UUID) async -> UUID? {
+        guard
+            let conversation = state.conversations.first(where: { $0.id == conversationID }),
+            conversation.category == .chats,
+            let currentUserID = state.session.currentUserID,
+            let peerID = conversation.participantIDs.first(where: { $0 != currentUserID }),
+            let nickname = user(id: peerID)?.nickname,
+            !nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            return nil
+        }
+
+        do {
+            let remoteConversation = try await backend.directByNickname(nickname)
+            return UUID(uuidString: remoteConversation.id)
+        } catch {
+            return nil
+        }
+    }
+
+    private func reconcileLocalConversationID(oldID: UUID, newID: UUID) {
+        guard oldID != newID else { return }
+        guard let oldIndex = state.conversations.firstIndex(where: { $0.id == oldID }) else { return }
+        guard state.conversations.firstIndex(where: { $0.id == newID }) == nil else { return }
+
+        mutate {
+            $0.conversations[oldIndex].id = newID
+        }
+        if activeConversationID == oldID {
+            activeConversationID = newID
+        }
+    }
+
+    private func locateMessage(
+        id messageID: UUID,
+        preferredConversationID: UUID,
+        fallbackConversationID: UUID
+    ) -> (conversationIndex: Int, messageIndex: Int)? {
+        let candidates = preferredConversationID == fallbackConversationID
+            ? [preferredConversationID]
+            : [preferredConversationID, fallbackConversationID]
+
+        for conversationID in candidates {
+            guard let conversationIndex = state.conversations.firstIndex(where: { $0.id == conversationID }),
+                  let messageIndex = state.conversations[conversationIndex].messages.firstIndex(where: { $0.id == messageID }) else {
+                continue
+            }
+            return (conversationIndex, messageIndex)
+        }
+        return nil
     }
 
     func generateInvite() async -> Result<InviteRecord, StoreError> {
@@ -1198,9 +1306,13 @@ final class AppStore: ObservableObject {
                 }
             }
 
-            let messages = (try? await backend.listMessages(conversationID: chat.id, limit: 200)) ?? []
             let existingMessages = state.conversations.first(where: { $0.id == conversationID })?.messages ?? []
-            let localMessages = mergeRemoteMessages(messages, existingMessages: existingMessages, sharedKey: sharedKey)
+            let localMessages: [MessageRecord]
+            if let messages = try? await backend.listMessages(conversationID: chat.id, limit: 200) {
+                localMessages = mergeRemoteMessages(messages, existingMessages: existingMessages, sharedKey: sharedKey)
+            } else {
+                localMessages = existingMessages.sorted { $0.sentAt < $1.sentAt }
+            }
             let category: ConversationGroup = {
                 switch chat.kind {
                 case "group": return .groups
