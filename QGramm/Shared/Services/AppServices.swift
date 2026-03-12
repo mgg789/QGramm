@@ -61,6 +61,38 @@ struct QGCryptoService {
         return Data(key.withUnsafeBytes { Data($0) }).base64EncodedString()
     }
 
+    func makeIdentityKeyPair() -> (privateKey: String, publicKey: String) {
+        let privateKey = Curve25519.KeyAgreement.PrivateKey()
+        let privateRaw = privateKey.rawRepresentation.base64EncodedString()
+        let publicRaw = privateKey.publicKey.rawRepresentation.base64EncodedString()
+        return (privateRaw, publicRaw)
+    }
+
+    func deriveDirectConversationKey(privateKeyBase64: String, peerPublicKeyBase64: String, conversationID: UUID) -> String? {
+        guard
+            let privateData = Data(base64Encoded: privateKeyBase64),
+            let peerPublicData = Data(base64Encoded: peerPublicKeyBase64)
+        else {
+            return nil
+        }
+
+        do {
+            let privateKey = try Curve25519.KeyAgreement.PrivateKey(rawRepresentation: privateData)
+            let peerPublicKey = try Curve25519.KeyAgreement.PublicKey(rawRepresentation: peerPublicData)
+            let sharedSecret = try privateKey.sharedSecretFromKeyAgreement(with: peerPublicKey)
+            let context = Data("qgramm:e2e:v2:\(conversationID.uuidString.lowercased())".utf8)
+            let symmetric = sharedSecret.hkdfDerivedSymmetricKey(
+                using: SHA256.self,
+                salt: Data(),
+                sharedInfo: context,
+                outputByteCount: 32
+            )
+            return Data(symmetric.withUnsafeBytes { Data($0) }).base64EncodedString()
+        } catch {
+            return nil
+        }
+    }
+
     func generateRecoveryKey() -> String {
         let alphabet = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
         let bytes = (0..<24).map { _ in alphabet.randomElement() ?? "A" }
@@ -218,6 +250,10 @@ final class CircularVideoRecorderService: NSObject, ObservableObject, AVCaptureF
     private let movieOutput = AVCaptureMovieFileOutput()
     private var durationTimer: Timer?
     private var stopContinuation: CheckedContinuation<URL?, Never>?
+
+    var previewSession: AVCaptureSession {
+        captureSession
+    }
 
     func startRecording(useFrontCamera: Bool) async throws {
         guard !isRecording else { return }
@@ -397,6 +433,31 @@ enum QGMediaTools {
         return destination
     }
 
+    static func writeDataIntoAppSupport(_ data: Data, folder: String, fileName: String, mimeType: String? = nil) throws -> URL {
+        let supportDirectory = try applicationSupportDirectory()
+        let folderURL = supportDirectory.appendingPathComponent(folder, isDirectory: true)
+        try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true, attributes: nil)
+
+        let original = URL(fileURLWithPath: fileName)
+        var ext = original.pathExtension
+        if ext.isEmpty, let mimeType {
+            ext = preferredExtension(for: mimeType) ?? ""
+        }
+
+        let stem = original.deletingPathExtension().lastPathComponent
+        let safeStem = stem.isEmpty ? UUID().uuidString : stem
+        let baseName = "\(UUID().uuidString)_\(safeStem)"
+        let destination: URL
+        if ext.isEmpty {
+            destination = folderURL.appendingPathComponent(baseName)
+        } else {
+            destination = folderURL.appendingPathComponent(baseName).appendingPathExtension(ext)
+        }
+
+        try data.write(to: destination, options: [.atomic])
+        return destination
+    }
+
     static func makeThumbnail(for videoURL: URL) async throws -> URL {
         let asset = AVURLAsset(url: videoURL)
         let generator = AVAssetImageGenerator(asset: asset)
@@ -414,6 +475,18 @@ enum QGMediaTools {
         let destination = folderURL.appendingPathComponent(UUID().uuidString).appendingPathExtension("jpg")
         try data.write(to: destination)
         return destination
+    }
+
+    static func mediaDuration(for mediaURL: URL) async -> TimeInterval? {
+        let asset = AVURLAsset(url: mediaURL)
+        do {
+            let duration = try await asset.load(.duration)
+            let seconds = CMTimeGetSeconds(duration)
+            guard seconds.isFinite, seconds > 0 else { return nil }
+            return seconds
+        } catch {
+            return nil
+        }
     }
 
     static func qrImage(for string: String) -> UIImage? {
@@ -588,5 +661,10 @@ enum QGMediaTools {
         image.draw(in: CGRect(origin: .zero, size: size))
         UIGraphicsPopContext()
         return pixelBuffer
+    }
+
+    private static func preferredExtension(for mimeType: String) -> String? {
+        guard let type = UTType(mimeType: mimeType) else { return nil }
+        return type.preferredFilenameExtension
     }
 }

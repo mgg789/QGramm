@@ -117,6 +117,7 @@ struct QGAuthUserDTO: Decodable {
     let firstName: String
     let lastName: String
     let nickname: String
+    let e2ePublicKey: String?
     let trustLevel: Int
     let isRoot: Bool
     let isBanned: Bool
@@ -132,6 +133,7 @@ struct QGAuthUserDTO: Decodable {
         case firstName = "first_name"
         case lastName = "last_name"
         case nickname
+        case e2ePublicKey = "e2e_public_key"
         case trustLevel = "trust_level"
         case isRoot = "is_root"
         case isBanned = "is_banned"
@@ -182,6 +184,7 @@ struct QGInviteGraphNodeDTO: Decodable {
     let userID: String
     let uid: String
     let nickname: String
+    let e2ePublicKey: String?
     let invitedByUserID: String?
     let createdAt: Date
     let isBanned: Bool
@@ -191,6 +194,7 @@ struct QGInviteGraphNodeDTO: Decodable {
         case userID = "user_id"
         case uid
         case nickname
+        case e2ePublicKey = "e2e_public_key"
         case invitedByUserID = "invited_by_user_id"
         case createdAt = "created_at"
         case isBanned = "is_banned"
@@ -284,18 +288,32 @@ struct QGAttachmentDTO: Decodable {
     let id: String
     let ownerUserID: String
     let kind: String
+    let previewPath: String?
     let fileName: String
     let mimeType: String?
     let sizeBytes: Int64
+    let durationSeconds: Int?
+    let checksumSHA256: String?
+    let createdAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case id
         case ownerUserID = "owner_user_id"
         case kind
+        case previewPath = "preview_path"
         case fileName = "file_name"
         case mimeType = "mime_type"
         case sizeBytes = "size_bytes"
+        case durationSeconds = "duration_seconds"
+        case checksumSHA256 = "checksum_sha256"
+        case createdAt = "created_at"
     }
+}
+
+struct QGAttachmentDownloadPayload {
+    let data: Data
+    let suggestedFileName: String?
+    let mimeType: String?
 }
 
 struct QGCallDTO: Decodable {
@@ -322,6 +340,30 @@ struct QGCallDTO: Decodable {
 
 struct QGReportDTO: Decodable {
     let id: String
+}
+
+struct QGRealtimePayloadDTO: Decodable {
+    let message: QGMessageDTO?
+    let conversationID: String?
+    let messageID: String?
+    let emoji: String?
+    let userID: String?
+    let action: String?
+
+    enum CodingKeys: String, CodingKey {
+        case message
+        case conversationID = "conversation_id"
+        case messageID = "message_id"
+        case emoji
+        case userID = "user_id"
+        case action
+    }
+}
+
+struct QGRealtimeEnvelopeDTO: Decodable {
+    let type: String
+    let timestamp: Date
+    let payload: QGRealtimePayloadDTO
 }
 
 final class QGBackendClient {
@@ -430,7 +472,7 @@ final class QGBackendClient {
         try await request(path: "/v1/me", method: .get, authorized: true)
     }
 
-    func updateMe(firstName: String, lastName: String, nickname: String, avatarPath: String?) async throws -> QGAuthUserDTO {
+    func updateMe(firstName: String, lastName: String, nickname: String, avatarPath: String?, metadata: [String: Any] = [:]) async throws -> QGAuthUserDTO {
         try await request(
             path: "/v1/me",
             method: .patch,
@@ -439,7 +481,7 @@ final class QGBackendClient {
                 "last_name": lastName,
                 "nickname": nickname,
                 "avatar_path": avatarPath ?? "",
-                "metadata": [String: Any]()
+                "metadata": metadata
             ],
             authorized: true
         )
@@ -472,6 +514,19 @@ final class QGBackendClient {
 
     func listMessages(conversationID: String, limit: Int = 100) async throws -> [QGMessageDTO] {
         try await request(path: "/v1/chats/\(conversationID)/messages?limit=\(limit)", method: .get, authorized: true)
+    }
+
+    func markConversationRead(conversationID: String, lastReadMessageID: String?) async throws {
+        var body: [String: Any] = [:]
+        if let lastReadMessageID, !lastReadMessageID.isEmpty {
+            body["last_read_message_id"] = lastReadMessageID
+        }
+        _ = try await requestRaw(
+            path: "/v1/chats/\(conversationID)/read",
+            method: .post,
+            bodyAny: body,
+            authorized: true
+        )
     }
 
     func sendMessage(conversationID: String, payload: [String: Any]) async throws -> QGMessageDTO {
@@ -548,6 +603,35 @@ final class QGBackendClient {
         try await request(path: "/v1/attachments/\(attachmentID)", method: .get, authorized: true)
     }
 
+    func attachmentDownload(attachmentID: String) async throws -> QGAttachmentDownloadPayload {
+        guard let url = URL(string: "/v1/attachments/\(attachmentID)/download", relativeTo: baseURL) else {
+            throw QGBackendError.invalidURL
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = QGHTTPMethod.get.rawValue
+        request.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
+        guard !accessToken.isEmpty else { throw QGBackendError.unauthorized }
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            try validate(response: response, data: data)
+
+            let http = response as? HTTPURLResponse
+            let contentDisposition = http?.value(forHTTPHeaderField: "Content-Disposition")
+            let mimeType = http?.mimeType
+            return QGAttachmentDownloadPayload(
+                data: data,
+                suggestedFileName: Self.parseContentDispositionFilename(contentDisposition),
+                mimeType: mimeType
+            )
+        } catch let error as QGBackendError {
+            throw error
+        } catch {
+            throw QGBackendError.transport(error.localizedDescription)
+        }
+    }
+
     func startCall(calleeUserID: String, kind: String) async throws -> QGCallDTO {
         try await request(
             path: "/v1/calls/start",
@@ -591,6 +675,39 @@ final class QGBackendClient {
             bodyAny: ["block": block],
             authorized: true
         )
+    }
+
+    func webSocketRequest() throws -> URLRequest {
+        guard !accessToken.isEmpty else { throw QGBackendError.unauthorized }
+        guard
+            let url = URL(string: "/v1/auth/ws", relativeTo: baseURL),
+            var components = URLComponents(url: url, resolvingAgainstBaseURL: true)
+        else {
+            throw QGBackendError.invalidURL
+        }
+
+        switch components.scheme?.lowercased() {
+        case "https":
+            components.scheme = "wss"
+        case "http":
+            components.scheme = "ws"
+        case "wss", "ws":
+            break
+        default:
+            throw QGBackendError.invalidURL
+        }
+
+        guard let websocketURL = components.url else {
+            throw QGBackendError.invalidURL
+        }
+
+        var request = URLRequest(url: websocketURL)
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        return request
+    }
+
+    func decodeRealtimeEnvelope(_ data: Data) throws -> QGRealtimeEnvelopeDTO {
+        try decoder.decode(QGRealtimeEnvelopeDTO.self, from: data)
     }
 
     private func request<T: Decodable>(
@@ -704,6 +821,28 @@ final class QGBackendClient {
             return date
         }
         throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid date format: \(raw)")
+    }
+
+    private static func parseContentDispositionFilename(_ raw: String?) -> String? {
+        guard let raw else { return nil }
+        let segments = raw.split(separator: ";").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+        if let encoded = segments.first(where: { $0.lowercased().hasPrefix("filename*=") }) {
+            var value = String(encoded.dropFirst("filename*=".count))
+            value = value.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+            if let range = value.range(of: "''") {
+                value = String(value[range.upperBound...])
+            }
+            return value.removingPercentEncoding ?? value
+        }
+
+        if let plain = segments.first(where: { $0.lowercased().hasPrefix("filename=") }) {
+            var value = String(plain.dropFirst("filename=".count))
+            value = value.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+            return value.isEmpty ? nil : value
+        }
+
+        return nil
     }
 }
 

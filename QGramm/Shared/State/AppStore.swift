@@ -1,6 +1,8 @@
 import Foundation
 import Network
 import SwiftUI
+import CryptoKit
+import AVFoundation
 
 enum StoreError: LocalizedError {
     case message(String)
@@ -30,6 +32,15 @@ final class AppStore: ObservableObject {
     private var pingTimer: Timer?
     private var syncTimer: Timer?
     private var activeBackendCallID: String?
+    private var realtimeTask: URLSessionWebSocketTask?
+    private var realtimeReconnectTask: Task<Void, Never>?
+    private var activeConversationID: UUID?
+    private var attachmentHydrationTasks: [UUID: Task<Void, Never>] = [:]
+
+    private static let legacyE2ESharedKeyMetadataField = "e2e_shared_key_v1"
+    private static let clientMessageIDMetadataField = "client_message_id"
+    private static let e2ePrivateKeyStorageKey = "qgramm.e2e.identity.private.v1"
+    private static let e2ePublicKeyStorageKey = "qgramm.e2e.identity.public.v1"
 
     init() {
         let supportDirectory = (try? QGMediaTools.applicationSupportDirectory()) ?? FileManager.default.temporaryDirectory
@@ -63,6 +74,9 @@ final class AppStore: ObservableObject {
         pathMonitor.cancel()
         pingTimer?.invalidate()
         syncTimer?.invalidate()
+        realtimeTask?.cancel(with: .goingAway, reason: nil)
+        realtimeReconnectTask?.cancel()
+        attachmentHydrationTasks.values.forEach { $0.cancel() }
     }
 
     var currentUser: UserProfile? {
@@ -80,6 +94,8 @@ final class AppStore: ObservableObject {
 
     func setBackendBaseURL(_ value: String) {
         backend.setBaseURL(value)
+        stopRealtime()
+        ensureRealtimeConnected()
     }
 
     func bootstrapRemoteSession() async {
@@ -108,7 +124,9 @@ final class AppStore: ObservableObject {
     }
 
     func refreshFromServer() async throws {
-        let me = try await backend.me()
+        var me = try await backend.me()
+        upsertUser(from: me)
+        me = await ensureE2EIdentityPublishedIfNeeded(remoteUser: me)
         upsertUser(from: me)
 
         let graphNodes = (try? await backend.inviteGraph()) ?? []
@@ -134,7 +152,17 @@ final class AppStore: ObservableObject {
             $0.conversations = remoteConversations.sorted { $0.lastActivityAt > $1.lastActivityAt }
             $0.calls = remoteCalls.sorted { $0.startedAt > $1.startedAt }
         }
+        if let activeConversationID {
+            let lastReadMessageID = markConversationReadLocally(activeConversationID)
+            Task { @MainActor in
+                await markConversationReadOnServer(activeConversationID, lastReadMessageID: lastReadMessageID)
+            }
+        }
         startAutoSync()
+        ensureRealtimeConnected()
+        if let activeConversationID {
+            preloadAttachments(for: activeConversationID)
+        }
     }
 
     func decryptedText(for message: MessageRecord, in conversation: ConversationRecord) -> String {
@@ -142,11 +170,13 @@ final class AppStore: ObservableObject {
            let systemText = friendlySystemText(ciphertext: envelope.ciphertext) {
             return systemText
         }
-        return crypto.decrypt(message.body, using: conversation.sharedKey)
+        let key = message.encryptionKeyHint ?? conversation.sharedKey
+        return crypto.decrypt(message.body, using: key)
     }
 
     func decryptedQuote(for message: MessageRecord, in conversation: ConversationRecord) -> String {
-        crypto.decrypt(message.quotedBody, using: conversation.sharedKey)
+        let key = message.encryptionKeyHint ?? conversation.sharedKey
+        return crypto.decrypt(message.quotedBody, using: key)
     }
 
     func conversationSubtitle(_ conversation: ConversationRecord) -> String {
@@ -203,12 +233,14 @@ final class AppStore: ObservableObject {
         }
 
         let title = user(id: userID)?.displayName ?? "Новый чат"
+        let participantIDs = [state.session.currentUserID, userID].compactMap { $0 }
+        let conversationID = UUID()
         let conversation = ConversationRecord(
-            id: UUID(),
+            id: conversationID,
             category: .chats,
             title: title,
-            participantIDs: [state.session.currentUserID, userID].compactMap { $0 },
-            sharedKey: crypto.makeSharedKey(),
+            participantIDs: participantIDs,
+            sharedKey: resolvedConversationSharedKey(conversationID: conversationID, participantIDs: participantIDs, existingKey: nil),
             lastActivityAt: .now,
             unreadCount: 0,
             onlineUserID: userID,
@@ -541,6 +573,24 @@ final class AppStore: ObservableObject {
 
     func setChatRoomOpen(_ isOpen: Bool) {
         isChatRoomOpen = isOpen
+        if state.session.isAuthenticated {
+            startAutoSync()
+        }
+    }
+
+    func openConversation(_ conversationID: UUID) {
+        activeConversationID = conversationID
+        let lastReadMessageID = markConversationReadLocally(conversationID)
+        preloadAttachments(for: conversationID)
+        Task { @MainActor in
+            await markConversationReadOnServer(conversationID, lastReadMessageID: lastReadMessageID)
+        }
+    }
+
+    func closeConversation(_ conversationID: UUID) {
+        if activeConversationID == conversationID {
+            activeConversationID = nil
+        }
     }
 
     func logout() {
@@ -560,8 +610,12 @@ final class AppStore: ObservableObject {
         }
         activeCall = nil
         activeBackendCallID = nil
+        activeConversationID = nil
         stopPingTimer()
         stopAutoSync()
+        stopRealtime()
+        attachmentHydrationTasks.values.forEach { $0.cancel() }
+        attachmentHydrationTasks.removeAll()
     }
 
     func dismissRecoveryReveal() {
@@ -583,11 +637,12 @@ final class AppStore: ObservableObject {
             sentAt: .now,
             body: crypto.encrypt(text.trimmingCharacters(in: .whitespacesAndNewlines), using: sharedKey),
             quotedBody: quotedExcerpt.flatMap { crypto.encrypt($0, using: sharedKey) },
+            encryptionKeyHint: sharedKey,
             replyToMessageID: replyMessageID,
             forwardedFromTitle: nil,
             attachment: nil,
             reactions: [],
-            transfer: .sent,
+            transfer: MessageTransferState(phase: .sending, progress: 0.05),
             reportCount: 0
         )
 
@@ -597,6 +652,10 @@ final class AppStore: ObservableObject {
         }
 
         Task { @MainActor in
+            let metadata = makeMessageMetadata(
+                base: ["client": "ios"],
+                clientMessageID: message.id
+            )
             var payload: [String: Any] = [
                 "message_type": "text",
                 "body_ciphertext": message.body?.ciphertext ?? "",
@@ -605,7 +664,7 @@ final class AppStore: ObservableObject {
                 "quoted_ciphertext": message.quotedBody?.ciphertext ?? "",
                 "quoted_nonce": message.quotedBody?.nonce ?? "",
                 "quoted_tag": message.quotedBody?.tag ?? "",
-                "metadata": ["client": "ios"]
+                "metadata": metadata
             ]
             if let replyMessageID {
                 payload["reply_to_message_id"] = replyMessageID.uuidString
@@ -650,11 +709,12 @@ final class AppStore: ObservableObject {
             sentAt: .now,
             body: crypto.encrypt(sourceText, using: sharedKey),
             quotedBody: nil,
+            encryptionKeyHint: sharedKey,
             replyToMessageID: nil,
             forwardedFromTitle: sourceConversation.title,
             attachment: sourceMessage.attachment,
             reactions: [],
-            transfer: .sent,
+            transfer: MessageTransferState(phase: .sending, progress: 0.05),
             reportCount: 0
         )
 
@@ -664,13 +724,17 @@ final class AppStore: ObservableObject {
         }
 
         Task { @MainActor in
+            let metadata = makeMessageMetadata(
+                base: ["client": "ios", "forwarded": "true"],
+                clientMessageID: forwarded.id
+            )
             var payload: [String: Any] = [
                 "message_type": forwarded.attachment == nil ? "text" : backendMessageType(from: forwarded.attachment!.kind),
                 "body_ciphertext": forwarded.body?.ciphertext ?? "",
                 "body_nonce": forwarded.body?.nonce ?? "",
                 "body_tag": forwarded.body?.tag ?? "",
                 "forwarded_from_conversation_id": sourceConversationID.uuidString,
-                "metadata": ["client": "ios", "forwarded": "true"]
+                "metadata": metadata
             ]
             if let attachmentID = forwarded.attachment?.id {
                 payload["attachment_id"] = attachmentID.uuidString
@@ -680,7 +744,10 @@ final class AppStore: ObservableObject {
                 if let remoteID = UUID(uuidString: remote.id),
                    let cIndex = state.conversations.firstIndex(where: { $0.id == targetConversationID }),
                    let mIndex = state.conversations[cIndex].messages.firstIndex(where: { $0.id == forwarded.id }) {
-                    mutate { $0.conversations[cIndex].messages[mIndex].id = remoteID }
+                    mutate {
+                        $0.conversations[cIndex].messages[mIndex].id = remoteID
+                        $0.conversations[cIndex].messages[mIndex].transfer = .sent
+                    }
                 }
             } catch {
                 if let cIndex = state.conversations.firstIndex(where: { $0.id == targetConversationID }),
@@ -808,6 +875,7 @@ final class AppStore: ObservableObject {
             sentAt: .now,
             body: crypto.encrypt(attachment.name, using: sharedKey),
             quotedBody: quotedExcerpt.flatMap { crypto.encrypt($0, using: sharedKey) },
+            encryptionKeyHint: sharedKey,
             replyToMessageID: replyMessageID,
             forwardedFromTitle: nil,
             attachment: attachment,
@@ -841,11 +909,13 @@ final class AppStore: ObservableObject {
                     "quoted_nonce": message.quotedBody?.nonce ?? "",
                     "quoted_tag": message.quotedBody?.tag ?? "",
                     "attachment_id": attachmentID.uuidString,
-                    "metadata": [
+                    "metadata": makeMessageMetadata(base: [
                         "file_name": attachment.name,
                         "client": "ios",
-                        "duration": duration ?? 0
-                    ]
+                        "duration": duration ?? 0,
+                        "duration_seconds": Int((duration ?? 0).rounded()),
+                        "attachment_size_bytes": attachment.fileSizeBytes
+                    ], clientMessageID: messageID)
                 ]
                 if let replyMessageID {
                     payload["reply_to_message_id"] = replyMessageID.uuidString
@@ -1096,8 +1166,13 @@ final class AppStore: ObservableObject {
         var mapped: [ConversationRecord] = []
         for chat in chats {
             guard let conversationID = UUID(uuidString: chat.id) else { continue }
+            let participantIDs = chat.participantIDs.compactMap(UUID.init(uuidString:))
             let existingKey = state.conversations.first(where: { $0.id == conversationID })?.sharedKey
-            let sharedKey = existingKey ?? crypto.makeSharedKey()
+            let sharedKey = resolvedConversationSharedKey(
+                conversationID: conversationID,
+                participantIDs: participantIDs,
+                existingKey: existingKey
+            )
 
             for participantRaw in chat.participantIDs {
                 guard let participantID = UUID(uuidString: participantRaw) else { continue }
@@ -1107,6 +1182,7 @@ final class AppStore: ObservableObject {
                         firstName: "User",
                         lastName: participantRaw.prefix(6).uppercased(),
                         nickname: "@\(participantRaw.prefix(8))",
+                        e2ePublicKey: nil,
                         emailOrPhone: "",
                         bio: "",
                         trustLevel: .one,
@@ -1123,7 +1199,8 @@ final class AppStore: ObservableObject {
             }
 
             let messages = (try? await backend.listMessages(conversationID: chat.id, limit: 200)) ?? []
-            let localMessages = messages.compactMap { mapMessage($0, sharedKey: sharedKey) }
+            let existingMessages = state.conversations.first(where: { $0.id == conversationID })?.messages ?? []
+            let localMessages = mergeRemoteMessages(messages, existingMessages: existingMessages, sharedKey: sharedKey)
             let category: ConversationGroup = {
                 switch chat.kind {
                 case "group": return .groups
@@ -1134,7 +1211,7 @@ final class AppStore: ObservableObject {
             }()
 
             let onlinePeerID: UUID? = {
-                let participants = chat.participantIDs.compactMap(UUID.init(uuidString:))
+                let participants = participantIDs
                 guard let currentUserID = state.session.currentUserID else { return participants.first }
                 return participants.first(where: { $0 != currentUserID })
             }()
@@ -1143,7 +1220,7 @@ final class AppStore: ObservableObject {
                 id: conversationID,
                 category: category,
                 title: chat.title,
-                participantIDs: chat.participantIDs.compactMap(UUID.init(uuidString:)),
+                participantIDs: participantIDs,
                 sharedKey: sharedKey,
                 lastActivityAt: chat.updatedAt,
                 unreadCount: chat.unreadCount,
@@ -1161,6 +1238,7 @@ final class AppStore: ObservableObject {
             firstName: dto.firstName,
             lastName: dto.lastName,
             nickname: dto.nickname,
+            e2ePublicKey: sanitizedE2EPublicKey(dto.e2ePublicKey),
             emailOrPhone: dto.email,
             bio: "",
             trustLevel: trustLevel(from: dto.trustLevel),
@@ -1192,6 +1270,7 @@ final class AppStore: ObservableObject {
             firstName: nickname.replacingOccurrences(of: "@", with: ""),
             lastName: "",
             nickname: nickname,
+            e2ePublicKey: sanitizedE2EPublicKey(node.e2ePublicKey),
             emailOrPhone: node.uid,
             bio: "",
             trustLevel: trustLevel(from: node.trustLevel),
@@ -1256,15 +1335,19 @@ final class AppStore: ObservableObject {
         let attachment: MessageAttachment? = {
             guard let attachmentRaw = dto.attachmentID, let attachmentID = UUID(uuidString: attachmentRaw) else { return nil }
             let kind = attachmentKind(from: dto.messageType) ?? .file
-            let name = (dto.metadata?["file_name"]?.value.base as? String) ?? "Attachment"
+            let name = metadataString(dto.metadata, key: "file_name")
+                ?? metadataString(dto.metadata, key: "name")
+                ?? "Attachment"
+            let size = metadataInt64(dto.metadata, keys: ["attachment_size_bytes", "size_bytes"]) ?? 0
+            let duration = metadataTimeInterval(dto.metadata, keys: ["duration_seconds", "duration"])
             return MessageAttachment(
                 id: attachmentID,
                 kind: kind,
                 name: name,
                 localPath: nil,
                 previewPath: nil,
-                fileSizeBytes: 0,
-                duration: nil
+                fileSizeBytes: size,
+                duration: duration
             )
         }()
         let reactions: [MessageReaction] = (dto.reactions ?? []).map { reaction in
@@ -1280,6 +1363,7 @@ final class AppStore: ObservableObject {
             sentAt: dto.createdAt,
             body: envelope,
             quotedBody: quotedEnvelope,
+            encryptionKeyHint: sharedKeyFromMetadata(dto.metadata),
             replyToMessageID: dto.replyToMessageID.flatMap(UUID.init(uuidString:)),
             forwardedFromTitle: dto.forwardedFromConversationID,
             attachment: attachment,
@@ -1322,6 +1406,231 @@ final class AppStore: ObservableObject {
         TrustLevel(rawValue: min(max(raw, 1), 8)) ?? .one
     }
 
+    private func mergeRemoteMessages(_ remoteMessages: [QGMessageDTO], existingMessages: [MessageRecord], sharedKey: String) -> [MessageRecord] {
+        let existingByID = Dictionary(uniqueKeysWithValues: existingMessages.map { ($0.id, $0) })
+        var acknowledgedPendingIDs = Set<UUID>()
+        var merged: [MessageRecord] = []
+
+        for dto in remoteMessages {
+            guard var remote = mapMessage(dto, sharedKey: sharedKey) else { continue }
+
+            if let clientMessageID = clientMessageIDFromMetadata(dto.metadata),
+               let pending = existingByID[clientMessageID] {
+                acknowledgedPendingIDs.insert(clientMessageID)
+                remote = mergeRemoteMessage(local: pending, remote: remote)
+            } else if let local = existingByID[remote.id] {
+                remote = mergeRemoteMessage(local: local, remote: remote)
+            }
+
+            merged.append(remote)
+        }
+
+        for local in existingMessages {
+            if acknowledgedPendingIDs.contains(local.id) {
+                continue
+            }
+            if merged.contains(where: { $0.id == local.id }) {
+                continue
+            }
+            if local.transfer.phase != .sent {
+                merged.append(local)
+            }
+        }
+
+        return merged.sorted { $0.sentAt < $1.sentAt }
+    }
+
+    private func mergeRemoteMessage(local: MessageRecord, remote: MessageRecord) -> MessageRecord {
+        var merged = remote
+        if let localAttachment = local.attachment {
+            merged.attachment = mergeRemoteAttachment(local: localAttachment, remote: remote.attachment)
+        }
+        merged.transfer = .sent
+        return merged
+    }
+
+    private func mergeRemoteAttachment(local: MessageAttachment, remote: MessageAttachment?) -> MessageAttachment {
+        guard var merged = remote else {
+            return local
+        }
+
+        if merged.name == "Attachment", !local.name.isEmpty {
+            merged.name = local.name
+        }
+
+        if (merged.localPath == nil || !isLocalFileAvailable(merged.localPath)),
+           isLocalFileAvailable(local.localPath) {
+            merged.localPath = local.localPath
+        }
+
+        if (merged.previewPath == nil || !isLocalFileAvailable(merged.previewPath)),
+           isLocalFileAvailable(local.previewPath) {
+            merged.previewPath = local.previewPath
+        }
+
+        if merged.fileSizeBytes <= 0, local.fileSizeBytes > 0 {
+            merged.fileSizeBytes = local.fileSizeBytes
+        }
+
+        if (merged.duration == nil || (merged.duration ?? 0) <= 0), let localDuration = local.duration, localDuration > 0 {
+            merged.duration = localDuration
+        }
+
+        return merged
+    }
+
+    private func preloadAttachments(for conversationID: UUID) {
+        guard let conversation = conversation(id: conversationID) else { return }
+        for message in conversation.messages {
+            queueAttachmentHydrationIfNeeded(conversationID: conversationID, messageID: message.id)
+        }
+    }
+
+    private func queueAttachmentHydrationIfNeeded(conversationID: UUID, messageID: UUID) {
+        guard
+            let conversation = conversation(id: conversationID),
+            let message = conversation.messages.first(where: { $0.id == messageID }),
+            let attachment = message.attachment
+        else {
+            return
+        }
+
+        guard attachment.kind == .voiceNote || attachment.kind == .circularVideo else {
+            return
+        }
+
+        let needsLocalFile = !isLocalFileAvailable(attachment.localPath)
+        let needsPreview = attachment.kind == .circularVideo && !isLocalFileAvailable(attachment.previewPath)
+        let needsDuration = attachment.duration == nil || (attachment.duration ?? 0) <= 0
+        let needsSize = attachment.fileSizeBytes <= 0
+
+        guard needsLocalFile || needsPreview || needsDuration || needsSize else {
+            return
+        }
+
+        guard attachmentHydrationTasks[attachment.id] == nil else {
+            return
+        }
+
+        let attachmentID = attachment.id
+        attachmentHydrationTasks[attachmentID] = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.attachmentHydrationTasks[attachmentID] = nil }
+            await self.hydrateAttachment(attachmentID: attachmentID)
+        }
+    }
+
+    private func hydrateAttachment(attachmentID: UUID) async {
+        do {
+            let meta = try await backend.attachmentMeta(attachmentID: attachmentID.uuidString)
+            let existing = findAttachmentInState(attachmentID: attachmentID)
+
+            var resolvedLocalPath = isLocalFileAvailable(existing?.localPath) ? existing?.localPath : nil
+            var resolvedPreviewPath = isLocalFileAvailable(existing?.previewPath) ? existing?.previewPath : nil
+            var resolvedDuration = existing?.duration
+            var resolvedSize = max(existing?.fileSizeBytes ?? 0, meta.sizeBytes)
+
+            if let durationSeconds = meta.durationSeconds, durationSeconds > 0 {
+                resolvedDuration = max(resolvedDuration ?? 0, TimeInterval(durationSeconds))
+            }
+
+            if resolvedLocalPath == nil {
+                let payload = try await backend.attachmentDownload(attachmentID: attachmentID.uuidString)
+                let fileName = payload.suggestedFileName ?? meta.fileName
+                let savedURL = try QGMediaTools.writeDataIntoAppSupport(
+                    payload.data,
+                    folder: "attachments",
+                    fileName: fileName,
+                    mimeType: payload.mimeType ?? meta.mimeType
+                )
+                resolvedLocalPath = savedURL.path
+                resolvedSize = max(resolvedSize, QGMediaTools.fileSize(for: savedURL))
+
+                if (resolvedDuration == nil || (resolvedDuration ?? 0) <= 0) {
+                    resolvedDuration = await QGMediaTools.mediaDuration(for: savedURL)
+                }
+
+                if meta.kind == "circular_video", resolvedPreviewPath == nil {
+                    resolvedPreviewPath = try? await QGMediaTools.makeThumbnail(for: savedURL).path
+                }
+            } else if
+                (resolvedDuration == nil || (resolvedDuration ?? 0) <= 0),
+                let localPath = resolvedLocalPath
+            {
+                resolvedDuration = await QGMediaTools.mediaDuration(for: URL(fileURLWithPath: localPath))
+            }
+
+            if meta.kind == "circular_video",
+               resolvedPreviewPath == nil,
+               let localPath = resolvedLocalPath,
+               isLocalFileAvailable(localPath) {
+                resolvedPreviewPath = try? await QGMediaTools.makeThumbnail(for: URL(fileURLWithPath: localPath)).path
+            }
+
+            applyHydratedAttachment(
+                attachmentID: attachmentID,
+                fileName: meta.fileName,
+                localPath: resolvedLocalPath,
+                previewPath: resolvedPreviewPath,
+                fileSizeBytes: resolvedSize,
+                duration: resolvedDuration
+            )
+        } catch {
+            // Keep placeholder attachment state; hydrate again on the next sync/open.
+        }
+    }
+
+    private func findAttachmentInState(attachmentID: UUID) -> MessageAttachment? {
+        for conversation in state.conversations {
+            if let attachment = conversation.messages.compactMap(\.attachment).first(where: { $0.id == attachmentID }) {
+                return attachment
+            }
+        }
+        return nil
+    }
+
+    private func applyHydratedAttachment(
+        attachmentID: UUID,
+        fileName: String,
+        localPath: String?,
+        previewPath: String?,
+        fileSizeBytes: Int64,
+        duration: TimeInterval?
+    ) {
+        mutate { state in
+            for conversationIndex in state.conversations.indices {
+                for messageIndex in state.conversations[conversationIndex].messages.indices {
+                    guard var attachment = state.conversations[conversationIndex].messages[messageIndex].attachment,
+                          attachment.id == attachmentID else {
+                        continue
+                    }
+
+                    if attachment.name == "Attachment" || attachment.name.isEmpty {
+                        attachment.name = fileName
+                    }
+                    if let localPath, !localPath.isEmpty {
+                        attachment.localPath = localPath
+                    }
+                    if let previewPath, !previewPath.isEmpty {
+                        attachment.previewPath = previewPath
+                    }
+                    if fileSizeBytes > 0 {
+                        attachment.fileSizeBytes = fileSizeBytes
+                    }
+                    if let duration, duration > 0 {
+                        attachment.duration = duration
+                    }
+                    state.conversations[conversationIndex].messages[messageIndex].attachment = attachment
+                }
+            }
+        }
+    }
+
+    private func isLocalFileAvailable(_ path: String?) -> Bool {
+        guard let path, !path.isEmpty else { return false }
+        return FileManager.default.fileExists(atPath: path)
+    }
+
     private func friendlySystemText(ciphertext: String) -> String? {
         switch ciphertext {
         case "WELCOME_QGRAMM":
@@ -1331,6 +1640,207 @@ final class AppStore: ObservableObject {
         default:
             return nil
         }
+    }
+
+    private func makeMessageMetadata(base: [String: Any], clientMessageID: UUID) -> [String: Any] {
+        var metadata = base
+        metadata[Self.clientMessageIDMetadataField] = clientMessageID.uuidString
+        return metadata
+    }
+
+    private func sharedKeyFromMetadata(_ metadata: [String: QGJSONValue]?) -> String? {
+        guard let raw = metadata?[Self.legacyE2ESharedKeyMetadataField]?.value.base as? String else {
+            return nil
+        }
+        let key = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty, Data(base64Encoded: key) != nil else {
+            return nil
+        }
+        return key
+    }
+
+    private func clientMessageIDFromMetadata(_ metadata: [String: QGJSONValue]?) -> UUID? {
+        guard let raw = metadata?[Self.clientMessageIDMetadataField]?.value.base as? String else {
+            return nil
+        }
+        return UUID(uuidString: raw)
+    }
+
+    private func metadataString(_ metadata: [String: QGJSONValue]?, key: String) -> String? {
+        guard let raw = metadata?[key]?.value.base else { return nil }
+        if let value = raw as? String {
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        if let value = raw as? CustomStringConvertible {
+            let text = value.description.trimmingCharacters(in: .whitespacesAndNewlines)
+            return text.isEmpty ? nil : text
+        }
+        return nil
+    }
+
+    private func metadataInt64(_ metadata: [String: QGJSONValue]?, keys: [String]) -> Int64? {
+        for key in keys {
+            guard let raw = metadata?[key]?.value.base else { continue }
+            if let value = toInt64(raw), value > 0 {
+                return value
+            }
+        }
+        return nil
+    }
+
+    private func metadataTimeInterval(_ metadata: [String: QGJSONValue]?, keys: [String]) -> TimeInterval? {
+        for key in keys {
+            guard let raw = metadata?[key]?.value.base else { continue }
+            if let seconds = toTimeInterval(raw), seconds > 0 {
+                return seconds
+            }
+        }
+        return nil
+    }
+
+    private func toInt64(_ raw: Any) -> Int64? {
+        switch raw {
+        case let value as Int:
+            return Int64(value)
+        case let value as Int8:
+            return Int64(value)
+        case let value as Int16:
+            return Int64(value)
+        case let value as Int32:
+            return Int64(value)
+        case let value as Int64:
+            return value
+        case let value as UInt:
+            return Int64(value)
+        case let value as UInt8:
+            return Int64(value)
+        case let value as UInt16:
+            return Int64(value)
+        case let value as UInt32:
+            return Int64(value)
+        case let value as UInt64:
+            guard value <= UInt64(Int64.max) else { return nil }
+            return Int64(value)
+        case let value as Double:
+            return Int64(value.rounded())
+        case let value as Float:
+            return Int64(value.rounded())
+        case let value as String:
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let intValue = Int64(trimmed) {
+                return intValue
+            }
+            if let doubleValue = Double(trimmed) {
+                return Int64(doubleValue.rounded())
+            }
+            return nil
+        default:
+            return nil
+        }
+    }
+
+    private func toTimeInterval(_ raw: Any) -> TimeInterval? {
+        switch raw {
+        case let value as Double:
+            return value
+        case let value as Float:
+            return TimeInterval(value)
+        default:
+            if let intValue = toInt64(raw) {
+                return TimeInterval(intValue)
+            }
+            return nil
+        }
+    }
+
+    private func derivedSharedKey(conversationID: UUID, participantIDs: [UUID]) -> String {
+        let memberIDs = participantIDs
+            .map { $0.uuidString.lowercased() }
+            .sorted()
+            .joined(separator: ",")
+        let material = "qgramm:e2e:v1:\(conversationID.uuidString.lowercased()):\(memberIDs)"
+        let digest = SHA256.hash(data: Data(material.utf8))
+        return Data(digest).base64EncodedString()
+    }
+
+    private func ensureE2EIdentityPublishedIfNeeded(remoteUser: QGAuthUserDTO) async -> QGAuthUserDTO {
+        let identity = ensureLocalE2EIdentity()
+        let localPublicKey = identity.publicKey
+        let remotePublicKey = sanitizedE2EPublicKey(remoteUser.e2ePublicKey) ?? ""
+
+        if remotePublicKey == localPublicKey {
+            return remoteUser
+        }
+
+        // Do not rotate a published key silently: this would break decryptability on other devices.
+        if !remotePublicKey.isEmpty {
+            return remoteUser
+        }
+
+        do {
+            let updated = try await backend.updateMe(
+                firstName: remoteUser.firstName,
+                lastName: remoteUser.lastName,
+                nickname: remoteUser.nickname,
+                avatarPath: remoteUser.avatarURL,
+                metadata: ["e2e_public_key": localPublicKey]
+            )
+            return updated
+        } catch {
+            return remoteUser
+        }
+    }
+
+    private func ensureLocalE2EIdentity() -> (privateKey: String, publicKey: String) {
+        let defaults = UserDefaults.standard
+        let storedPrivate = defaults.string(forKey: Self.e2ePrivateKeyStorageKey)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let storedPublic = defaults.string(forKey: Self.e2ePublicKeyStorageKey)?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if
+            let storedPrivate, !storedPrivate.isEmpty,
+            let storedPublic, !storedPublic.isEmpty
+        {
+            return (storedPrivate, storedPublic)
+        }
+
+        let pair = crypto.makeIdentityKeyPair()
+        defaults.set(pair.privateKey, forKey: Self.e2ePrivateKeyStorageKey)
+        defaults.set(pair.publicKey, forKey: Self.e2ePublicKeyStorageKey)
+        return pair
+    }
+
+    private func resolvedConversationSharedKey(conversationID: UUID, participantIDs: [UUID], existingKey: String?) -> String {
+        if let directKey = directConversationSharedKey(conversationID: conversationID, participantIDs: participantIDs) {
+            return directKey
+        }
+
+        if let existingKey, !existingKey.isEmpty {
+            return existingKey
+        }
+
+        return derivedSharedKey(conversationID: conversationID, participantIDs: participantIDs)
+    }
+
+    private func directConversationSharedKey(conversationID: UUID, participantIDs: [UUID]) -> String? {
+        guard participantIDs.count == 2 else { return nil }
+        guard let currentUserID = state.session.currentUserID else { return nil }
+        guard let peerID = participantIDs.first(where: { $0 != currentUserID }) else { return nil }
+        guard let peerPublicKey = sanitizedE2EPublicKey(user(id: peerID)?.e2ePublicKey) else { return nil }
+
+        let identity = ensureLocalE2EIdentity()
+        return crypto.deriveDirectConversationKey(
+            privateKeyBase64: identity.privateKey,
+            peerPublicKeyBase64: peerPublicKey,
+            conversationID: conversationID
+        )
+    }
+
+    private func sanitizedE2EPublicKey(_ raw: String?) -> String? {
+        guard let raw else { return nil }
+        let key = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty, Data(base64Encoded: key) != nil else { return nil }
+        return key
     }
 
     private func mergeInvites(existing: [InviteRecord], remote: [InviteRecord]) -> [InviteRecord] {
@@ -1460,6 +1970,9 @@ final class AppStore: ObservableObject {
                 self.refreshPing()
                 if online, self.state.session.isAuthenticated {
                     try? await self.refreshFromServer()
+                    self.ensureRealtimeConnected()
+                } else if !online {
+                    self.stopRealtime()
                 }
             }
         }
@@ -1494,7 +2007,8 @@ final class AppStore: ObservableObject {
     private func startAutoSync() {
         stopAutoSync()
         guard state.session.isAuthenticated, !state.session.accessToken.isEmpty else { return }
-        syncTimer = Timer.scheduledTimer(withTimeInterval: 8, repeats: true) { [weak self] _ in
+        let interval = isChatRoomOpen ? 2.5 : 4.0
+        syncTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
                 if self.state.session.isAuthenticated {
@@ -1507,6 +2021,203 @@ final class AppStore: ObservableObject {
     private func stopAutoSync() {
         syncTimer?.invalidate()
         syncTimer = nil
+    }
+
+    private func ensureRealtimeConnected() {
+        guard isOnline, state.session.isAuthenticated, !state.session.accessToken.isEmpty else {
+            stopRealtime()
+            return
+        }
+        guard realtimeTask == nil else { return }
+        startRealtime()
+    }
+
+    private func startRealtime() {
+        guard realtimeTask == nil else { return }
+        do {
+            let request = try backend.webSocketRequest()
+            let task = URLSession.shared.webSocketTask(with: request)
+            realtimeTask = task
+            task.resume()
+            listenRealtime(on: task)
+        } catch {
+            scheduleRealtimeReconnect()
+        }
+    }
+
+    private func stopRealtime() {
+        realtimeTask?.cancel(with: .goingAway, reason: nil)
+        realtimeTask = nil
+        realtimeReconnectTask?.cancel()
+        realtimeReconnectTask = nil
+    }
+
+    private func scheduleRealtimeReconnect() {
+        guard isOnline, state.session.isAuthenticated, realtimeReconnectTask == nil else { return }
+        realtimeReconnectTask = Task { @MainActor in
+            defer { realtimeReconnectTask = nil }
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            guard isOnline, state.session.isAuthenticated else { return }
+            if realtimeTask == nil {
+                startRealtime()
+            }
+        }
+    }
+
+    private func listenRealtime(on task: URLSessionWebSocketTask) {
+        task.receive { [weak self] result in
+            Task { @MainActor in
+                guard let self, self.realtimeTask === task else { return }
+                switch result {
+                case let .success(message):
+                    switch message {
+                    case let .string(text):
+                        self.handleRealtimeEnvelopeData(Data(text.utf8))
+                    case let .data(data):
+                        self.handleRealtimeEnvelopeData(data)
+                    @unknown default:
+                        break
+                    }
+                    self.listenRealtime(on: task)
+                case .failure:
+                    self.realtimeTask = nil
+                    self.scheduleRealtimeReconnect()
+                }
+            }
+        }
+    }
+
+    private func handleRealtimeEnvelopeData(_ data: Data) {
+        guard let envelope = try? backend.decodeRealtimeEnvelope(data) else { return }
+        switch envelope.type {
+        case "message.created":
+            if let message = envelope.payload.message {
+                applyRealtimeMessage(message)
+            }
+        case "reaction.updated":
+            applyRealtimeReaction(envelope.payload)
+        default:
+            break
+        }
+    }
+
+    private func applyRealtimeMessage(_ dto: QGMessageDTO) {
+        guard let conversationID = UUID(uuidString: dto.conversationID) else { return }
+
+        guard let conversationIndex = state.conversations.firstIndex(where: { $0.id == conversationID }) else {
+            Task { @MainActor in
+                try? await refreshFromServer()
+            }
+            return
+        }
+
+        let currentUserID = state.session.currentUserID
+        let isActiveConversation = activeConversationID == conversationID
+        let conversationSharedKey = state.conversations[conversationIndex].sharedKey
+        guard let mappedMessage = mapMessage(dto, sharedKey: conversationSharedKey) else { return }
+        let ackClientMessageID = clientMessageIDFromMetadata(dto.metadata)
+
+        mutate { state in
+            guard let index = state.conversations.firstIndex(where: { $0.id == conversationID }) else { return }
+
+            if let ackClientMessageID,
+               mappedMessage.senderID == currentUserID,
+               let pendingIndex = state.conversations[index].messages.firstIndex(where: { $0.id == ackClientMessageID }) {
+                state.conversations[index].messages[pendingIndex].id = mappedMessage.id
+                state.conversations[index].messages[pendingIndex].sentAt = mappedMessage.sentAt
+                state.conversations[index].messages[pendingIndex].transfer = .sent
+                if state.conversations[index].messages[pendingIndex].attachment?.id == nil,
+                   let remoteAttachmentID = mappedMessage.attachment?.id {
+                    state.conversations[index].messages[pendingIndex].attachment?.id = remoteAttachmentID
+                }
+            } else if let existingIndex = state.conversations[index].messages.firstIndex(where: { $0.id == mappedMessage.id }) {
+                state.conversations[index].messages[existingIndex] = mappedMessage
+            } else {
+                state.conversations[index].messages.append(mappedMessage)
+            }
+
+            state.conversations[index].messages.sort { $0.sentAt < $1.sentAt }
+            state.conversations[index].lastActivityAt = max(state.conversations[index].lastActivityAt, mappedMessage.sentAt)
+
+            if mappedMessage.senderID != currentUserID {
+                if isActiveConversation {
+                    state.conversations[index].unreadCount = 0
+                } else {
+                    state.conversations[index].unreadCount += 1
+                }
+            }
+
+            state.conversations.sort { $0.lastActivityAt > $1.lastActivityAt }
+        }
+
+        queueAttachmentHydrationIfNeeded(conversationID: conversationID, messageID: mappedMessage.id)
+
+        if mappedMessage.senderID != currentUserID, isActiveConversation {
+            Task { @MainActor in
+                await markConversationReadOnServer(conversationID, lastReadMessageID: mappedMessage.id)
+            }
+        }
+    }
+
+    private func applyRealtimeReaction(_ payload: QGRealtimePayloadDTO) {
+        guard
+            let conversationRaw = payload.conversationID,
+            let conversationID = UUID(uuidString: conversationRaw),
+            let messageRaw = payload.messageID,
+            let messageID = UUID(uuidString: messageRaw),
+            let emoji = payload.emoji,
+            let userRaw = payload.userID,
+            let userID = UUID(uuidString: userRaw),
+            let action = payload.action
+        else {
+            return
+        }
+
+        guard let conversationIndex = state.conversations.firstIndex(where: { $0.id == conversationID }),
+              let messageIndex = state.conversations[conversationIndex].messages.firstIndex(where: { $0.id == messageID }) else {
+            return
+        }
+
+        mutate { state in
+            var reactions = state.conversations[conversationIndex].messages[messageIndex].reactions
+            if let reactionIndex = reactions.firstIndex(where: { $0.emoji == emoji }) {
+                if action == "add" {
+                    if !reactions[reactionIndex].userIDs.contains(userID) {
+                        reactions[reactionIndex].userIDs.append(userID)
+                    }
+                } else {
+                    reactions[reactionIndex].userIDs.removeAll(where: { $0 == userID })
+                    if reactions[reactionIndex].userIDs.isEmpty {
+                        reactions.removeAll(where: { $0.emoji == emoji })
+                    }
+                }
+            } else if action == "add" {
+                reactions.append(MessageReaction(emoji: emoji, userIDs: [userID]))
+            }
+            state.conversations[conversationIndex].messages[messageIndex].reactions = reactions
+        }
+    }
+
+    private func markConversationReadLocally(_ conversationID: UUID) -> UUID? {
+        guard let index = state.conversations.firstIndex(where: { $0.id == conversationID }) else {
+            return nil
+        }
+        let lastMessageID = state.conversations[index].messages.sorted(by: { $0.sentAt < $1.sentAt }).last?.id
+        mutate {
+            $0.conversations[index].unreadCount = 0
+        }
+        return lastMessageID
+    }
+
+    private func markConversationReadOnServer(_ conversationID: UUID, lastReadMessageID: UUID? = nil) async {
+        do {
+            try await backend.markConversationRead(
+                conversationID: conversationID.uuidString,
+                lastReadMessageID: lastReadMessageID?.uuidString
+            )
+        } catch {
+            // Keep local read state even when network is unstable.
+        }
     }
 
     private func refreshPing() {
@@ -1545,6 +2256,7 @@ final class AppStore: ObservableObject {
             sentAt: .now,
             body: crypto.encrypt(text, using: sharedKey),
             quotedBody: nil,
+            encryptionKeyHint: sharedKey,
             replyToMessageID: nil,
             forwardedFromTitle: nil,
             attachment: nil,
@@ -1599,6 +2311,7 @@ final class AppStore: ObservableObject {
                 firstName: "Root",
                 lastName: "Admin",
                 nickname: "@root",
+                e2ePublicKey: nil,
                 emailOrPhone: "root@qgramm.local",
                 bio: "Invitation graph administrator",
                 trustLevel: .eight,
@@ -1615,6 +2328,7 @@ final class AppStore: ObservableObject {
                 firstName: "Михаил",
                 lastName: "Гуменюк",
                 nickname: "@mike",
+                e2ePublicKey: nil,
                 emailOrPhone: "mike@qgramm.app",
                 bio: "Invite-only product owner",
                 trustLevel: .five,
@@ -1631,6 +2345,7 @@ final class AppStore: ObservableObject {
                 firstName: "Илья",
                 lastName: "Бурмоличенко",
                 nickname: "@ilya",
+                e2ePublicKey: nil,
                 emailOrPhone: "ilya@qgramm.app",
                 bio: "Core chat contact",
                 trustLevel: .three,
@@ -1647,6 +2362,7 @@ final class AppStore: ObservableObject {
                 firstName: "Евгений",
                 lastName: "Шегай",
                 nickname: "@evgeny",
+                e2ePublicKey: nil,
                 emailOrPhone: "evgeny@qgramm.app",
                 bio: "Thread participant",
                 trustLevel: .two,
@@ -1663,6 +2379,7 @@ final class AppStore: ObservableObject {
                 firstName: "QGramm",
                 lastName: "News",
                 nickname: "@updates",
+                e2ePublicKey: nil,
                 emailOrPhone: "updates@qgramm.app",
                 bio: "Service channel",
                 trustLevel: .eight,
@@ -1683,6 +2400,7 @@ final class AppStore: ObservableObject {
                 sentAt: .now.addingTimeInterval(-minutesAgo * 60),
                 body: crypto.encrypt(text, using: key),
                 quotedBody: nil,
+                encryptionKeyHint: key,
                 replyToMessageID: nil,
                 forwardedFromTitle: nil,
                 attachment: nil,

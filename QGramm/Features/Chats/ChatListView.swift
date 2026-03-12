@@ -1,3 +1,4 @@
+import AVFoundation
 import AVKit
 import PhotosUI
 import SwiftUI
@@ -775,7 +776,11 @@ struct ChatRoomView: View {
                 )
             }
         }
+        .onAppear {
+            store.openConversation(conversationID)
+        }
         .onDisappear {
+            store.closeConversation(conversationID)
             if audio.isRecording {
                 cancelVoiceRecording()
             }
@@ -1282,13 +1287,12 @@ struct ChatRoomView: View {
                 VStack {
                     Spacer(minLength: 70)
                     ZStack {
-                        if let image = UIImage(named: "ProfilePhoto") {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFill()
-                        } else {
-                            Circle().fill(QGTheme.Palette.bubbleOutgoingSoft)
-                        }
+                        CircularCameraPreview(session: videoRecorder.previewSession)
+                            .clipShape(Circle())
+                            .overlay(
+                                Circle()
+                                    .fill(.black.opacity(0.08))
+                            )
 
                         Circle()
                             .stroke(.white.opacity(0.92), lineWidth: 3)
@@ -1470,7 +1474,14 @@ private struct MessageBubbleView: View {
                         Text(QGFormatters.messageTime.string(from: message.sentAt))
                     }
                     if message.transfer.phase == .sending {
-                        Text("\(Int(message.transfer.progress * 100))%")
+                        Image(systemName: "clock")
+                            .font(.system(size: 10, weight: .bold))
+                        if message.attachment != nil {
+                            Text("\(max(Int(message.transfer.progress * 100), 1))%")
+                        }
+                    } else if message.transfer.phase == .failed {
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .font(.system(size: 10, weight: .bold))
                     }
                     if message.reportCount > 0 {
                         Text("жалоб: \(message.reportCount)")
@@ -1608,6 +1619,71 @@ private struct MediaAttachmentView: View {
     }
 }
 
+private struct CircularCameraPreview: UIViewRepresentable {
+    let session: AVCaptureSession
+
+    func makeUIView(context: Context) -> CircularCameraPreviewView {
+        let view = CircularCameraPreviewView()
+        view.updateSession(session)
+        return view
+    }
+
+    func updateUIView(_ uiView: CircularCameraPreviewView, context: Context) {
+        uiView.updateSession(session)
+    }
+}
+
+private final class CircularCameraPreviewView: UIView {
+    override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
+
+    private var previewLayer: AVCaptureVideoPreviewLayer {
+        guard let layer = self.layer as? AVCaptureVideoPreviewLayer else {
+            fatalError("Expected AVCaptureVideoPreviewLayer")
+        }
+        return layer
+    }
+
+    func updateSession(_ session: AVCaptureSession) {
+        if previewLayer.session !== session {
+            previewLayer.session = session
+        }
+        previewLayer.videoGravity = .resizeAspectFill
+        previewLayer.connection?.videoOrientation = .portrait
+    }
+}
+
+private struct CircularVideoPlayer: UIViewRepresentable {
+    let player: AVPlayer
+
+    func makeUIView(context: Context) -> CircularVideoPlayerView {
+        let view = CircularVideoPlayerView()
+        view.updatePlayer(player)
+        return view
+    }
+
+    func updateUIView(_ uiView: CircularVideoPlayerView, context: Context) {
+        uiView.updatePlayer(player)
+    }
+}
+
+private final class CircularVideoPlayerView: UIView {
+    override class var layerClass: AnyClass { AVPlayerLayer.self }
+
+    private var playerLayer: AVPlayerLayer {
+        guard let layer = self.layer as? AVPlayerLayer else {
+            fatalError("Expected AVPlayerLayer")
+        }
+        return layer
+    }
+
+    func updatePlayer(_ player: AVPlayer) {
+        if playerLayer.player !== player {
+            playerLayer.player = player
+        }
+        playerLayer.videoGravity = .resizeAspectFill
+    }
+}
+
 private struct CircularVideoAttachmentView: View {
     let previewPath: String?
 
@@ -1678,8 +1754,8 @@ private struct CircularVideoViewerSheet: View {
 
                 Spacer(minLength: 0)
 
-                if playableURL != nil {
-                    VideoPlayer(player: player)
+                if let player {
+                    CircularVideoPlayer(player: player)
                         .clipShape(Circle())
                         .frame(width: 300, height: 300)
                         .overlay(Circle().stroke(QGTheme.Palette.accent.opacity(0.6), lineWidth: 2))
