@@ -114,7 +114,7 @@ FROM invites
 WHERE inviter_user_id = $1
 `
     if !includeRevoked {
-        query += `AND is_revoked = FALSE\n`
+        query += "AND is_revoked = FALSE\n"
     }
     query += `ORDER BY created_at DESC`
 

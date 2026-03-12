@@ -34,7 +34,9 @@ final class AppStore: ObservableObject {
     private var activeBackendCallID: String?
     private var realtimeTask: URLSessionWebSocketTask?
     private var realtimeReconnectTask: Task<Void, Never>?
+    private var refreshTask: Task<Void, Error>?
     private var activeConversationID: UUID?
+    private var lastReadReceiptByConversation: [UUID: UUID] = [:]
     private var attachmentHydrationTasks: [UUID: Task<Void, Never>] = [:]
 
     private static let legacyE2ESharedKeyMetadataField = "e2e_shared_key_v1"
@@ -124,6 +126,20 @@ final class AppStore: ObservableObject {
     }
 
     func refreshFromServer() async throws {
+        if let refreshTask {
+            try await refreshTask.value
+            return
+        }
+
+        let task = Task { @MainActor in
+            try await performRefreshFromServer()
+        }
+        refreshTask = task
+        defer { refreshTask = nil }
+        try await task.value
+    }
+
+    private func performRefreshFromServer() async throws {
         var me = try await backend.me()
         upsertUser(from: me)
         me = await ensureE2EIdentityPublishedIfNeeded(remoteUser: me)
@@ -589,6 +605,7 @@ final class AppStore: ObservableObject {
         preloadAttachments(for: conversationID)
         Task { @MainActor in
             await markConversationReadOnServer(conversationID, lastReadMessageID: lastReadMessageID)
+            await refreshConversationMessages(conversationID)
         }
     }
 
@@ -616,6 +633,9 @@ final class AppStore: ObservableObject {
         activeCall = nil
         activeBackendCallID = nil
         activeConversationID = nil
+        refreshTask?.cancel()
+        refreshTask = nil
+        lastReadReceiptByConversation.removeAll()
         stopPingTimer()
         stopAutoSync()
         stopRealtime()
@@ -1306,9 +1326,16 @@ final class AppStore: ObservableObject {
                 }
             }
 
-            let existingMessages = state.conversations.first(where: { $0.id == conversationID })?.messages ?? []
+            let existingConversation = state.conversations.first(where: { $0.id == conversationID })
+            let existingMessages = existingConversation?.messages ?? []
             let localMessages: [MessageRecord]
-            if let messages = try? await backend.listMessages(conversationID: chat.id, limit: 200) {
+            if shouldFetchRemoteMessages(
+                conversationID: conversationID,
+                remoteUpdatedAt: chat.updatedAt,
+                remoteUnreadCount: chat.unreadCount,
+                existingConversation: existingConversation
+            ),
+               let messages = try? await backend.listMessages(conversationID: chat.id, limit: 200) {
                 localMessages = mergeRemoteMessages(messages, existingMessages: existingMessages, sharedKey: sharedKey)
             } else {
                 localMessages = existingMessages.sorted { $0.sentAt < $1.sentAt }
@@ -1341,6 +1368,48 @@ final class AppStore: ObservableObject {
             ))
         }
         return mapped
+    }
+
+    private func shouldFetchRemoteMessages(
+        conversationID: UUID,
+        remoteUpdatedAt: Date,
+        remoteUnreadCount: Int,
+        existingConversation: ConversationRecord?
+    ) -> Bool {
+        guard let existingConversation else { return true }
+        if activeConversationID == conversationID {
+            return true
+        }
+        if existingConversation.messages.isEmpty {
+            return true
+        }
+        if remoteUnreadCount > 0 {
+            return true
+        }
+        return remoteUpdatedAt > existingConversation.lastActivityAt.addingTimeInterval(0.5)
+    }
+
+    private func refreshConversationMessages(_ conversationID: UUID) async {
+        guard let conversationIndex = state.conversations.firstIndex(where: { $0.id == conversationID }) else {
+            return
+        }
+
+        let sharedKey = state.conversations[conversationIndex].sharedKey
+        let existingMessages = state.conversations[conversationIndex].messages
+
+        guard let messages = try? await backend.listMessages(conversationID: conversationID.uuidString, limit: 200) else {
+            return
+        }
+        let merged = mergeRemoteMessages(messages, existingMessages: existingMessages, sharedKey: sharedKey)
+            .sorted { $0.sentAt < $1.sentAt }
+
+        mutate {
+            guard let index = $0.conversations.firstIndex(where: { $0.id == conversationID }) else { return }
+            $0.conversations[index].messages = merged
+            if let last = merged.last {
+                $0.conversations[index].lastActivityAt = max($0.conversations[index].lastActivityAt, last.sentAt)
+            }
+        }
     }
 
     private func upsertUser(from dto: QGAuthUserDTO) {
@@ -2314,7 +2383,10 @@ final class AppStore: ObservableObject {
         guard let index = state.conversations.firstIndex(where: { $0.id == conversationID }) else {
             return nil
         }
-        let lastMessageID = state.conversations[index].messages.sorted(by: { $0.sentAt < $1.sentAt }).last?.id
+        let lastMessageID = state.conversations[index].messages
+            .sorted(by: { $0.sentAt < $1.sentAt })
+            .last(where: { $0.transfer.phase == .sent })?
+            .id
         mutate {
             $0.conversations[index].unreadCount = 0
         }
@@ -2322,11 +2394,17 @@ final class AppStore: ObservableObject {
     }
 
     private func markConversationReadOnServer(_ conversationID: UUID, lastReadMessageID: UUID? = nil) async {
+        if let lastReadMessageID, lastReadReceiptByConversation[conversationID] == lastReadMessageID {
+            return
+        }
         do {
             try await backend.markConversationRead(
                 conversationID: conversationID.uuidString,
                 lastReadMessageID: lastReadMessageID?.uuidString
             )
+            if let lastReadMessageID {
+                lastReadReceiptByConversation[conversationID] = lastReadMessageID
+            }
         } catch {
             // Keep local read state even when network is unstable.
         }

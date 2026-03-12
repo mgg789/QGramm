@@ -24,7 +24,7 @@ import (
 type contextKey string
 
 const identityKey contextKey = "identity"
-const debugBodyPreviewLimit = 4096
+const debugBodyPreviewLimit = 512
 
 var (
 	jsonSecretValuePattern = regexp.MustCompile(`(?i)"(access_token|refresh_token|password|code)"\s*:\s*"[^"]*"`)
@@ -52,6 +52,9 @@ func requestDebugLogger(next http.Handler) http.Handler {
 		statusCode := loggingWriter.Status()
 		requestBodyPreview := bodyPreview(requestBodyCapture, r.Header.Get("Content-Type"))
 		responseBodyPreview := bodyPreview(responseBodyCapture, loggingWriter.Header().Get("Content-Type"))
+		if shouldOmitVerboseBodyPreview(r, statusCode) {
+			responseBodyPreview = fmt.Sprintf("omitted for high-frequency endpoint (%d bytes)", responseBodyCapture.totalSize)
+		}
 
 		query := sanitizeQuery(r.URL.RawQuery)
 		remoteIP := strings.TrimSpace(r.RemoteAddr)
@@ -83,6 +86,20 @@ func requestDebugLogger(next http.Handler) http.Handler {
 			)
 		}
 	})
+}
+
+func shouldOmitVerboseBodyPreview(r *http.Request, statusCode int) bool {
+	if statusCode >= http.StatusBadRequest {
+		return false
+	}
+	if r.Method != http.MethodGet {
+		return false
+	}
+	path := strings.ToLower(strings.TrimSpace(r.URL.Path))
+	if strings.HasSuffix(path, "/messages") {
+		return true
+	}
+	return false
 }
 
 func withIdentity(ctx context.Context, identity services.Identity) context.Context {
