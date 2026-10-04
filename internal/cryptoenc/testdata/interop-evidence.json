@@ -1,0 +1,145 @@
+{
+  "date": "2026-10-04",
+  "mls_go": {
+    "version": "v1.3.0",
+    "commit": "e7ef547b6bab2a63a83aaed6fcce949b71a11139"
+  },
+  "openmls": {
+    "commit": "4f407c45857d177e7b5933d32795307b4f14b196",
+    "protocol_modified": false,
+    "wire_policy_modified": false
+  },
+  "suite": 1,
+  "scope": "upstream library matrix plus production adapter durable restart/replay/epoch and actual AI HTTP lifecycle against independent OpenMLS; provider is local HTTPS fixture",
+  "runs": [
+    {
+      "name": "welcome-suite1",
+      "assignments": 32,
+      "cross_assignments": 16,
+      "errors": 0,
+      "exit_code": 0,
+      "scenarios": [
+        "no_path_secret",
+        "with_external_tree",
+        "with_path_secret",
+        "with_psk"
+      ],
+      "failures": []
+    },
+    {
+      "name": "application-suite1",
+      "assignments": 24,
+      "cross_assignments": 12,
+      "errors": 0,
+      "exit_code": 0,
+      "scenarios": [
+        "in_order",
+        "out_of_order_across_epochs",
+        "out_of_order_within_epoch"
+      ],
+      "failures": []
+    },
+    {
+      "name": "commit-public-suite1",
+      "assignments": 436,
+      "cross_assignments": 400,
+      "errors": 0,
+      "exit_code": 0,
+      "scenarios": [
+        "add",
+        "all_together_alice_proposes",
+        "all_together_bob_proposes",
+        "empty",
+        "external_psk",
+        "group_context_extensions",
+        "remove",
+        "resumption_psk",
+        "update"
+      ],
+      "failures": []
+    },
+    {
+      "name": "commit-suite1",
+      "assignments": 21,
+      "cross_assignments": 13,
+      "errors": 8,
+      "exit_code": 1,
+      "scenarios": [
+        "add",
+        "all_together_alice_proposes",
+        "all_together_bob_proposes",
+        "empty",
+        "external_psk",
+        "group_context_extensions",
+        "remove",
+        "resumption_psk",
+        "update"
+      ],
+      "failures": [
+        {
+          "scenario": "add",
+          "step": 6,
+          "error": "rpc error: code = Aborted desc = mls group error The message's wire format is incompatible with the group's wire format policy."
+        },
+        {
+          "scenario": "all_together_alice_proposes",
+          "step": 5,
+          "error": "rpc error: code = Aborted desc = mls group error The message's wire format is incompatible with the group's wire format policy."
+        },
+        {
+          "scenario": "all_together_bob_proposes",
+          "step": 5,
+          "error": "rpc error: code = Aborted desc = mls group error The message's wire format is incompatible with the group's wire format policy."
+        },
+        {
+          "scenario": "external_psk",
+          "step": 6,
+          "error": "rpc error: code = Aborted desc = mls group error The message's wire format is incompatible with the group's wire format policy."
+        },
+        {
+          "scenario": "group_context_extensions",
+          "step": 2,
+          "error": "rpc error: code = Aborted desc = mls group error The message's wire format is incompatible with the group's wire format policy."
+        },
+        {
+          "scenario": "remove",
+          "step": 10,
+          "error": "rpc error: code = Aborted desc = mls group error The message's wire format is incompatible with the group's wire format policy."
+        },
+        {
+          "scenario": "resumption_psk",
+          "step": 5,
+          "error": "rpc error: code = Aborted desc = mls group error The message's wire format is incompatible with the group's wire format policy."
+        },
+        {
+          "scenario": "update",
+          "step": 2,
+          "error": "rpc error: code = Aborted desc = mls group error The message's wire format is incompatible with the group's wire format policy."
+        }
+      ]
+    }
+  ],
+  "production_gates": {
+    "date": "2026-10-04",
+    "exit_code": 0,
+    "command": "docker compose -p qgramm-adapter-gate -f tools/mls-interop/compose.yml run --rm runner",
+    "go_flags": [
+      "-race",
+      "-mod=readonly",
+      "-tags qg_e2ee qg_openai"
+    ],
+    "tests": {
+      "TestProductionAdapterOpenMLSRestartReplayAndEpoch": "PASS",
+      "TestProductionAIHTTPWithIndependentOpenMLSAndDBRestart": "PASS"
+    },
+    "provider": "local HTTPS mock, not live API",
+    "human_implementation": "unmodified pinned OpenMLS",
+    "durable_storage": "encrypted participant disk snapshot and real SQLite Core restart",
+    "replay_after_restart": "rejected",
+    "cargo_lock_sha256": "7dd20425157c979002fd06acc491b123cdd475417dbbcfb21f87235f1f3caf71",
+    "reproducer": "sh tools/mls-interop/run.sh",
+    "reproducer_exit_code": 0,
+    "cargo_build": "cargo build --release --locked",
+    "cleanup": "own compose project containers/network removed"
+  }
+}
