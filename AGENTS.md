@@ -15,3 +15,5 @@
 - Performance evidence distinguishes ACK durability, image provenance and successful-request percentiles. Never mix Docker VM measurements with dedicated Linux/SSD qualification or reconstruct p99 from p95-only artifacts.
 
 - Message jobs already queued may share a FULL commit (max16 jobs/8MiB, no delay timer). Each job uses a savepoint; ACK/wake happen only after commit. InTransaction hooks must be SQL-only and must not manage transactions or savepoints.
+
+- HTTP batch submits bounded groups (up to16 messages/8MiB and queue capacity) together; savepoints isolate elements, duplicate IDs flush prior groups, and results follow FULL commit. Preserve per-item207 and retry semantics.

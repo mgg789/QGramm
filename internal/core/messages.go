@@ -43,8 +43,51 @@ func (c *Core) Send(ctx context.Context, id Identity, chat string, in MessageInp
 // sendMessage keeps the default projection compatible, while receipt-only callers
 // avoid reading and re-encrypting content after a durable commit.
 func (c *Core) sendMessage(ctx context.Context, id Identity, chat string, in MessageInput, minimal bool) (Message, error) {
+	job, saved, err := c.prepareMessage(ctx, id, chat, in)
+	if err != nil {
+		return Message{}, err
+	}
+	if job == nil {
+		return c.sendResult(ctx, id, saved, minimal, true)
+	}
+	var result messageWriteResult
+	if c.writer != nil {
+		result.message, result.repeated, result.err = c.writer.enqueue(*job)
+	} else {
+		result = c.submitPrepared([]messageWriteJob{*job})[0]
+	}
+	if result.err != nil {
+		return Message{}, result.err
+	}
+	if !result.repeated {
+		c.Wake(chat)
+	}
+	return c.sendResult(ctx, id, result.message, minimal, result.repeated)
+}
+
+// submitPrepared keeps bounded groups together through admission and commit.
+func (c *Core) submitPrepared(jobs []messageWriteJob) []messageWriteResult {
+	if c.writer != nil {
+		return c.writer.submitGroup(jobs)
+	}
+	// Open normally installs a writer; retain the embedding fallback with the
+	// same savepoint and transaction implementation, without an admission queue.
+	w := messageWriter{core: c}
+	for i := range jobs {
+		jobs[i].queued = time.Now()
+		jobs[i].result = make(chan messageWriteResult, 1)
+	}
+	w.executeBatchContext(jobs, jobs[0].ctx)
+	results := make([]messageWriteResult, len(jobs))
+	for i := range jobs {
+		results[i] = <-jobs[i].result
+	}
+	return results
+}
+
+func (c *Core) prepareMessage(ctx context.Context, id Identity, chat string, in MessageInput) (*messageWriteJob, Message, error) {
 	if !validID(in.OperationID) {
-		return Message{}, &APIError{400, "operation_id required (1..128 safe characters)"}
+		return nil, Message{}, &APIError{400, "operation_id required (1..128 safe characters)"}
 	}
 	// Queue jobs own their attachment metadata even when an embedding caller
 	// reuses its input after admission. Preserve nil versus empty JSON arrays.
@@ -60,55 +103,55 @@ func (c *Core) sendMessage(ctx context.Context, id Identity, chat string, in Mes
 	err := c.readQueryRow(ctx, `SELECT hash,result FROM operations WHERE device_id=? AND operation_id=?`, id.DeviceID, in.OperationID).Scan(&previousHash, &previous)
 	if err == nil {
 		if previousHash != hash {
-			return Message{}, &APIError{409, "operation_id reused with different content"}
+			return nil, Message{}, &APIError{409, "operation_id reused with different content"}
 		}
 		var saved Message
 		if err = json.Unmarshal(previous, &saved); err != nil {
-			return Message{}, err
+			return nil, Message{}, err
 		}
-		return c.sendResult(ctx, id, saved, minimal, true)
+		return nil, saved, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
-		return Message{}, err
+		return nil, Message{}, err
 	}
 	var mode string
 	var epoch int64
 	var pending, canSend bool
 	err = c.readQueryRow(ctx, `SELECT c.mode,c.epoch,c.pending,m.can_send FROM chats c JOIN members m ON m.chat_id=c.id JOIN devices d ON d.user_id=m.user_id JOIN users u ON u.id=m.user_id WHERE c.id=? AND m.user_id=? AND d.id=? AND m.active=1 AND d.revoked=0 AND u.disabled=0`, chat, id.UserID, id.DeviceID).Scan(&mode, &epoch, &pending, &canSend)
 	if err != nil || !canSend {
-		return Message{}, &APIError{403, "send permission denied"}
+		return nil, Message{}, &APIError{403, "send permission denied"}
 	}
 	if pending {
-		return Message{}, &APIError{409, "MLS epoch transition pending"}
+		return nil, Message{}, &APIError{409, "MLS epoch transition pending"}
 	}
 	if in.ReplyTo != "" && !c.Config.Features.Reply || in.ForwardFrom != "" && !c.Config.Features.Forward || len(in.Attachments) > 0 && !c.Config.Features.Files {
-		return Message{}, &APIError{400, "feature absent from build"}
+		return nil, Message{}, &APIError{400, "feature absent from build"}
 	}
 	if mode == "basic" {
 		if in.Envelope == nil || in.MLS != "" {
-			return Message{}, &APIError{400, "basic HPKE envelope required"}
+			return nil, Message{}, &APIError{400, "basic HPKE envelope required"}
 		}
 		in.Payload, err = c.Engine.OpenEnvelope(*in.Envelope, cryptoenc.Binding(chat, id.UserID, id.DeviceID, in.OperationID))
 		if err != nil {
-			return Message{}, &APIError{400, "invalid encrypted envelope"}
+			return nil, Message{}, &APIError{400, "invalid encrypted envelope"}
 		}
 	} else {
 		if in.Envelope != nil || in.MLS == "" || in.Epoch != epoch {
-			return Message{}, &APIError{409, "invalid MLS message or epoch"}
+			return nil, Message{}, &APIError{409, "invalid MLS message or epoch"}
 		}
 	}
 	for _, hook := range c.Prepare {
 		if err = hook(ctx, id, chat, &in); err != nil {
-			return Message{}, err
+			return nil, Message{}, err
 		}
 	}
 	if len(in.Payload) == 0 || len(in.Payload) > c.Config.Policy.MaxMessageBytes {
-		return Message{}, &APIError{400, "invalid message payload size"}
+		return nil, Message{}, &APIError{400, "invalid message payload size"}
 	}
 	messageID := uuid.NewString()
 	stored, err := c.Engine.Seal(in.Payload, []byte("message/"+messageID))
 	if err != nil {
-		return Message{}, err
+		return nil, Message{}, err
 	}
 	metadata, _ := json.Marshal(messageMetadata{Attachments: in.Attachments, ReplyTo: in.ReplyTo, ForwardFrom: in.ForwardFrom})
 	// The queued closure retains ciphertext and metadata only, not plaintext or
@@ -117,29 +160,7 @@ func (c *Core) sendMessage(ctx context.Context, id Identity, chat string, in Mes
 	write := func(writeCtx context.Context, tx *sql.Tx) (Message, bool, error) {
 		return c.persistMessageInTx(writeCtx, tx, id, chat, in, mode, epoch, hash, messageID, stored, metadata)
 	}
-	var message Message
-	var repeated bool
-	if c.writer == nil {
-		var tx *sql.Tx
-		tx, err = c.DB.BeginTx(ctx, nil)
-		if err == nil {
-			message, repeated, err = write(ctx, tx)
-			if err == nil {
-				err = tx.Commit()
-			} else {
-				_ = tx.Rollback()
-			}
-		}
-	} else {
-		message, repeated, err = c.writer.submitTx(ctx, len(stored)+len(metadata), write)
-	}
-	if err != nil {
-		return Message{}, err
-	}
-	if !repeated {
-		c.Wake(chat)
-	}
-	return c.sendResult(ctx, id, message, minimal, repeated)
+	return &messageWriteJob{ctx: ctx, bytes: len(stored) + len(metadata), runTx: write}, Message{}, nil
 }
 
 // persistMessageInTx repeats ACL, epoch and dedup checks in the writer-owned
@@ -405,8 +426,58 @@ func (c *Core) batch(w http.ResponseWriter, r *http.Request, id Identity) {
 	if minimal {
 		w.Header().Set("Preference-Applied", "return=minimal")
 	}
-	for _, item := range in.Messages {
-		msg, err := c.sendMessage(r.Context(), id, r.PathValue("chat"), item, minimal)
+	results := make([]messageWriteResult, len(in.Messages))
+	var jobs []messageWriteJob
+	var indices []int
+	bytes := 0
+	pendingIDs := make(map[string]bool)
+	groupLimit := maxWriteBatch
+	if c.writer != nil {
+		groupLimit = min(groupLimit, cap(c.writer.jobs))
+	}
+	flush := func() {
+		if len(jobs) == 0 {
+			return
+		}
+		committed := c.submitPrepared(jobs)
+		for j, result := range committed {
+			i := indices[j]
+			results[i] = result
+			if result.err == nil && !result.repeated {
+				c.Wake(r.PathValue("chat"))
+			}
+		}
+		jobs, indices, bytes = nil, nil, 0
+		clear(pendingIDs)
+	}
+	for i, item := range in.Messages {
+		// An earlier occurrence must become durable before retry/conflict validation,
+		// including malformed replacement envelopes with the same operation ID.
+		if pendingIDs[item.OperationID] {
+			flush()
+		}
+		job, saved, err := c.prepareMessage(r.Context(), id, r.PathValue("chat"), item)
+		if err != nil {
+			results[i].err = err
+			continue
+		}
+		if job == nil {
+			results[i] = messageWriteResult{message: saved, repeated: true}
+			continue
+		}
+		if len(jobs) == groupLimit || len(jobs) > 0 && job.bytes > maxWriteBatchBytes-bytes {
+			flush()
+		}
+		jobs, indices, bytes = append(jobs, *job), append(indices, i), bytes+job.bytes
+		pendingIDs[item.OperationID] = true
+	}
+	flush()
+	for i, item := range in.Messages {
+		result := results[i]
+		msg, err := result.message, result.err
+		if err == nil {
+			msg, err = c.sendResult(r.Context(), id, msg, minimal, result.repeated)
+		}
 		if err != nil {
 			code := 503
 			var api *APIError
