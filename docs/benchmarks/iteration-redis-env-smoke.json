@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "image": "qgramm:iteration-redis-secure",
+  "kernel_scope": "actual Linux container /proc/<Redis PID>/environ",
+  "redis_environment_bytes": 0,
+  "redis_environment_empty": true,
+  "synthetic_parent_env_probe_passed": true,
+  "redis_version": "Redis server v=7.2.14 sha=00000000:0 malloc=libc bits=64 build=c4e3ddd1acd66d07",
+  "processes": "PID                 COMMAND\n28817               qgramm\n28937               redis-server",
+  "secret_values_disclosed": false,
+  "date_utc": "2026-10-04T20:06:22Z"
+}

@@ -1,0 +1,276 @@
+{
+  "accept_p95_ms": 9.714,
+  "accept_p99_ms": 37.499,
+  "accept_samples": 7987,
+  "accepted": 7987,
+  "backpressure": 0,
+  "backpressure_reasons": {},
+  "burst_rate": 1000,
+  "burst_seconds": 5,
+  "delivered": 7987,
+  "delivery_p95_ms": 9.926,
+  "delivery_p99_ms": 37.965,
+  "delivery_samples": 7987,
+  "elapsed_seconds": 35.473664667,
+  "empty_subscribed_chats": 4999,
+  "failed": 0,
+  "generator_skipped": 0,
+  "group_size": 2,
+  "history_messages": 7987,
+  "idle_seconds": 10,
+  "idle_subscriptions": true,
+  "limitations": [
+    "synthetic payload and shared recipient HPKE fixture key",
+    "10000 users; one active 2-member conversation",
+    "HTTP behind isolated trusted proxy header; TLS CPU not measured",
+    "generator runs outside server container; resource stats recorded separately"
+  ],
+  "offered": 7987,
+  "percentile_method": "nearest rank: sorted samples[ceil(n*q)-1]; successful requests only; steady deliveries classified by send phase",
+  "response_mode": "full",
+  "status_counts": {
+    "201": 7987
+  },
+  "steady_accept_p95_ms": 4.585,
+  "steady_accept_p99_ms": 6.681,
+  "steady_accepted": 3000,
+  "steady_backpressure": 0,
+  "steady_delivery_p95_ms": 4.928,
+  "steady_delivery_p99_ms": 6.906,
+  "steady_delivery_samples": 3000,
+  "steady_rate": 100,
+  "steady_seconds": 30,
+  "subscription_commands_sent": 10000,
+  "unexpected_disconnects": 0,
+  "users_connected": 10000,
+  "websocket_errors": 0,
+  "acceptance_passed": true,
+  "generator_exit_code": 0,
+  "environment": {
+    "date_utc": "2026-10-04T20:09:57Z",
+    "host_os": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "host_cpu": "Apple M5 Pro",
+    "host_logical_cpus": 18,
+    "server_kernel": "Linux 50eb79b1f45d 6.12.76-linuxkit #1 SMP Thu Jun 11 15:44:51 UTC 2026 aarch64 Linux",
+    "generator_go": "go version go1.26.4 darwin/arm64",
+    "server_go": "go1.26.8",
+    "server_binary_sha256": "44a5bd83d0586e1d00ac224e220db8e443e60cef6ca5ae26307e3e06d4e9d4d6",
+    "image_id": "sha256:a922b1347fdb81fc1b02707851cc6892257bf1efcf6162a4bf110988503cee4b",
+    "cpu_limit": 4,
+    "ram_limit_gib": 8,
+    "generator_source_commit": "2871485fa3cae234a9b367b12f2a5bb7708d717a",
+    "server_source_commit": "3ceb371d71e4ed868b3bf82f45de32e3820ec341",
+    "server_source_snapshot_sha256": "aca736e51c51626427edd2b4456d0a27e09e5a287eb6f3f9bdaee94c5a56c831",
+    "server_source_note": "3ceb371 plus immutable first3/native-driver/Redis overlay and explicit empty Redis child environment fix; maps to implementation commit 2871485, snapshot is not that exact tree; rebuilt Go through cached old builder and unchanged Redis runtime",
+    "generator_tracked_worktree_sha256": "0c922f5a69a9ea0476c5e3674be06c54b4c34288bbcdb913bb0c942a7b0c8bc7",
+    "source_fingerprint_scope": "tracked and untracked Go/mod/sum/TOML/Dockerfile/Dockerfile.redis inputs; excludes evidence outputs",
+    "generator_sha256": "4f7313d03f3133881a6ca10c121c926e5e95cc856dc4ad133cd2013b5b0f65b9",
+    "generator_binary_sha256": "e8ca092a5aef9306c8886db5c1ae243b0a80d1275232d223ebc75af5aa005178",
+    "generator_source_changed_during_run": false,
+    "source_dirty": true,
+    "storage": "Docker named volume; VM virtual disk; SSD unqualified",
+    "isolation": "Container quotas on shared host; generator on host; loopback port only"
+  },
+  "resource_samples": [
+    {
+      "elapsed_seconds": 1.02,
+      "phase": "setup",
+      "cpu": "31.25%",
+      "memory": "11.99MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 3.05,
+      "phase": "setup",
+      "cpu": "34.58%",
+      "memory": "13.55MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 5.07,
+      "phase": "setup",
+      "cpu": "34.81%",
+      "memory": "14.71MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 7.09,
+      "phase": "setup",
+      "cpu": "21.10%",
+      "memory": "15.42MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 9.11,
+      "phase": "setup",
+      "cpu": "28.06%",
+      "memory": "31.06MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 11.13,
+      "phase": "setup",
+      "cpu": "33.72%",
+      "memory": "79.77MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 13.16,
+      "phase": "setup",
+      "cpu": "37.15%",
+      "memory": "123.8MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 15.18,
+      "phase": "setup",
+      "cpu": "67.24%",
+      "memory": "215.3MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 17.21,
+      "phase": "setup",
+      "cpu": "61.63%",
+      "memory": "311.2MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 19.26,
+      "phase": "idle",
+      "cpu": "2.04%",
+      "memory": "320.4MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 21.3,
+      "phase": "idle",
+      "cpu": "1.80%",
+      "memory": "320.2MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 23.34,
+      "phase": "idle",
+      "cpu": "1.96%",
+      "memory": "320.2MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 25.38,
+      "phase": "idle",
+      "cpu": "1.58%",
+      "memory": "320.2MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 27.42,
+      "phase": "idle",
+      "cpu": "2.03%",
+      "memory": "320.6MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 29.45,
+      "phase": "steady",
+      "cpu": "14.89%",
+      "memory": "318.5MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 31.49,
+      "phase": "steady",
+      "cpu": "15.76%",
+      "memory": "327.2MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 33.52,
+      "phase": "steady",
+      "cpu": "14.81%",
+      "memory": "327.6MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 35.56,
+      "phase": "steady",
+      "cpu": "20.77%",
+      "memory": "328MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 37.6,
+      "phase": "steady",
+      "cpu": "19.12%",
+      "memory": "327.6MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 39.62,
+      "phase": "steady",
+      "cpu": "19.83%",
+      "memory": "327.6MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 41.65,
+      "phase": "steady",
+      "cpu": "20.37%",
+      "memory": "328.3MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 43.69,
+      "phase": "steady",
+      "cpu": "17.68%",
+      "memory": "328MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 45.72,
+      "phase": "steady",
+      "cpu": "17.34%",
+      "memory": "328.6MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 47.76,
+      "phase": "steady",
+      "cpu": "16.70%",
+      "memory": "327.8MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 49.79,
+      "phase": "steady",
+      "cpu": "13.36%",
+      "memory": "327.4MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 51.83,
+      "phase": "steady",
+      "cpu": "15.60%",
+      "memory": "328.5MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 53.87,
+      "phase": "steady",
+      "cpu": "16.97%",
+      "memory": "327.5MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 55.9,
+      "phase": "steady",
+      "cpu": "15.57%",
+      "memory": "328.3MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 57.93,
+      "phase": "burst",
+      "cpu": "24.23%",
+      "memory": "327.6MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 59.95,
+      "phase": "burst",
+      "cpu": "88.30%",
+      "memory": "330.1MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 61.98,
+      "phase": "burst",
+      "cpu": "72.16%",
+      "memory": "330MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 64.02,
+      "phase": "history",
+      "cpu": "49.84%",
+      "memory": "296.2MiB / 7.748GiB"
+    }
+  ],
+  "resource_sampling": "docker stats approximately every 2 seconds including setup; sampled maxima",
+  "instrumented": false,
+  "embedded_redis": true,
+  "embedded_redis_runtime": {
+    "version": "Redis server v=7.2.14 sha=00000000:0 malloc=libc bits=64 build=c4e3ddd1acd66d07",
+    "processes": "PID                 COMMAND\n38528               qgramm\n38562               redis-server",
+    "resource_scope": "docker stats aggregates Go and Redis in the same container cgroup"
+  }
+}

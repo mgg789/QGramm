@@ -8,7 +8,7 @@ This is a pre-release core. Implementation, mocks, independent peers and live pr
 |---|---|
 | Minimal and full unit/integration/race | `go test -race ./...`; `go test -race -tags qg_groups,qg_files,qg_e2ee,qg_calls,qg_delete,qg_edit,qg_reply,qg_forward,qg_reactions,qg_openai,qg_anthropic,qg_mcp,qg_http_tools ./...` |
 | Vet | `go vet ./...` and the same full tag set |
-| Build/runtime matrix | `sh scripts/build-matrix.sh`: 28 profiles, 7 invalid configurations; registry/routes/tables/files/dependency graphs checked |
+| Build/runtime matrix | `QGRAMM_REDIS_TEST_BINARY=<real executable> sh scripts/test-redis.sh sh scripts/build-matrix.sh`: 30 profiles, 7 invalid configurations; registry/routes/tables/files/dependency graphs checked |
 | Protocol/security integration | JWT issuer/audience, device revocation, ACL, recipient HPKE, durable dedup/restart, replay/cursors, receipts and one-use WS tickets |
 | Fault paths | SQLite `SQLITE_FULL` rollback/recovery, exact batch retry after lost response, reconnect, expired replay, bounded capacity, corrupt/missing file chunks, quotas; AI late-reply invalidation after deletion |
 | Fuzzing | Five-second runs: `FuzzStrictJSON`, `FuzzEncryptedFrames`, `FuzzMLSKeyPackage`, two workers; no crashes. Short smoke fuzz, not exhaustive fuzzing |
@@ -19,11 +19,13 @@ This is a pre-release core. Implementation, mocks, independent peers and live pr
 | Native browser direct/TURN | Chromium152 Linuxarm64: decoded PCM and rendered video, selected relay/relay TURN pairs, HPKE signaling, substituted fingerprint rejected with zero media; runner exit0. [Details](browser-webrtc-verification.md) |
 | OpenAI-compatible API | Verified against live DeepSeek `deepseek-flash`: Chat Completions JSON API, encrypted input, job dedup, real response and recipient decryption. The core uses Go HTTP transport. [Evidence](benchmarks/live-provider.json) |
 | Live provider + independent MLS | DeepSeek `deepseek-flash` from Docker, independent OpenMLS input/response AAD, actual Core SQLite restart and replay rejection; two succeeded jobs and provider audit records. [Evidence](benchmarks/live-mls-provider.json) |
+| Optional embedded Redis | Actual pinned Redis7.2.14: private Unix socket, TCP/AOF/snapshots disabled, healthy Pub/Sub, SIGKILL → local fallback, bounded queue, reap/cleanup; real-process race tests (no skips), minimal and Redis container smoke. [Lifecycle and fixture commands](redis.md) |
 | Runnable integration | `go run -race ./examples/basic`: Ed25519, management provisioning, ticket WebSocket, pinned-key HPKE send/decrypt, identical retry and delivery receipt |
 | Anthropic adapter | Messages/tool-use/tool-result contracts covered by integration tests with a test provider |
 | Load | 10,000 WS, sustained100/s and burst1000/s on Docker Linux4CPU/8GiB limit; accepted=delivered=history. Published p95/p99 rerun, hardware/provenance and reproduction tooling; separate group and file microbenchmark. [Results](benchmark.md) |
 | Alternative baselines | Real NATS JetStream default/always fsync and Centrifugo, sequential 10,000 WebSocket runs, p95/p99 and sampled CPU/RAM. [Scope and results](comparison-benchmark.md) |
 | Performance changes | Two original/full/compact-receipt runs and two NATS strict-fsync/Centrifugo runs; phase-labelled CPU/RAM, p95/p99, durable history checks, separate private CPU/heap/SQL-wait profiles. Full-response burst rejections and variation are retained. [Dynamics and limits](performance-dynamics.md) |
+| Further three changes + Redis | 12 uninstrumented runs: baseline/native/embedded Redis × standard/all-subscribed × two repeats; same generator and quota, full responses and SQLite FULL commits. Equal accepted/event/history counts, not per-ID or persistent device ACK verification. Redis includes both processes; one overlapping baseline excluded and replaced. [Method and evidence](performance-iteration.md) |
 | Docker | Minimal arm64 build, UID10001, health/restart, retained volume, exclusive0600 offline backup; third-party license bundle included |
 | Architectures | Static Linux amd64/arm64 binaries cross-built; arm64 container run. amd64 native runtime not checked |
 | Contracts/licenses | Generator covers39 routes; OpenAPI3.1/WS JSONSchema validation; `go run ./cmd/qgramm-licenses -out THIRD_PARTY_LICENSES.txt -check` |
