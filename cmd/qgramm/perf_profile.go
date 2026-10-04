@@ -102,7 +102,8 @@ func startTimeline(dir string) {
 		defer f.Close()
 		defer signal.Stop(changes)
 		encoder := json.NewEncoder(f)
-		snapshot := func() {
+		var signalSequence uint64
+		snapshot := func(reason string) {
 			c := attached.Load()
 			if c == nil {
 				return
@@ -110,6 +111,7 @@ func startTimeline(dir string) {
 			diagnostics := c.DiagnosticStats()
 			_ = encoder.Encode(map[string]any{
 				"at_unix_ns": time.Now().UnixNano(), "forced_gc": false,
+				"snapshot_reason": reason, "signal_sequence": signalSequence,
 				"heap_alloc_bytes": diagnostics["heap_alloc_bytes"], "total_alloc_bytes": diagnostics["total_alloc_bytes"],
 				"mallocs": diagnostics["mallocs"], "gc_cycles": diagnostics["gc_cycles"], "gc_pause_total_ns": diagnostics["gc_pause_total_ns"],
 				"diagnostics": diagnostics, "message_writer": c.WriterStats(),
@@ -118,9 +120,10 @@ func startTimeline(dir string) {
 		for {
 			select {
 			case <-ticker.C:
-				snapshot()
+				snapshot("tick")
 			case sig := <-changes:
-				snapshot()
+				signalSequence++
+				snapshot("signal")
 				if sig == syscall.SIGUSR2 {
 					return
 				}

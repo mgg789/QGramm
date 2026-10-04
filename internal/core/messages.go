@@ -492,18 +492,35 @@ func (c *Core) Events(ctx context.Context, id Identity, chat string, after int64
 		return []Event{}, nil
 	}
 	// Fetch the bounded event page and current message state in one snapshot.
+	// A one-event page needs no ranking or temporary sort. Bound that fast path
+	// to the observed head; a concurrent append remains for the next
+	// replay call, rather than expanding this query beyond its validated head.
 	// Rank within the page avoids copying the same payload for repeated events.
 	// LEFT JOIN retains non-message events and exposes inaccessible references
 	// explicitly rather than silently dropping them. ACL and key are fresh here.
-	rows, err := c.readQuery(ctx, `WITH page AS (SELECT seq,kind,message_id,data FROM events WHERE chat_id=? AND seq>? ORDER BY seq LIMIT ?), ranked AS (SELECT *,ROW_NUMBER() OVER (PARTITION BY message_id ORDER BY seq) AS message_rank FROM page)
+	query := `WITH page AS (SELECT seq,kind,message_id,data FROM events WHERE chat_id=? AND seq>? ORDER BY seq LIMIT ?), ranked AS (SELECT *,ROW_NUMBER() OVER (PARTITION BY message_id ORDER BY seq) AS message_rank FROM page)
 SELECT page.seq,page.kind,page.message_id,page.data,(d.id IS NOT NULL AND u.id IS NOT NULL),
-`+nullableMessageProjectionColumns+`
+` + nullableMessageProjectionColumns + `
 FROM ranked page JOIN chats c ON c.id=?
 LEFT JOIN members member ON member.chat_id=c.id AND member.user_id=? AND member.active=1
 LEFT JOIN devices d ON d.user_id=member.user_id AND d.id=? AND d.revoked=0
 LEFT JOIN users u ON u.id=member.user_id AND u.disabled=0
 LEFT JOIN messages msg ON page.message_rank=1 AND msg.id=page.message_id AND msg.chat_id=c.id AND msg.seq>=member.joined_seq AND d.id IS NOT NULL AND u.id IS NOT NULL
-ORDER BY page.seq`, chat, after, limit, chat, id.UserID, id.DeviceID)
+ORDER BY page.seq`
+	var args []any
+	if current-after == 1 || limit == 1 {
+		query = `SELECT page.seq,page.kind,page.message_id,page.data,(d.id IS NOT NULL AND u.id IS NOT NULL),
+` + nullableMessageProjectionColumns + `
+FROM (SELECT seq,kind,message_id,data FROM events WHERE chat_id=? AND seq>? AND seq<=? ORDER BY seq LIMIT 1) page JOIN chats c ON c.id=?
+LEFT JOIN members member ON member.chat_id=c.id AND member.user_id=? AND member.active=1
+LEFT JOIN devices d ON d.user_id=member.user_id AND d.id=? AND d.revoked=0
+LEFT JOIN users u ON u.id=member.user_id AND u.disabled=0
+LEFT JOIN messages msg ON msg.id=page.message_id AND msg.chat_id=c.id AND msg.seq>=member.joined_seq AND d.id IS NOT NULL AND u.id IS NOT NULL`
+		args = []any{chat, after, current, chat, id.UserID, id.DeviceID}
+	} else {
+		args = []any{chat, after, limit, chat, id.UserID, id.DeviceID}
+	}
+	rows, err := c.readQuery(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
