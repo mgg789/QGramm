@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-04",
+  "base_commit": "0b4dd0bd3b869f0f88cfa8be4dd0fa8f03847c1f",
+  "working_tree": "uncommitted lifecycle test and runner changes; unrelated concurrent changes preserved",
+  "provider": "DeepSeek",
+  "adapter": "OpenAI-compatible Chat Completions JSON API via production Go HTTP transport",
+  "base_url": "https://api.deepseek.com/v1",
+  "model": "deepseek-flash",
+  "independent_mls": "OpenMLS gRPC interop client, pinned source 4f407c45857d177e7b5933d32795307b4f14b196",
+  "openmls_image_id": "sha256:9ec81778bd7913179789d89e0b2cfd4b7e2057bb1f787f2470d20e825b53854c",
+  "runner_image_id": "sha256:baad10ae4360b65da8136972603da260d4002c11277e56d90aed7be9626a2a11",
+  "command": "python3 tools/mls-interop/run-provider-gate.py --live --credential-file <operator-local-file>",
+  "go_command": "go test -mod=readonly -count=1 -race -tags 'qg_e2ee qg_openai' -run '^TestProductionAIHTTPWithIndependentOpenMLSAndDBRestart$' -timeout 180s -v ./...",
+  "result": "PASS",
+  "lifecycle_duration_seconds": 4.86,
+  "go_package_duration_seconds": 5.879,
+  "succeeded_jobs": 2,
+  "succeeded_provider_audit_records": 2,
+  "verified": [
+    "actual production Core management participant admission with independent OpenMLS KeyPackage and Welcome",
+    "independent OpenMLS human encrypts two synthetic inputs consumed by the production MLS AI participant",
+    "live provider runs inside isolated Docker test runner with actual HTTPS transport",
+    "actual HTTP send, durable AI job lifecycle, encrypted response history and response identity",
+    "independent OpenMLS human authenticates and decrypts both actual AI responses",
+    "authenticated data exactly matches chat, AI user, AI device and response operation binding",
+    "response plaintext is nonempty after trimming; contents omitted",
+    "actual Core closes and reopens its SQLite database between the two provider calls",
+    "persisted production participant rejects the first ciphertext replay after restart",
+    "race detector enabled for Go test"
+  ],
+  "baseline": {
+    "command": "python3 tools/mls-interop/run-provider-gate.py",
+    "provider": "local isolated HTTPS mock",
+    "result": "PASS",
+    "lifecycle_duration_seconds": 1.35,
+    "go_package_duration_seconds": 2.365
+  },
+  "not_verified": [
+    "live tool calls",
+    "exact model response literal or semantic quality",
+    "independent human client restart",
+    "full operating-system process restart",
+    "production deployment or real user traffic",
+    "all independent MLS interoperability tests in this run"
+  ],
+  "credential_handling": "operator local file parsed only in launcher; key supplied over stdin, omitted from argv, Docker configuration, evidence and logs",
+  "requests": "two short synthetic marker conversations; no personal data; responses omitted",
+  "isolation": "fresh temporary Docker network and OpenMLS container; repository mounted read-only; created resources removed after execution"
+}

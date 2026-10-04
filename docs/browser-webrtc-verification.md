@@ -17,10 +17,10 @@ npm run check
 Для отдельного Linux Chromium контейнера из корня репозитория:
 
 ```sh
-python3 tools/browser-webrtc/run-docker.py
+python3 tools/browser-webrtc/run-docker.py --output docs/benchmarks/browser-webrtc-final.json
 ```
 
-Docker runner использует собственный временный контейнер и образ, не публикует порты на хост и удаляет их в `finally`. Node/Go сервер, браузер и тестовая страница находятся внутри этого контейнера. Go бинарный сервер, браузерный профиль и серверные данные удаляются после прогона. Зависимости/npm cache/build cache могут сохраняться как обычный кеш сборки; секреты туда не попадают.
+Docker runner использует собственный временный образ, browser/backend контейнер, отдельный coturn контейнер и Docker сеть. Он не публикует порты на хост и удаляет все эти ресурсы в `finally`. Coturn работает с одноразовым REST authentication secret; тот же secret передаётся серверу через временный env-файл. Браузер получает credentials только через настоящий `/v1/calls/turn` для своих устройств. Node/Go сервер, браузер и тестовая страница находятся внутри browser контейнера. Go бинарный сервер, браузерный профиль и серверные данные удаляются после прогона. Зависимости/npm cache/build cache могут сохраняться как обычный кеш сборки; секреты туда не попадают.
 
 ## Что проверяет страница
 
@@ -30,6 +30,10 @@ Offer/answer и настоящие gathered ICE candidates проходят де
 
 Положительные audio/video сценарии требуют connected transports у обоих peers, более 1000 полученных audio samples с положительной audio energy, а video сценарий — минимум пять decoded и rendered кадров, `videoWidth=160` у обоих peers. Отрицательный сценарий передаёт через тот же HPKE/API SDP с подменённым SHA-256 fingerprint: caller должен перейти в `connectionState=failed` и получить ноль media bytes.
 
+Audio receiver подключает remote track к настоящему играющему `HTMLAudioElement` и параллельно к `MediaStreamAudioSourceNode → AudioWorklet`. В Chromium этого стенда один AudioWorklet с silent sink получал нулевой PCM, хотя RTP и sender energy были положительными; добавление `audio.play()` включило декодирование и позволило измерить ненулевой PCM. `AudioContext` сохраняет silent sink: воспроизведение динамиками этим не подтверждается.
+
+TURN сценарии используют `iceTransportPolicy="relay"`. Acceptance дополнительно требует `transport.selectedCandidatePairId`, успешную selected pair и `candidateType="relay"` у local и remote candidates обоих peers. RTP bytes остаются дополнительным условием; они не заменяют decoded PCM energy.
+
 Ограниченные test-only process flags разрешают autoplay и loopback ICE, отключают mDNS masking для воспроизводимого локального транспорта. Это настройки только одноразового браузерного процесса; host/network policy и пользовательские настройки не меняются.
 
 ## Наблюдения и границы
@@ -38,20 +42,20 @@ Offer/answer и настоящие gathered ICE candidates проходят де
 
 На macOS Google Chrome 154.0.8037.95 HPKE offer/answer/ICE обмен через настоящий сервер прошёл, но direct media transport оставался ICE checking: оба peers отправляли STUN requests, не получали requests/responses и имели нулевые audio/video счётчики. Это не успешная native media проверка. Host permission/firewall/network settings не менялись.
 
-Финальный Linux Docker прогон 2026-10-04: native Chromium 152.0.7977.82, Linux arm64, Node 24.18.1. Команда `python3 tools/browser-webrtc/run-docker.py` собрала реальный calls artifact и завершилась **exit 1**: полная audio/video acceptance не достигнута. Runner сохраняет независимые результаты и не превращает частичный успех в PASS.
+Финальный Linux Docker прогон записан в [benchmarks/browser-webrtc-final.json](benchmarks/browser-webrtc-final.json). Артефакт содержит отдельные результаты каждого сценария, browser/runtime, commit, dirty-tree provenance, время UTC и код завершения. 2026-10-04, Chromium 152.0.7977.82, Linux arm64: команда завершилась **exit 0**. Это запуск на commit `0b4dd0bd3b869f0f88cfa8be4dd0fa8f03847c1f` с текущими незакоммиченными изменениями fixture; `workingTreeDirty=true` записан явно.
 
-| Проверка | Фактический результат |
+| Сценарий | Фактический результат обоих peers |
 | --- | --- |
-| HPKE offer/answer/ICE, полный SDP и fingerprint после recipient decrypt | PASS в обоих положительных сценариях |
-| Native video direct | PASS: peers connected; decoded 244/242 кадров, rendered 204/132, ширина 160 |
-| Подмена SHA-256 DTLS fingerprint через HPKE/API | PASS: caller `connectionState=failed`, `mediaBytesReceived=0` |
-| Native audio direct | FAIL acceptance: 613 RTP packets и 49210/49240 bytes получены, но AudioWorklet PCM energy=0 при 531200 samples на каждом peer |
-| Audio в video-сценарии | FAIL acceptance: 610 RTP packets на peer, AudioWorklet PCM energy=0 при 537600 samples |
+| Native audio direct | PASS: PCM samples 12800/12800, energy 213.82/206.26; selected pair host/host |
+| Native audio/video direct | PASS: PCM samples 12800/19200, energy 215.16/318.04; decoded video 9/9, rendered 6/6, width 160 |
+| Native audio TURN | PASS: PCM samples 12800/19200, energy 158.34/176.84; selected pair relay/relay succeeded |
+| Native audio/video TURN | PASS: PCM samples 12800/19200, energy 167.07/165.62; decoded video 8/8, rendered 6/6, width 160; selected pair relay/relay succeeded |
+| Подмена SHA-256 DTLS fingerprint через HPKE/API | PASS: caller connectionState=failed, mediaBytesReceived=0 |
 
-Для отделения молчащего генератора от проблемы на получателе измерены browser `media-source` stats: в audio-сценарии sender audioLevel≈0.19999 и totalAudioEnergy≈0.48794/0.48234; в video-сценарии totalAudioEnergy≈0.49034/0.48474. Поэтому генератор не молчал. Receiver `inbound-rtp.totalSamplesReceived` и `totalAudioEnergy` оставались нулевыми. Причина отсутствия ненулевого PCM в этом hardware-free Chromium receiver стенде не установлена; ни decoded browser audio, ни дефект QGramm core этим прогоном не подтверждены. Новые настройки host/audio/network для обхода ограничения не применялись.
+Все четыре положительных сценария подтвердили HPKE fingerprint binding и ненулевой decoded PCM. После прогона отдельными `docker ps -a`, `docker network ls`, `docker images` фильтрами проверено отсутствие собственных контейнеров, сети и образа запуска `qgramm-browser-6564452401`.
 
-`node --check page.js`, `node --check run.mjs`, `node --check pcm.js` из `tools/browser-webrtc` — PASS. Одноразовый Docker контейнер/образ, backend-процесс и данные очищены после финального прогона; локальный `node_modules` удалён, lockfile сохранён.
+`node --check tools/browser-webrtc/page.js`, `node --check tools/browser-webrtc/run.mjs`, `node --check tools/browser-webrtc/pcm.js` и `python3 -m py_compile tools/browser-webrtc/run-docker.py` — PASS.
 
-Этот стенд не проверяет камеру/микрофон, слышимое воспроизведение динамиками, рабочий UI, Safari/Firefox, публичный NAT или MLS authentication of fingerprints. TURN отдельно проверен Pion стендом из [webrtc-verification.md](webrtc-verification.md); browser runner пока проверяет direct media.
+Этот стенд проверяет локальную native Chromium media обработку и локальный coturn relay. Он не проверяет камеру/микрофон, слышимое воспроизведение динамиками, рабочий UI, Safari/Firefox, публичный NAT или MLS authentication of fingerprints. Независимый Pion стенд описан в [webrtc-verification.md](webrtc-verification.md).
 
 Источники: [HPKE JS](https://github.com/dajiaji/hpke-js), [Chromium loopback peer connection switch](https://chromium.googlesource.com/chromium/chromium/+/HEAD/content/public/common/content_switches.cc).

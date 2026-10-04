@@ -6,6 +6,28 @@ Self-hosted Go messaging core for support conversations, user chats and protecte
 
 The original Swift messenger and its backend are preserved on [`messenger`](https://github.com/mgg789/QGramm/tree/messenger). Core development takes place on `dev`; `main` is reserved for reviewed stages. Original Git history is retained.
 
+## Why QGramm?
+
+Choose QGramm when your application already owns users and UI, and needs persistent chats, device permissions, encrypted payloads and optional AI recipients in one service. Optional features are compiled out. There is no federation or horizontal cluster in this release; clients implement the encryption and WebRTC contracts. QGramm is a pre-release, not a claim of greater security or maturity than established alternatives.
+
+| Project | Best fit | Storage / deployment | Encryption scope | What your application still supplies |
+|---|---|---|---|---|
+| **QGramm** | Embedded support, user and AI chats | One Go container; SQLite + files volume | HPKE to container; optional MLS E2EE with [public member commits](docs/e2ee.md) | Identity backend, UI, client crypto/media; external TURN |
+| [Matrix / Synapse](https://element-hq.github.io/synapse/latest/setup/installation.html) | Federated messaging and an existing client ecosystem | Homeserver; PostgreSQL recommended for production; media storage | Client-side [Olm/Megolm E2EE](https://spec.matrix.org/v1.18/olm-megolm/) | Client integration, deployment and optional media infrastructure |
+| [Centrifugo](https://centrifugal.dev/docs/server/history_and_recovery) | Real-time pub/sub transport | Go server; memory or external broker; bounded recovery cache | Application payload encryption is your responsibility | Durable chat database, chat ACL, attachments, calls and AI |
+| [Zulip](https://github.com/zulip/zulip/blob/main/docs/production/deployment.md) | Ready-to-use team chat with topics and search | PostgreSQL, RabbitMQ, Redis, Memcached; upload storage | [Mobile push E2EE](https://docs.zulip.com/security/); ordinary chat is server-readable | Product customization; external call-provider integration |
+| [NATS + JetStream](https://docs.nats.io/learn/core-nats/) | Service messaging and durable event streams | NATS server; JetStream disk storage | TLS / optional storage encryption; chat E2EE is application-level | User/device model, chat API/ACL, client encryption, calls and AI |
+
+These are different scopes, not comparative performance measurements. Matrix and Zulip provide broader communication platforms; Centrifugo and NATS provide infrastructure. QGramm packages chat persistence and protocol semantics for integration, with [explicit acceptance limits](docs/verification.md).
+
+## Small integration example
+
+```sh
+go run ./examples/basic
+```
+
+The executable example starts a disposable loopback core, issues Ed25519 tokens, provisions a direct chat, connects through a one-use WebSocket ticket, sends an HPKE message and decrypts the recipient event. It prints no secrets. See the [short code walkthrough](docs/integration-example.md) before adapting it to your backend and clients.
+
 ## Deployment
 
 Requires Go 1.26 to build locally, or Docker to build the image. One instance serves one application. SQLite and encrypted file chunks live in a persistent volume. No PostgreSQL, Redis, registration server or bundled TURN is required.
@@ -44,7 +66,7 @@ go test -race ./...
 sh scripts/build-matrix.sh
 ```
 
-This is a pre-release. Race/build matrix, independent OpenMLS for the documented profile, Pion direct/TURN, live DeepSeek and a 10,000-connection load run passed. Native browser audio and other external gates remain incomplete. See [verification](docs/verification.md) and [benchmarks](docs/benchmark.md) for exact scopes; no audited-cryptography or full production-release claim.
+This is a pre-release. Race/build matrix, independent OpenMLS for the documented profile, Pion direct/TURN, live DeepSeek and a 10,000-connection load run passed. Linux Chromium decoded audio/video and TURN, plus live DeepSeek with independent MLS and restart/replay, also passed. Dedicated Linux/SSD qualification and independent audit are deferred; other scope limits are documented. See [verification](docs/verification.md) and [benchmarks](docs/benchmark.md) for exact scopes; no audited-cryptography or full production-release claim.
 
 ## License
 

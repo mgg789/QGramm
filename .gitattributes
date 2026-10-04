@@ -1,0 +1,4 @@
+# Preserve the archived client in Git without counting Swift as core code.
+*.swift linguist-detectable=false
+*.xcodeproj/** linguist-vendored
+*.xcworkspace/** linguist-vendored

@@ -51,11 +51,16 @@ async function gather(pc, offer) {
   ;
   return pc.localDescription.sdp;
 }
-async function check(boot, keys, serverKey, mode, mismatch = false) {
-  const label = mismatch ? "mismatch" : mode, chat = "browser-" + label;
+async function check(boot, keys, serverKey, mode, mismatch = false, relay = false) {
+  const label = mismatch ? "mismatch" : mode + (relay ? "-relay" : ""), chat = "browser-" + label;
   await http("POST", "/chat", null, { id: chat });
   const call = await http("POST", boot.base + "/v1/chats/" + chat + "/calls", boot.peers[0].token, { mode });
-  const pcs = [new RTCPeerConnection(), new RTCPeerConnection()], streams = [], contexts = [], oscillators = [], timers = [], videos = [], rendered = [0, 0],audioMetrics=[{samples:0,energy:0},{samples:0,energy:0}];
+  const configs = await Promise.all(boot.peers.map(async peer => {
+    if (!relay) return {};
+    const turn = await http("GET", boot.base + "/v1/calls/turn", peer.token);
+    return {iceTransportPolicy:"relay",iceServers:[{urls:turn.urls,username:turn.username,credential:turn.credential}]};
+  }));
+  const pcs = configs.map(config => new RTCPeerConnection(config)), streams = [], contexts = [], oscillators = [], timers = [], videos = [], rendered = [0, 0],audioMetrics=[{samples:0,energy:0},{samples:0,energy:0}];
   try {
     for (let i = 0; i < 2; i++) {
       const context = new AudioContext({sinkId:{type:"none"}});
@@ -93,6 +98,7 @@ async function check(boot, keys, serverKey, mode, mismatch = false) {
       for (const track of stream.getTracks()) pcs[i].addTrack(track, stream);
       pcs[i].ontrack = (e) => {
         if(e.track.kind==="audio"){
+          const audio=document.createElement("audio");audio.autoplay=true;audio.srcObject=new MediaStream([e.track]);document.querySelector("#media").append(audio);audio.play().catch(()=>{});
           const source=context.createMediaStreamSource(new MediaStream([e.track]));
           const receiver=new AudioWorkletNode(context,"receiver-pcm");receiver.port.onmessage=event=>{audioMetrics[i]=event.data};
           source.connect(receiver).connect(context.destination);
@@ -127,7 +133,7 @@ async function check(boot, keys, serverKey, mode, mismatch = false) {
     await pcs[0].setRemoteDescription({ type: "answer", sdp: receivedAnswer.sdp });
     for (let i = 0; i < 2; i++) {
       const candidate = pcs[i].localDescription.sdp.split("\n").map((x) => x.trim()).find((x) => x.startsWith("a=candidate:"));
-      if (!candidate) throw new Error("browser host ICE candidate absent");
+      if (!candidate) throw new Error("browser ICE candidate absent");
       const got = await signal(boot, keys, serverKey, chat, call.id, "ice", label + "-ice" + i, i, { candidate: candidate.slice(2), sdp_mid: "0" });
       await pcs[1 - i].addIceCandidate({ candidate: got.candidate, sdpMid: "0" });
     }
@@ -168,6 +174,9 @@ async function check(boot, keys, serverKey, mode, mismatch = false) {
           ;
           if (x.type === "inbound-rtp" && x.kind === "video") summary2.videoFramesDecoded = x.framesDecoded || 0;
         });
+        const transport = [...stats.values()].find(x => x.type === "transport" && x.selectedCandidatePairId);
+        const selected = transport && stats.get(transport.selectedCandidatePairId);
+        if(selected)summary2.selectedCandidatePair={state:selected.state,localCandidateType:stats.get(selected.localCandidateId)?.candidateType,remoteCandidateType:stats.get(selected.remoteCandidateId)?.candidateType};
         summaries.push(summary2);
       }
       ;
@@ -175,7 +184,8 @@ async function check(boot, keys, serverKey, mode, mismatch = false) {
     } while (Date.now() < deadline);
     const audioDecodedVerified=summaries.every(s=>s.connectionState==="connected"&&s.audioSamples>1000&&s.audioEnergy>0&&s.audioRTPBytes>1000);
     const videoDecodedVerified=mode==="video"&&summaries.every(s=>s.connectionState==="connected"&&s.videoFramesDecoded>=5&&s.videoFramesRendered>=5&&s.videoWidth===160);
-    return { mode, case: "direct",accepted:audioDecodedVerified&&(mode!=="video"||videoDecodedVerified),audioDecodedVerified,videoDecodedVerified,fingerprintBindingVerified: fingerprint(receivedOffer.sdp) === fingerprint(offer) && fingerprint(receivedAnswer.sdp) === fingerprint(answer), peers: summaries };
+    const relaySelectedVerified=relay&&summaries.every(s=>s.selectedCandidatePair?.state==="succeeded"&&s.selectedCandidatePair.localCandidateType==="relay"&&s.selectedCandidatePair.remoteCandidateType==="relay");
+    return { mode, case: relay ? "turn-relay" : "direct",accepted:audioDecodedVerified&&(mode!=="video"||videoDecodedVerified)&&(!relay||relaySelectedVerified),relaySelectedVerified,audioDecodedVerified,videoDecodedVerified,fingerprintBindingVerified: fingerprint(receivedOffer.sdp) === fingerprint(offer) && fingerprint(receivedAnswer.sdp) === fingerprint(answer), peers: summaries };
   } finally {
     for (const t of timers) clearInterval(t);
     for (const o of oscillators) o.stop();
@@ -195,6 +205,7 @@ document.querySelector("#run").addEventListener("click", async () => {
     const caps = await http("GET", boot.base + "/v1/capabilities", boot.peers[0].token);
     const serverKey = await suite.kem.deserializePublicKey(from64(caps.server_key));
     for (const mode of ["audio", "video"]){try{window.results.push(await check(boot,keys,serverKey,mode))}catch(error){window.results.push({mode,accepted:false,error:String(error)})}}
+    if(boot.turnEnabled)for(const mode of ["audio","video"]){try{window.results.push(await check(boot,keys,serverKey,mode,false,true))}catch(error){window.results.push({mode,case:"turn-relay",accepted:false,error:String(error)})}}
     try{window.results.push(await check(boot,keys,serverKey,"video",true))}catch(error){window.results.push({case:"fingerprint-mismatch",accepted:false,error:String(error)})}
     document.querySelector("#results").textContent = JSON.stringify(window.results, null, 2);
   } catch (e) {

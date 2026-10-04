@@ -1,0 +1,459 @@
+{
+  "browser": "Chromium 152.0.7977.82",
+  "runtime": "linux/arm64",
+  "results": [
+    {
+      "mode": "audio",
+      "case": "direct",
+      "accepted": true,
+      "relaySelectedVerified": false,
+      "audioDecodedVerified": true,
+      "videoDecodedVerified": false,
+      "fingerprintBindingVerified": true,
+      "peers": [
+        {
+          "connectionState": "connected",
+          "iceConnectionState": "connected",
+          "mdnsCandidates": false,
+          "candidates": [
+            {
+              "protocol": "udp",
+              "loopback": false
+            }
+          ],
+          "audioContextTime": 0.592108843537415,
+          "audioContextState": "running",
+          "audioSamples": 12800,
+          "audioEnergy": 213.81770250525332,
+          "videoFramesDecoded": 0,
+          "videoFramesRendered": 0,
+          "videoWidth": 0,
+          "candidatePair": {
+            "state": "succeeded",
+            "requestsSent": 3,
+            "requestsReceived": 3,
+            "responsesReceived": 3
+          },
+          "inbound": [
+            {
+              "kind": "audio",
+              "mediaType": "audio",
+              "packets": 20,
+              "bytes": 1610,
+              "samples": 19200,
+              "energy": 0.0130034123255189
+            }
+          ],
+          "inboundAudioStatsSamples": 19200,
+          "audioRTPBytes": 1610,
+          "inboundAudioStatsEnergy": 0.0130034123255189,
+          "sentPackets": 21,
+          "senderSourceAudioLevel": 0.1999877925962096,
+          "senderSourceAudioEnergy": 0.018797705078127145,
+          "selectedCandidatePair": {
+            "state": "succeeded",
+            "localCandidateType": "host",
+            "remoteCandidateType": "host"
+          }
+        },
+        {
+          "connectionState": "connected",
+          "iceConnectionState": "connected",
+          "mdnsCandidates": false,
+          "candidates": [
+            {
+              "protocol": "udp",
+              "loopback": false
+            }
+          ],
+          "audioContextTime": 0.5804988662131519,
+          "audioContextState": "running",
+          "audioSamples": 12800,
+          "audioEnergy": 206.2555012226781,
+          "videoFramesDecoded": 0,
+          "videoFramesRendered": 0,
+          "videoWidth": 0,
+          "candidatePair": {
+            "state": "succeeded",
+            "requestsSent": 3,
+            "requestsReceived": 3,
+            "responsesReceived": 3
+          },
+          "inbound": [
+            {
+              "kind": "audio",
+              "mediaType": "audio",
+              "packets": 21,
+              "bytes": 1721,
+              "samples": 19680,
+              "energy": 0.013472715797303038
+            }
+          ],
+          "inboundAudioStatsSamples": 19680,
+          "audioRTPBytes": 1721,
+          "inboundAudioStatsEnergy": 0.013472715797303038,
+          "sentPackets": 20,
+          "senderSourceAudioLevel": 0.1999877925962096,
+          "senderSourceAudioEnergy": 0.013198388671876511,
+          "selectedCandidatePair": {
+            "state": "succeeded",
+            "localCandidateType": "host",
+            "remoteCandidateType": "host"
+          }
+        }
+      ]
+    },
+    {
+      "mode": "video",
+      "case": "direct",
+      "accepted": true,
+      "relaySelectedVerified": false,
+      "audioDecodedVerified": true,
+      "videoDecodedVerified": true,
+      "fingerprintBindingVerified": true,
+      "peers": [
+        {
+          "connectionState": "connected",
+          "iceConnectionState": "connected",
+          "mdnsCandidates": false,
+          "candidates": [
+            {
+              "protocol": "udp",
+              "loopback": false
+            },
+            {
+              "protocol": "udp",
+              "loopback": false
+            }
+          ],
+          "audioContextTime": 0.592108843537415,
+          "audioContextState": "running",
+          "audioSamples": 12800,
+          "audioEnergy": 215.15828923373672,
+          "videoFramesDecoded": 9,
+          "videoFramesRendered": 6,
+          "videoWidth": 160,
+          "candidatePair": {
+            "state": "succeeded",
+            "requestsSent": 3,
+            "requestsReceived": 3,
+            "responsesReceived": 3
+          },
+          "inbound": [
+            {
+              "kind": "audio",
+              "mediaType": "audio",
+              "packets": 21,
+              "bytes": 1697,
+              "samples": 19200,
+              "energy": 0.01299904761145377
+            },
+            {
+              "kind": "video",
+              "mediaType": "video",
+              "packets": 28,
+              "bytes": 9087,
+              "framesDecoded": 9
+            }
+          ],
+          "inboundAudioStatsSamples": 19200,
+          "audioRTPBytes": 1697,
+          "inboundAudioStatsEnergy": 0.01299904761145377,
+          "sentPackets": 50,
+          "senderSourceAudioLevel": 0.1999877925962096,
+          "senderSourceAudioEnergy": 0.0183977539062521,
+          "selectedCandidatePair": {
+            "state": "succeeded",
+            "localCandidateType": "host",
+            "remoteCandidateType": "host"
+          }
+        },
+        {
+          "connectionState": "connected",
+          "iceConnectionState": "connected",
+          "mdnsCandidates": false,
+          "candidates": [
+            {
+              "protocol": "udp",
+              "loopback": false
+            }
+          ],
+          "audioContextTime": 0.5804988662131519,
+          "audioContextState": "running",
+          "audioSamples": 19200,
+          "audioEnergy": 318.03874979081104,
+          "videoFramesDecoded": 9,
+          "videoFramesRendered": 6,
+          "videoWidth": 160,
+          "candidatePair": {
+            "state": "succeeded",
+            "requestsSent": 3,
+            "requestsReceived": 3,
+            "responsesReceived": 3
+          },
+          "inbound": [
+            {
+              "kind": "audio",
+              "mediaType": "audio",
+              "packets": 21,
+              "bytes": 1721,
+              "samples": 19200,
+              "energy": 0.013472715797303038
+            },
+            {
+              "kind": "video",
+              "mediaType": "video",
+              "packets": 29,
+              "bytes": 9773,
+              "framesDecoded": 9
+            }
+          ],
+          "inboundAudioStatsSamples": 19200,
+          "audioRTPBytes": 1721,
+          "inboundAudioStatsEnergy": 0.013472715797303038,
+          "sentPackets": 49,
+          "senderSourceAudioLevel": 0.1999877925962096,
+          "senderSourceAudioEnergy": 0.013198388671876511,
+          "selectedCandidatePair": {
+            "state": "succeeded",
+            "localCandidateType": "host",
+            "remoteCandidateType": "host"
+          }
+        }
+      ]
+    },
+    {
+      "mode": "audio",
+      "case": "turn-relay",
+      "accepted": true,
+      "relaySelectedVerified": true,
+      "audioDecodedVerified": true,
+      "videoDecodedVerified": false,
+      "fingerprintBindingVerified": true,
+      "peers": [
+        {
+          "connectionState": "connected",
+          "iceConnectionState": "connected",
+          "mdnsCandidates": false,
+          "candidates": [
+            {
+              "protocol": "udp",
+              "loopback": false
+            }
+          ],
+          "audioContextTime": 0.6820861678004535,
+          "audioContextState": "running",
+          "audioSamples": 12800,
+          "audioEnergy": 158.34309106983983,
+          "videoFramesDecoded": 0,
+          "videoFramesRendered": 0,
+          "videoWidth": 0,
+          "candidatePair": {
+            "state": "succeeded",
+            "requestsSent": 3,
+            "requestsReceived": 1,
+            "responsesReceived": 3
+          },
+          "inbound": [
+            {
+              "kind": "audio",
+              "mediaType": "audio",
+              "packets": 17,
+              "bytes": 1283,
+              "samples": 16320,
+              "energy": 0.01262869155155572
+            }
+          ],
+          "inboundAudioStatsSamples": 16320,
+          "audioRTPBytes": 1283,
+          "inboundAudioStatsEnergy": 0.01262869155155572,
+          "sentPackets": 17,
+          "senderSourceAudioLevel": 0.1999877925962096,
+          "senderSourceAudioEnergy": 0.022397265625002546,
+          "selectedCandidatePair": {
+            "state": "succeeded",
+            "localCandidateType": "relay",
+            "remoteCandidateType": "relay"
+          }
+        },
+        {
+          "connectionState": "connected",
+          "iceConnectionState": "connected",
+          "mdnsCandidates": false,
+          "candidates": [
+            {
+              "protocol": "udp",
+              "loopback": false
+            }
+          ],
+          "audioContextTime": 0.6820861678004535,
+          "audioContextState": "running",
+          "audioSamples": 19200,
+          "audioEnergy": 176.83620831032422,
+          "videoFramesDecoded": 0,
+          "videoFramesRendered": 0,
+          "videoWidth": 0,
+          "candidatePair": {
+            "state": "succeeded",
+            "requestsSent": 3,
+            "requestsReceived": 3,
+            "responsesReceived": 1
+          },
+          "inbound": [
+            {
+              "kind": "audio",
+              "mediaType": "audio",
+              "packets": 17,
+              "bytes": 1345,
+              "samples": 16320,
+              "energy": 0.013012014778692765
+            }
+          ],
+          "inboundAudioStatsSamples": 16320,
+          "audioRTPBytes": 1345,
+          "inboundAudioStatsEnergy": 0.013012014778692765,
+          "sentPackets": 17,
+          "senderSourceAudioLevel": 0.1999877925962096,
+          "senderSourceAudioEnergy": 0.01759785156250201,
+          "selectedCandidatePair": {
+            "state": "succeeded",
+            "localCandidateType": "relay",
+            "remoteCandidateType": "relay"
+          }
+        }
+      ]
+    },
+    {
+      "mode": "video",
+      "case": "turn-relay",
+      "accepted": true,
+      "relaySelectedVerified": true,
+      "audioDecodedVerified": true,
+      "videoDecodedVerified": true,
+      "fingerprintBindingVerified": true,
+      "peers": [
+        {
+          "connectionState": "connected",
+          "iceConnectionState": "connected",
+          "mdnsCandidates": false,
+          "candidates": [
+            {
+              "protocol": "udp",
+              "loopback": false
+            },
+            {
+              "protocol": "udp",
+              "loopback": false
+            }
+          ],
+          "audioContextTime": 0.7111111111111111,
+          "audioContextState": "running",
+          "audioSamples": 12800,
+          "audioEnergy": 167.065780967543,
+          "videoFramesDecoded": 8,
+          "videoFramesRendered": 6,
+          "videoWidth": 160,
+          "candidatePair": {
+            "state": "succeeded",
+            "requestsSent": 3,
+            "requestsReceived": 1,
+            "responsesReceived": 3
+          },
+          "inbound": [
+            {
+              "kind": "audio",
+              "mediaType": "audio",
+              "packets": 18,
+              "bytes": 1358,
+              "samples": 16800,
+              "energy": 0.013098893199084145
+            },
+            {
+              "kind": "video",
+              "mediaType": "video",
+              "packets": 25,
+              "bytes": 8376,
+              "framesDecoded": 8
+            }
+          ],
+          "inboundAudioStatsSamples": 16800,
+          "audioRTPBytes": 1358,
+          "inboundAudioStatsEnergy": 0.013098893199084145,
+          "sentPackets": 43,
+          "senderSourceAudioLevel": 0.1999877925962096,
+          "senderSourceAudioEnergy": 0.02359711914062768,
+          "selectedCandidatePair": {
+            "state": "succeeded",
+            "localCandidateType": "relay",
+            "remoteCandidateType": "relay"
+          }
+        },
+        {
+          "connectionState": "connected",
+          "iceConnectionState": "connected",
+          "mdnsCandidates": false,
+          "candidates": [
+            {
+              "protocol": "udp",
+              "loopback": false
+            }
+          ],
+          "audioContextTime": 0.7111111111111111,
+          "audioContextState": "running",
+          "audioSamples": 19200,
+          "audioEnergy": 165.6234469699211,
+          "videoFramesDecoded": 8,
+          "videoFramesRendered": 6,
+          "videoWidth": 160,
+          "candidatePair": {
+            "state": "succeeded",
+            "requestsSent": 3,
+            "requestsReceived": 3,
+            "responsesReceived": 1
+          },
+          "inbound": [
+            {
+              "kind": "audio",
+              "mediaType": "audio",
+              "packets": 18,
+              "bytes": 1437,
+              "samples": 16320,
+              "energy": 0.010351730585716605
+            },
+            {
+              "kind": "video",
+              "mediaType": "video",
+              "packets": 25,
+              "bytes": 8380,
+              "framesDecoded": 8
+            }
+          ],
+          "inboundAudioStatsSamples": 16320,
+          "audioRTPBytes": 1437,
+          "inboundAudioStatsEnergy": 0.010351730585716605,
+          "sentPackets": 43,
+          "senderSourceAudioLevel": 0.1999877925962096,
+          "senderSourceAudioEnergy": 0.0183977539062521,
+          "selectedCandidatePair": {
+            "state": "succeeded",
+            "localCandidateType": "relay",
+            "remoteCandidateType": "relay"
+          }
+        }
+      ]
+    },
+    {
+      "mode": "video",
+      "case": "fingerprint-mismatch",
+      "accepted": true,
+      "fingerprintMismatchRejected": true,
+      "connectionState": "failed",
+      "mediaBytesReceived": 0
+    }
+  ],
+  "command": "python3 tools/browser-webrtc/run-docker.py --output docs/benchmarks/browser-webrtc-final.json",
+  "exitCode": 0,
+  "recordedAtUTC": "2026-10-04T16:51:01Z",
+  "commit": "0b4dd0bd3b869f0f88cfa8be4dd0fa8f03847c1f",
+  "workingTreeDirty": true
+}

@@ -86,7 +86,7 @@ if (req.method === "GET" && req.url === "/bootstrap") {
         }
         ;
         const { id } = JSON.parse(input);
-        if (!/^browser-(audio|video|mismatch)$/.test(id)) throw new Error("invalid chat id");
+        if (!/^browser-(audio|video)(-relay)?$|^browser-mismatch$/.test(id)) throw new Error("invalid chat id");
         await request("POST", "/management/v1/chats/direct", { id, mode: "basic", members: ["alice", "bob"] });
         res.setHeader("Content-Type", "application/json");
         res.end("{}");
@@ -120,7 +120,7 @@ files=${JSON.stringify(join(temp, "files"))}
 [features]
 calls=true
 [calls]
-turn_urls=["turn:127.0.0.1:3478"]
+turn_urls=["${process.env.QGRAMM_BROWSER_TURN_URL || "turn:127.0.0.1:3478"}"]
 turn_secret_env="QGRAMM_BROWSER_TURN"
 `, { mode: 384 });
   const binary = process.env.QGRAMM_BROWSER_SERVER_BINARY || join(temp, "qgramm");
@@ -129,7 +129,7 @@ turn_secret_env="QGRAMM_BROWSER_TURN"
   } catch (error) {
     throw new Error("calls artifact build failed: " + (error.stderr?.toString() || error.message));
   }
-  child = spawn(binary, ["-config", config], { cwd: root, stdio: "ignore", env: { ...process.env, QGRAMM_TOKEN_PUBLIC_KEY: publicRaw.toString("base64"), QGRAMM_MASTER_KEY: randomBytes(32).toString("base64"), QGRAMM_HPKE_KEY: randomBytes(32).toString("base64"), QGRAMM_MANAGEMENT_SECRET: management, QGRAMM_BROWSER_TURN: randomBytes(32).toString("base64") } });
+  child = spawn(binary, ["-config", config], { cwd: root, stdio: "ignore", env: { ...process.env, QGRAMM_TOKEN_PUBLIC_KEY: publicRaw.toString("base64"), QGRAMM_MASTER_KEY: randomBytes(32).toString("base64"), QGRAMM_HPKE_KEY: randomBytes(32).toString("base64"), QGRAMM_MANAGEMENT_SECRET: management, QGRAMM_BROWSER_TURN: process.env.QGRAMM_BROWSER_TURN || randomBytes(32).toString("base64") } });
   let ready = false;
   for (let i = 0; i < 100; i++) {
     try {
@@ -151,7 +151,7 @@ turn_secret_env="QGRAMM_BROWSER_TURN"
     peers.push({ user, device: user + "-browser", token });
   }
   ;
-  bootstrap = { base, peers };
+  bootstrap = { base, peers,turnEnabled:process.env.QGRAMM_BROWSER_TURN_ENABLED==="1" };
   const executable = process.env.QGRAMM_BROWSER_EXECUTABLE || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
   browser = await chromium.launch({ executablePath: executable, headless: true, args: ["--autoplay-policy=no-user-gesture-required", "--disable-features=WebRtcHideLocalIpsWithMdns", "--allow-loopback-in-peer-connection", "--force-webrtc-ip-handling-policy=default"] });
   const page = await browser.newPage();
