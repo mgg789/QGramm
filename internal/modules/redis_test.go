@@ -3,8 +3,11 @@
 package modules
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"os"
+	"runtime"
 	"testing"
 	"time"
 
@@ -12,6 +15,7 @@ import (
 )
 
 func TestRedisRealPubSubFailureAndShutdown(t *testing.T) {
+	t.Setenv("QGRAMM_REDIS_TEST_SECRET", "synthetic-fixture-value")
 	binary := testRedisBinary(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -23,6 +27,18 @@ func TestRedisRealPubSubFailureAndShutdown(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer b.close()
+	if b.cmd.Env == nil {
+		t.Fatal("Redis inherits the application environment")
+	}
+	if runtime.GOOS == "linux" {
+		environment, err := os.ReadFile(fmt.Sprintf("/proc/%d/environ", b.cmd.Process.Pid))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if bytes.Contains(environment, []byte("QGRAMM_REDIS_TEST_SECRET=")) {
+			t.Fatal("secret passed to Redis child")
+		}
+	}
 	for name, want := range map[string]string{"port": "0", "save": "", "appendonly": "no", "maxmemory": "67108864"} {
 		settings, err := b.client.ConfigGet(ctx, name).Result()
 		if err != nil || settings[name] != want {

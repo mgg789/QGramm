@@ -57,6 +57,8 @@ func newRedisBroker(ctx context.Context, cfg config.Redis, local func(string)) (
 	b := &redisBroker{dir: dir, queue: make(chan string, cfg.QueueDepth), local: local, done: make(chan struct{})}
 	socket := filepath.Join(dir, "redis.sock")
 	b.cmd = exec.Command(cfg.Binary, "--port", "0", "--unixsocket", socket, "--unixsocketperm", "600", "--protected-mode", "yes", "--daemonize", "no", "--save", "", "--appendonly", "no", "--maxmemory", strconv.Itoa(cfg.MaxMemoryMB)+"mb", "--maxmemory-policy", "noeviction", "--dir", dir, "--loglevel", "warning")
+	// Redis needs no environment values. Never inherit Go storage/provider secrets.
+	b.cmd.Env = []string{}
 	b.cmd.Stdout, b.cmd.Stderr = io.Discard, io.Discard
 	if err = b.cmd.Start(); err != nil {
 		_ = os.RemoveAll(dir)

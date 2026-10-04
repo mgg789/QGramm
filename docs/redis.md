@@ -50,3 +50,5 @@ source and builds it in ignored project `work/` (requires curl, make and a C
 compiler), then removes the temporary build. It never installs a host service.
 Alternatively set `QGRAMM_REDIS_TEST_BINARY` to a real local executable. This is
 only a test-fixture setting; production uses TOML `redis.binary`.
+
+The Redis child receives an empty environment; storage/provider secrets are not inherited. It still shares the container UID and trust boundary with Go, so this is not a process security sandbox.
