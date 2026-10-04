@@ -165,6 +165,16 @@ OpenMLS pure wire-format policy rejecting mixed public/private proposals. This
 is a real broader matrix FAIL. The relay profile supports public commits;
 no OpenMLS patch or incompatible runtime fallback is enabled.
 
+Public/private here describes MLS wire encoding, not whether a chat is public.
+Application messages remain encrypted PrivateMessage. Proposals/commits manage
+membership and epoch changes: PublicMessage is authenticated but its framing
+and control content are visible; PrivateMessage also encrypts those controls.
+RFC9420 section6 permits public handshakes when the delivery service needs to
+inspect them. Public commits do not disclose the group's secret keys. QGramm
+currently accepts public member commits so its relay can validate signatures
+and coordinate ACL/epoch transitions. Clients must select this handshake
+profile; a client requiring encrypted handshakes needs additional support.
+
 ### Independent production adapter and AI lifecycle
 
 2026-10-04: `docker compose -p qgramm-adapter-gate -f tools/mls-interop/compose.yml run --rm runner`
@@ -180,17 +190,19 @@ send, durable jobs/history and two human→AI→human exchanges, closing/reopeni
 Core on the same SQLite DB between them. The human is a separate unmodified
 OpenMLS process. Restored `ai_chats.state` rejects the first human wire replay.
 
-Provider is an explicit local HTTPS mock with temporary test CA in an isolated
-Docker network. This checks provider contract/TLS and the normal egress
-validator, **not live OpenAI/Anthropic acceptance**. Production network guards
+Provider in this independent-MLS fixture is a local HTTPS mock with temporary
+test CA in an isolated Docker network. This checks provider contract/TLS and
+the normal egress validator. Separate live OpenAI-compatible API acceptance
+uses DeepSeek; see [verification](verification.md). Production network guards
 are unchanged. Private keys, snapshots and JWTs are not logged. Reproduce with
 `sh tools/mls-interop/run.sh`; source/base-image hashes and nested test dependency
 sums are pinned. Rust/gRPC are excluded from deployment. See
 [tooling instructions](../tools/mls-interop/README.md).
 
 The public-commit interoperability profile has recorded PASS evidence.
-Mixed/private handshakes, live provider acceptance and operational external
-authority validation remain separate limitations, not implied by these results.
+Mixed/private handshakes and operational external authority validation remain
+separate limitations. The combined live-provider/independent-MLS contour is
+separate from the two successful individual checks.
 
 Sources: [RFC 9420](https://www.rfc-editor.org/rfc/rfc9420),
 [MLS WG interoperability](https://github.com/mlswg/mls-implementations),
