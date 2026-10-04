@@ -22,16 +22,17 @@ These are different scopes, not comparative performance measurements. Matrix and
 
 ### Measured latency and resources
 
-Same Apple M5 Pro / Linux arm64 Docker VM, 4 CPU / 8 GiB container quotas, 10,000 WebSockets, one active sender/recipient. Steady load: 100 messages/s for 30 seconds, followed by a five-second 1,000/s burst. The table reports steady-phase latency and sampled resource maxima across setup/load.
+Two repetitions on Apple M5 Pro / Docker Desktop Linux arm64, 4 CPU / 8 GiB limits, 10,000 sockets and one active chat. The table shows ranges across the two runs: steady-phase delivery latency, mean sampled CPU and phase sampled maximum RAM. Load: 100/s for 30 seconds, then 1,000/s for five seconds.
 
-| Configuration | Acceptance p95 / p99, ms | Delivery p95 / p99, ms | Sampled CPU¹ / RAM |
+| Configuration | Delivery p95 / p99, ms | Mean CPU¹ | RAM, MiB |
 |---|---:|---:|---:|
-| QGramm: HPKE + JWT/ACL + SQLite FULL | 4.364 / 6.657 | 4.676 / 6.898 | 61.05% / 666.3 MiB |
-| NATS JetStream: fsync every publication | 3.945 / 6.641 | 4.018 / 6.621 | 23.50% / 469.3 MiB |
-| NATS JetStream: default deferred fsync | 2.759 / 5.161 | 2.788 / 5.186 | 23.66% / 489.5 MiB |
-| Centrifugo: in-memory history | 2.781 / 4.719 | 2.800 / 4.952 | 28.48% / 450.1 MiB |
+| QGramm before optimization | 5.31 / 7.34–7.65 | 19.5–20.2% | 583–588 |
+| QGramm after, full response | 5.13–5.26 / 7.02–7.26 | 14.3–14.8% | 272–282 |
+| QGramm after, compact receipt | 5.19–5.26 / 7.18–7.19 | 13.5–14.1% | 271–272 |
+| NATS JetStream, fsync each publication | 4.30–4.97 / 6.52–6.75 | 4.0–4.4% | 459–466 |
+| Centrifugo, in-memory history | 3.13–3.54 / 5.18–5.21 | 7.8–8.2% | 425–479 |
 
-¹ 100% means one CPU. All submitted messages were delivered in these runs. Baselines carry plaintext application data and do not perform QGramm's per-send crypto, device/chat ACL and chat transactions. This measures those configurations, not maximum throughput or equivalent feature sets. [Method, versions and raw results](docs/comparison-benchmark.en.md) · [QGramm hardware/provenance](docs/benchmark.md). Matrix/Synapse and Zulip require separate application-level scenarios and are not included in these measurements.
+¹ 100% means one CPU. QGramm steady RAM fell 52–54% and CPU about 27%. Full-response burst runs returned 83/20 managed 503 rejections; compact receipts had none. All accepted messages were delivered and stored. Whole-run delivery p99 was 29–71 ms for full responses and 7.6–25.4 ms for compact receipts. Baselines omit per-send HPKE/device/chat ACL and chat transactions; Centrifugo history is volatile. This is neither maximum throughput nor an equivalent-feature ranking. [Method, per-run p95/p99, profiles and raw evidence](docs/performance-dynamics.md). [Earlier baseline](docs/comparison-benchmark.en.md).
 
 ## Small integration example
 

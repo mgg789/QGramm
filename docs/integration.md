@@ -44,6 +44,13 @@ recipient delivery and encryption are unchanged. Retry the exact encrypted
 request: the receipt identifies the original acceptance, even after edits or
 deletion, while current access is checked again. It is not a delivery/read receipt.
 
+Replay orders events by chat sequence, but message events project the currently
+accessible message state rather than an immutable historical payload. Journal
+reads, batched message projection and optional projection hooks are separate
+reads; the page is not a single database snapshot. A later delete can therefore
+make an earlier creation event contain a tombstone. Clients apply revisions and
+deletion precedence; a membership change during projection can require resync.
+
 - A 201 send result means SQLite committed both message and event. It does not mean a recipient received/read it.
 - Preserve the complete serialized request and operation ID for retries. Changing ciphertext or metadata while reusing an operation ID returns 409, even if plaintext is identical.
 - `POST .../messages/batch` accepts `{messages:[...]}` and returns HTTP207 with per-item results. A batch is not an all-or-nothing transaction; retry failed items only.

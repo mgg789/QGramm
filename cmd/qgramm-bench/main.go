@@ -35,6 +35,7 @@ type client struct {
 	private          ed25519.PrivateKey
 	engine           *cryptoenc.Engine
 	http             *http.Client
+	responseMode     string
 }
 
 func (c *client) token(user string) string {
@@ -50,6 +51,9 @@ func (c *client) request(method, path, user string, body any) ([]byte, int, erro
 	}
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("X-Forwarded-Proto", "https")
+	if c.responseMode == "minimal" && method == "POST" && (strings.HasSuffix(path, "/messages") || strings.HasSuffix(path, "/messages/batch")) {
+		r.Header.Set("Prefer", "return=minimal")
+	}
 	token := c.management
 	if user != "" {
 		token = c.token(user)
@@ -86,7 +90,19 @@ func run() error {
 	burst := flag.Duration("burst", 5*time.Second, "burst duration")
 	burstRate := flag.Int("burst-rate", 1000, "burst offered messages/sec")
 	out := flag.String("out", "", "JSON evidence path")
+	responseMode := flag.String("response-mode", "full", "message acknowledgement: full or minimal (Prefer: return=minimal)")
+	phaseFile := flag.String("phase-file", "", "private workload phase marker for resource sampling")
+	idle := flag.Duration("idle", 0, "idle connected interval before traffic")
 	flag.Parse()
+	if *responseMode != "full" && *responseMode != "minimal" {
+		return fmt.Errorf("invalid response mode")
+	}
+	mark := func(name string) {
+		if *phaseFile != "" {
+			_ = os.WriteFile(*phaseFile, []byte(name), 0600)
+		}
+	}
+	mark("setup")
 	if *envFile == "" {
 		return fmt.Errorf("-env required")
 	}
@@ -117,7 +133,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	c := &client{*base, env["QGRAMM_MANAGEMENT_SECRET"], ed25519.PrivateKey(private), engine, &http.Client{Timeout: 20 * time.Second, Transport: &http.Transport{MaxIdleConns: 256, MaxIdleConnsPerHost: 128, MaxConnsPerHost: 128}}}
+	c := &client{base: *base, management: env["QGRAMM_MANAGEMENT_SECRET"], private: ed25519.PrivateKey(private), engine: engine, http: &http.Client{Timeout: 20 * time.Second, Transport: &http.Transport{MaxIdleConns: 256, MaxIdleConnsPerHost: 128, MaxConnsPerHost: 128}}, responseMode: *responseMode}
 	seed := make([]byte, 8)
 	rand.Read(seed)
 	prefix := "load-" + base64.RawURLEncoding.EncodeToString(seed) + "-"
@@ -192,6 +208,7 @@ func run() error {
 	var started sync.Map
 	var metricMu sync.Mutex
 	statusCounts := map[int]int{}
+	backpressureReasons := map[string]int{}
 	var sendDiagnostic sync.Once
 	latencies := []float64{}
 	deliveryLatencies := []float64{}
@@ -289,6 +306,8 @@ func run() error {
 		return fmt.Errorf("connected %d/%d, failures %d", connected.Load(), *users, socketFailures.Load())
 	}
 	fmt.Printf("Established %d distinct-user sockets in %s\n", connected.Load(), time.Since(setupStart).Round(time.Millisecond))
+	mark("idle")
+	time.Sleep(*idle)
 	var accepted, rejected, failed, offered, generatorSkipped atomic.Int64
 	sem := make(chan struct{}, 64)
 	send := func(op string, steady bool) {
@@ -301,18 +320,46 @@ func run() error {
 			failed.Add(1)
 			return
 		}
-		_, status, e := c.request("POST", "/v1/chats/"+chat+"/messages", names[0], map[string]any{"operation_id": op, "envelope": envelope})
+		body, status, e := c.request("POST", "/v1/chats/"+chat+"/messages", names[0], map[string]any{"operation_id": op, "envelope": envelope})
 		metricMu.Lock()
 		statusCounts[status]++
 		metricMu.Unlock()
 		if e != nil {
 			failed.Add(1)
 		} else if status == 201 {
+			if c.responseMode == "minimal" {
+				var receipt struct {
+					Status  string `json:"status"`
+					Receipt struct {
+						ID        string `json:"message_id"`
+						Chat      string `json:"chat_id"`
+						Operation string `json:"operation_id"`
+						Seq       int64  `json:"seq"`
+					} `json:"receipt"`
+				}
+				if json.Unmarshal(body, &receipt) != nil || receipt.Status != "accepted" || receipt.Receipt.ID == "" || receipt.Receipt.Chat != chat || receipt.Receipt.Operation != op || receipt.Receipt.Seq <= 0 {
+					failed.Add(1)
+					return
+				}
+			}
 			accepted.Add(1)
 			metricMu.Lock()
 			latencies = append(latencies, float64(time.Since(stamp).Microseconds())/1000)
 			metricMu.Unlock()
 		} else if status == 503 || status == 429 {
+			var response struct {
+				Error string `json:"error"`
+			}
+			_ = json.Unmarshal(body, &response)
+			reason := "other"
+			// Only fixed public errors enter evidence; never arbitrary responses.
+			switch response.Error {
+			case "request capacity reached", "storage unavailable":
+				reason = response.Error
+			}
+			metricMu.Lock()
+			backpressureReasons[reason]++
+			metricMu.Unlock()
 			rejected.Add(1)
 			started.Delete(op)
 		} else {
@@ -344,19 +391,23 @@ func run() error {
 		}
 	}
 	loadStart := time.Now()
+	mark("steady")
 	phase(*duration, *rate, true)
 	steadyAccepted := accepted.Load()
 	steadyRejected := rejected.Load()
 	metricMu.Lock()
 	steadyLatency := append([]float64(nil), latencies...)
 	metricMu.Unlock()
+	mark("burst")
 	phase(*burst, *burstRate, false)
+	mark("drain")
 	deadline := time.Now().Add(15 * time.Second)
 	expectedDeliveries := accepted.Load() * int64(*groupSize-1)
 	for delivered.Load() < expectedDeliveries && time.Now().Before(deadline) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	historyCount := 0
+	mark("history")
 	after := int64(0)
 	for {
 		data, status, e := c.request("GET", fmt.Sprintf("/v1/chats/%s/messages?after=%d&limit=200", chat, after), names[1], nil)
@@ -385,6 +436,9 @@ func run() error {
 	metricMu.Lock()
 	result := map[string]any{"users_connected": connected.Load(), "offered": offered.Load(), "accepted": accepted.Load(), "steady_accepted": steadyAccepted, "steady_backpressure": steadyRejected, "backpressure": rejected.Load(), "failed": failed.Load(), "status_counts": statusCounts, "generator_skipped": generatorSkipped.Load(), "delivered": delivered.Load(), "history_messages": historyCount, "accept_p95_ms": percentile(latencies, .95), "delivery_p95_ms": percentile(deliveryLatencies, .95), "steady_accept_p95_ms": percentile(steadyLatency, .95), "steady_delivery_p95_ms": percentile(steadyDeliveryLatencies, .95), "steady_seconds": duration.Seconds(), "steady_rate": *rate, "burst_seconds": burst.Seconds(), "burst_rate": *burstRate, "elapsed_seconds": time.Since(loadStart).Seconds(), "limitations": []string{"synthetic payload and shared recipient HPKE fixture key", fmt.Sprintf("%d users; one active %d-member conversation", *users, *groupSize), "HTTP behind isolated trusted proxy header; TLS CPU not measured", "generator runs outside server container; resource stats recorded separately"}}
 	result["group_size"] = *groupSize
+	result["response_mode"] = *responseMode
+	result["backpressure_reasons"] = backpressureReasons
+	result["idle_seconds"] = idle.Seconds()
 	result["unexpected_disconnects"] = unexpectedDisconnects.Load()
 	result["accept_p99_ms"] = percentile(latencies, .99)
 	result["delivery_p99_ms"] = percentile(deliveryLatencies, .99)

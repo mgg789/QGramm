@@ -23,6 +23,7 @@ This is a pre-release core. Implementation, mocks, independent peers and live pr
 | Anthropic adapter | Messages/tool-use/tool-result contracts covered by integration tests with a test provider |
 | Load | 10,000 WS, sustained100/s and burst1000/s on Docker Linux4CPU/8GiB limit; accepted=delivered=history. Published p95/p99 rerun, hardware/provenance and reproduction tooling; separate group and file microbenchmark. [Results](benchmark.md) |
 | Alternative baselines | Real NATS JetStream default/always fsync and Centrifugo, sequential 10,000 WebSocket runs, p95/p99 and sampled CPU/RAM. [Scope and results](comparison-benchmark.md) |
+| Performance changes | Two original/full/compact-receipt runs and two NATS strict-fsync/Centrifugo runs; phase-labelled CPU/RAM, p95/p99, durable history checks, separate private CPU/heap/SQL-wait profiles. Full-response burst rejections and variation are retained. [Dynamics and limits](performance-dynamics.md) |
 | Docker | Minimal arm64 build, UID10001, health/restart, retained volume, exclusive0600 offline backup; third-party license bundle included |
 | Architectures | Static Linux amd64/arm64 binaries cross-built; arm64 container run. amd64 native runtime not checked |
 | Contracts/licenses | Generator covers39 routes; OpenAPI3.1/WS JSONSchema validation; `go run ./cmd/qgramm-licenses -out THIRD_PARTY_LICENSES.txt -check` |

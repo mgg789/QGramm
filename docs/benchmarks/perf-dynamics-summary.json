@@ -1,0 +1,821 @@
+[
+  {
+    "file": "docs/benchmarks/perf-before-round1.json",
+    "instrumented": false,
+    "response_mode": "full",
+    "latency": {
+      "accept_p95_ms": 6.627,
+      "accept_p99_ms": 17.586,
+      "delivery_p95_ms": 20.69,
+      "delivery_p99_ms": 71.491,
+      "steady_accept_p95_ms": 5.098,
+      "steady_accept_p99_ms": 7.479,
+      "steady_delivery_p95_ms": 5.309,
+      "steady_delivery_p99_ms": 7.654
+    },
+    "integrity": {
+      "offered": 7993,
+      "accepted": 7993,
+      "delivered": 7993,
+      "history_messages": 7993,
+      "failed": 0,
+      "backpressure": 0,
+      "generator_skipped": 0,
+      "unexpected_disconnects": 0
+    },
+    "resources": {
+      "setup": {
+        "samples": 7,
+        "cpu_mean_percent": 36.663,
+        "cpu_median_percent": 32.9,
+        "cpu_mean_excluding_first_sample_percent": 37.322,
+        "cpu_max_percent": 52.34,
+        "memory_mean_mib": 121.017,
+        "memory_max_mib": 393.1
+      },
+      "idle": {
+        "samples": 5,
+        "cpu_mean_percent": 9.1,
+        "cpu_median_percent": 9.32,
+        "cpu_mean_excluding_first_sample_percent": 9.665,
+        "cpu_max_percent": 10.76,
+        "memory_mean_mib": 447.88,
+        "memory_max_mib": 447.9
+      },
+      "steady": {
+        "samples": 15,
+        "cpu_mean_percent": 20.204,
+        "cpu_median_percent": 18.8,
+        "cpu_mean_excluding_first_sample_percent": 20.502,
+        "cpu_max_percent": 31.51,
+        "memory_mean_mib": 539.04,
+        "memory_max_mib": 583.0
+      },
+      "burst": {
+        "samples": 2,
+        "cpu_mean_percent": 58.54,
+        "cpu_median_percent": 58.54,
+        "cpu_mean_excluding_first_sample_percent": 57.29,
+        "cpu_max_percent": 59.79,
+        "memory_mean_mib": 644.95,
+        "memory_max_mib": 664.9
+      },
+      "history": {
+        "samples": 1,
+        "cpu_mean_percent": 118.33,
+        "cpu_median_percent": 118.33,
+        "cpu_mean_excluding_first_sample_percent": null,
+        "cpu_max_percent": 118.33,
+        "memory_mean_mib": 636.4,
+        "memory_max_mib": 636.4
+      }
+    }
+  },
+  {
+    "file": "docs/benchmarks/perf-before-round2.json",
+    "instrumented": false,
+    "response_mode": "full",
+    "latency": {
+      "accept_p95_ms": 5.2,
+      "accept_p99_ms": 8.539,
+      "delivery_p95_ms": 8.467,
+      "delivery_p99_ms": 25.275,
+      "steady_accept_p95_ms": 5.08,
+      "steady_accept_p99_ms": 7.18,
+      "steady_delivery_p95_ms": 5.309,
+      "steady_delivery_p99_ms": 7.341
+    },
+    "integrity": {
+      "offered": 7990,
+      "accepted": 7990,
+      "delivered": 7990,
+      "history_messages": 7990,
+      "failed": 0,
+      "backpressure": 0,
+      "generator_skipped": 0,
+      "unexpected_disconnects": 0
+    },
+    "resources": {
+      "setup": {
+        "samples": 6,
+        "cpu_mean_percent": 41.943,
+        "cpu_median_percent": 42.235,
+        "cpu_mean_excluding_first_sample_percent": 44.328,
+        "cpu_max_percent": 54.19,
+        "memory_mean_mib": 157.637,
+        "memory_max_mib": 439.6
+      },
+      "idle": {
+        "samples": 4,
+        "cpu_mean_percent": 10.955,
+        "cpu_median_percent": 10.84,
+        "cpu_mean_excluding_first_sample_percent": 11.003,
+        "cpu_max_percent": 11.68,
+        "memory_mean_mib": 449.8,
+        "memory_max_mib": 449.8
+      },
+      "steady": {
+        "samples": 15,
+        "cpu_mean_percent": 19.533,
+        "cpu_median_percent": 20.11,
+        "cpu_mean_excluding_first_sample_percent": 20.319,
+        "cpu_max_percent": 25.49,
+        "memory_mean_mib": 535.873,
+        "memory_max_mib": 587.6
+      },
+      "burst": {
+        "samples": 3,
+        "cpu_mean_percent": 50.347,
+        "cpu_median_percent": 53.96,
+        "cpu_mean_excluding_first_sample_percent": 57.46,
+        "cpu_max_percent": 60.96,
+        "memory_mean_mib": 639.533,
+        "memory_max_mib": 665.2
+      },
+      "history": {
+        "samples": 1,
+        "cpu_mean_percent": 81.17,
+        "cpu_median_percent": 81.17,
+        "cpu_mean_excluding_first_sample_percent": null,
+        "cpu_max_percent": 81.17,
+        "memory_mean_mib": 633.6,
+        "memory_max_mib": 633.6
+      }
+    }
+  },
+  {
+    "file": "docs/benchmarks/perf-after-round1.json",
+    "instrumented": false,
+    "response_mode": "full",
+    "latency": {
+      "accept_p95_ms": 18.824,
+      "accept_p99_ms": 70.916,
+      "delivery_p95_ms": 19.311,
+      "delivery_p99_ms": 71.159,
+      "steady_accept_p95_ms": 5.159,
+      "steady_accept_p99_ms": 6.757,
+      "steady_delivery_p95_ms": 5.26,
+      "steady_delivery_p99_ms": 7.021
+    },
+    "integrity": {
+      "offered": 7984,
+      "accepted": 7901,
+      "delivered": 7901,
+      "history_messages": 7901,
+      "failed": 0,
+      "backpressure": 83,
+      "generator_skipped": 0,
+      "unexpected_disconnects": 0
+    },
+    "resources": {
+      "setup": {
+        "samples": 6,
+        "cpu_mean_percent": 41.3,
+        "cpu_median_percent": 41.425,
+        "cpu_mean_excluding_first_sample_percent": 43.914,
+        "cpu_max_percent": 52.31,
+        "memory_mean_mib": 72.058,
+        "memory_max_mib": 198.1
+      },
+      "idle": {
+        "samples": 5,
+        "cpu_mean_percent": 0.092,
+        "cpu_median_percent": 0.08,
+        "cpu_mean_excluding_first_sample_percent": 0.085,
+        "cpu_max_percent": 0.13,
+        "memory_mean_mib": 222.8,
+        "memory_max_mib": 222.8
+      },
+      "steady": {
+        "samples": 15,
+        "cpu_mean_percent": 14.767,
+        "cpu_median_percent": 13.98,
+        "cpu_mean_excluding_first_sample_percent": 14.928,
+        "cpu_max_percent": 21.28,
+        "memory_mean_mib": 261.927,
+        "memory_max_mib": 282.4
+      },
+      "burst": {
+        "samples": 2,
+        "cpu_mean_percent": 59.455,
+        "cpu_median_percent": 59.455,
+        "cpu_mean_excluding_first_sample_percent": 58.85,
+        "cpu_max_percent": 60.06,
+        "memory_mean_mib": 283.95,
+        "memory_max_mib": 284.0
+      },
+      "history": {
+        "samples": 1,
+        "cpu_mean_percent": 78.72,
+        "cpu_median_percent": 78.72,
+        "cpu_mean_excluding_first_sample_percent": null,
+        "cpu_max_percent": 78.72,
+        "memory_mean_mib": 253.4,
+        "memory_max_mib": 253.4
+      }
+    }
+  },
+  {
+    "file": "docs/benchmarks/perf-after-round2.json",
+    "instrumented": false,
+    "response_mode": "full",
+    "latency": {
+      "accept_p95_ms": 6.15,
+      "accept_p99_ms": 28.706,
+      "delivery_p95_ms": 6.389,
+      "delivery_p99_ms": 29.157,
+      "steady_accept_p95_ms": 4.968,
+      "steady_accept_p99_ms": 7.162,
+      "steady_delivery_p95_ms": 5.128,
+      "steady_delivery_p99_ms": 7.257
+    },
+    "integrity": {
+      "offered": 7985,
+      "accepted": 7965,
+      "delivered": 7965,
+      "history_messages": 7965,
+      "failed": 0,
+      "backpressure": 20,
+      "generator_skipped": 0,
+      "unexpected_disconnects": 0
+    },
+    "resources": {
+      "setup": {
+        "samples": 6,
+        "cpu_mean_percent": 38.668,
+        "cpu_median_percent": 36.955,
+        "cpu_mean_excluding_first_sample_percent": 40.736,
+        "cpu_max_percent": 53.98,
+        "memory_mean_mib": 53.272,
+        "memory_max_mib": 165.8
+      },
+      "idle": {
+        "samples": 5,
+        "cpu_mean_percent": 9.288,
+        "cpu_median_percent": 0.11,
+        "cpu_mean_excluding_first_sample_percent": 0.085,
+        "cpu_max_percent": 46.1,
+        "memory_mean_mib": 220.62,
+        "memory_max_mib": 220.7
+      },
+      "steady": {
+        "samples": 15,
+        "cpu_mean_percent": 14.252,
+        "cpu_median_percent": 14.71,
+        "cpu_mean_excluding_first_sample_percent": 14.963,
+        "cpu_max_percent": 19.98,
+        "memory_mean_mib": 255.473,
+        "memory_max_mib": 271.9
+      },
+      "burst": {
+        "samples": 3,
+        "cpu_mean_percent": 62.783,
+        "cpu_median_percent": 64.49,
+        "cpu_mean_excluding_first_sample_percent": 61.93,
+        "cpu_max_percent": 68.22,
+        "memory_mean_mib": 279.367,
+        "memory_max_mib": 281.1
+      }
+    }
+  },
+  {
+    "file": "docs/benchmarks/perf-receipt-round1.json",
+    "instrumented": false,
+    "response_mode": "minimal",
+    "latency": {
+      "accept_p95_ms": 4.383,
+      "accept_p99_ms": 7.255,
+      "delivery_p95_ms": 4.822,
+      "delivery_p99_ms": 7.621,
+      "steady_accept_p95_ms": 4.793,
+      "steady_accept_p99_ms": 6.949,
+      "steady_delivery_p95_ms": 5.262,
+      "steady_delivery_p99_ms": 7.178
+    },
+    "integrity": {
+      "offered": 7982,
+      "accepted": 7982,
+      "delivered": 7982,
+      "history_messages": 7982,
+      "failed": 0,
+      "backpressure": 0,
+      "generator_skipped": 0,
+      "unexpected_disconnects": 0
+    },
+    "resources": {
+      "setup": {
+        "samples": 6,
+        "cpu_mean_percent": 42.362,
+        "cpu_median_percent": 41.22,
+        "cpu_mean_excluding_first_sample_percent": 44.872,
+        "cpu_max_percent": 56.93,
+        "memory_mean_mib": 74.297,
+        "memory_max_mib": 200.0
+      },
+      "idle": {
+        "samples": 5,
+        "cpu_mean_percent": 0.074,
+        "cpu_median_percent": 0.07,
+        "cpu_mean_excluding_first_sample_percent": 0.075,
+        "cpu_max_percent": 0.15,
+        "memory_mean_mib": 222.44,
+        "memory_max_mib": 222.5
+      },
+      "steady": {
+        "samples": 15,
+        "cpu_mean_percent": 14.094,
+        "cpu_median_percent": 13.15,
+        "cpu_mean_excluding_first_sample_percent": 14.161,
+        "cpu_max_percent": 19.91,
+        "memory_mean_mib": 253.513,
+        "memory_max_mib": 271.3
+      },
+      "burst": {
+        "samples": 2,
+        "cpu_mean_percent": 52.86,
+        "cpu_median_percent": 52.86,
+        "cpu_mean_excluding_first_sample_percent": 54.25,
+        "cpu_max_percent": 54.25,
+        "memory_mean_mib": 274.65,
+        "memory_max_mib": 275.6
+      },
+      "history": {
+        "samples": 1,
+        "cpu_mean_percent": 95.4,
+        "cpu_median_percent": 95.4,
+        "cpu_mean_excluding_first_sample_percent": null,
+        "cpu_max_percent": 95.4,
+        "memory_mean_mib": 246.8,
+        "memory_max_mib": 246.8
+      }
+    }
+  },
+  {
+    "file": "docs/benchmarks/perf-receipt-round2.json",
+    "instrumented": false,
+    "response_mode": "minimal",
+    "latency": {
+      "accept_p95_ms": 5.93,
+      "accept_p99_ms": 25.004,
+      "delivery_p95_ms": 6.522,
+      "delivery_p99_ms": 25.412,
+      "steady_accept_p95_ms": 4.862,
+      "steady_accept_p99_ms": 6.763,
+      "steady_delivery_p95_ms": 5.192,
+      "steady_delivery_p99_ms": 7.193
+    },
+    "integrity": {
+      "offered": 7993,
+      "accepted": 7993,
+      "delivered": 7993,
+      "history_messages": 7993,
+      "failed": 0,
+      "backpressure": 0,
+      "generator_skipped": 0,
+      "unexpected_disconnects": 0
+    },
+    "resources": {
+      "setup": {
+        "samples": 6,
+        "cpu_mean_percent": 42.675,
+        "cpu_median_percent": 43.345,
+        "cpu_mean_excluding_first_sample_percent": 45.186,
+        "cpu_max_percent": 54.45,
+        "memory_mean_mib": 80.583,
+        "memory_max_mib": 225.1
+      },
+      "idle": {
+        "samples": 5,
+        "cpu_mean_percent": 0.064,
+        "cpu_median_percent": 0.07,
+        "cpu_mean_excluding_first_sample_percent": 0.07,
+        "cpu_max_percent": 0.08,
+        "memory_mean_mib": 224.98,
+        "memory_max_mib": 225.1
+      },
+      "steady": {
+        "samples": 14,
+        "cpu_mean_percent": 13.542,
+        "cpu_median_percent": 13.5,
+        "cpu_mean_excluding_first_sample_percent": 13.712,
+        "cpu_max_percent": 17.2,
+        "memory_mean_mib": 254.543,
+        "memory_max_mib": 271.4
+      },
+      "burst": {
+        "samples": 3,
+        "cpu_mean_percent": 41.427,
+        "cpu_median_percent": 50.2,
+        "cpu_mean_excluding_first_sample_percent": 50.465,
+        "cpu_max_percent": 50.73,
+        "memory_mean_mib": 273.167,
+        "memory_max_mib": 274.5
+      },
+      "history": {
+        "samples": 1,
+        "cpu_mean_percent": 35.91,
+        "cpu_median_percent": 35.91,
+        "cpu_mean_excluding_first_sample_percent": null,
+        "cpu_max_percent": 35.91,
+        "memory_mean_mib": 250.3,
+        "memory_max_mib": 250.3
+      }
+    }
+  },
+  {
+    "file": "docs/benchmarks/perf-nats-round1.json",
+    "instrumented": false,
+    "response_mode": null,
+    "latency": {
+      "steady": {
+        "ack_ms": {
+          "max": 10.293584,
+          "p50": 1.895583,
+          "p95": 4.889125,
+          "p99": 6.711875
+        },
+        "delivery_ms": {
+          "max": 10.281292,
+          "p50": 1.921875,
+          "p95": 4.971,
+          "p99": 6.746292
+        }
+      },
+      "burst": {
+        "ack_ms": {
+          "max": 15.915333,
+          "p50": 1.202042,
+          "p95": 4.693083,
+          "p99": 7.78325
+        },
+        "delivery_ms": {
+          "max": 15.821625,
+          "p50": 1.232167,
+          "p95": 5.01475,
+          "p99": 8.484625
+        }
+      }
+    },
+    "integrity": {
+      "offered": 8000,
+      "accepted": 8000,
+      "delivered": 8000,
+      "duplicate": 0,
+      "publish_errors": 0,
+      "connection_or_receive_errors": 0
+    },
+    "resources": {
+      "starting": {
+        "samples": 2,
+        "cpu_mean_percent": 0.08,
+        "cpu_median_percent": 0.08,
+        "cpu_mean_excluding_first_sample_percent": 0.05,
+        "cpu_max_percent": 0.11,
+        "memory_mean_mib": 15.525,
+        "memory_max_mib": 15.63
+      },
+      "setup": {
+        "samples": 6,
+        "cpu_mean_percent": 19.445,
+        "cpu_median_percent": 19.74,
+        "cpu_mean_excluding_first_sample_percent": 21.25,
+        "cpu_max_percent": 24.66,
+        "memory_mean_mib": 251.153,
+        "memory_max_mib": 433.9
+      },
+      "idle": {
+        "samples": 5,
+        "cpu_mean_percent": 2.044,
+        "cpu_median_percent": 0.17,
+        "cpu_mean_excluding_first_sample_percent": 0.185,
+        "cpu_max_percent": 9.48,
+        "memory_mean_mib": 451.5,
+        "memory_max_mib": 452.4
+      },
+      "steady": {
+        "samples": 14,
+        "cpu_mean_percent": 4.399,
+        "cpu_median_percent": 4.26,
+        "cpu_mean_excluding_first_sample_percent": 4.408,
+        "cpu_max_percent": 5.02,
+        "memory_mean_mib": 455.364,
+        "memory_max_mib": 458.6
+      },
+      "drain": {
+        "samples": 4,
+        "cpu_mean_percent": 2.808,
+        "cpu_median_percent": 1.84,
+        "cpu_mean_excluding_first_sample_percent": 2.623,
+        "cpu_max_percent": 7.29,
+        "memory_mean_mib": 476.95,
+        "memory_max_mib": 496.1
+      },
+      "burst": {
+        "samples": 2,
+        "cpu_mean_percent": 10.36,
+        "cpu_median_percent": 10.36,
+        "cpu_mean_excluding_first_sample_percent": 10.03,
+        "cpu_max_percent": 10.69,
+        "memory_mean_mib": 464.95,
+        "memory_max_mib": 468.0
+      }
+    }
+  },
+  {
+    "file": "docs/benchmarks/perf-nats-round2.json",
+    "instrumented": false,
+    "response_mode": null,
+    "latency": {
+      "steady": {
+        "ack_ms": {
+          "max": 11.527875,
+          "p50": 1.861708,
+          "p95": 4.262875,
+          "p99": 6.523666
+        },
+        "delivery_ms": {
+          "max": 11.498625,
+          "p50": 1.887167,
+          "p95": 4.298667,
+          "p99": 6.523
+        }
+      },
+      "burst": {
+        "ack_ms": {
+          "max": 35.076584,
+          "p50": 1.005416,
+          "p95": 3.779333,
+          "p99": 8.406625
+        },
+        "delivery_ms": {
+          "max": 36.974292,
+          "p50": 1.01975,
+          "p95": 4.135375,
+          "p99": 8.779417
+        }
+      }
+    },
+    "integrity": {
+      "offered": 8000,
+      "accepted": 8000,
+      "delivered": 8000,
+      "duplicate": 0,
+      "publish_errors": 0,
+      "connection_or_receive_errors": 0
+    },
+    "resources": {
+      "starting": {
+        "samples": 3,
+        "cpu_mean_percent": 0.047,
+        "cpu_median_percent": 0.05,
+        "cpu_mean_excluding_first_sample_percent": 0.035,
+        "cpu_max_percent": 0.07,
+        "memory_mean_mib": 15.483,
+        "memory_max_mib": 15.67
+      },
+      "setup": {
+        "samples": 5,
+        "cpu_mean_percent": 22.164,
+        "cpu_median_percent": 20.47,
+        "cpu_mean_excluding_first_sample_percent": 22.587,
+        "cpu_max_percent": 26.64,
+        "memory_mean_mib": 267.368,
+        "memory_max_mib": 407.7
+      },
+      "idle": {
+        "samples": 5,
+        "cpu_mean_percent": 1.996,
+        "cpu_median_percent": 0.18,
+        "cpu_mean_excluding_first_sample_percent": 0.522,
+        "cpu_max_percent": 7.89,
+        "memory_mean_mib": 458.76,
+        "memory_max_mib": 459.8
+      },
+      "steady": {
+        "samples": 15,
+        "cpu_mean_percent": 3.994,
+        "cpu_median_percent": 4.03,
+        "cpu_mean_excluding_first_sample_percent": 3.991,
+        "cpu_max_percent": 5.06,
+        "memory_mean_mib": 462.9,
+        "memory_max_mib": 465.9
+      },
+      "drain": {
+        "samples": 3,
+        "cpu_mean_percent": 12.717,
+        "cpu_median_percent": 0.2,
+        "cpu_mean_excluding_first_sample_percent": 18.975,
+        "cpu_max_percent": 37.76,
+        "memory_mean_mib": 471.133,
+        "memory_max_mib": 499.2
+      },
+      "burst": {
+        "samples": 3,
+        "cpu_mean_percent": 11.853,
+        "cpu_median_percent": 10.77,
+        "cpu_mean_excluding_first_sample_percent": 10.575,
+        "cpu_max_percent": 14.41,
+        "memory_mean_mib": 499.967,
+        "memory_max_mib": 500.3
+      }
+    }
+  },
+  {
+    "file": "docs/benchmarks/perf-centrifugo-round1.json",
+    "instrumented": false,
+    "response_mode": null,
+    "latency": {
+      "steady": {
+        "ack_ms": {
+          "max": 9.143417,
+          "p50": 0.814708,
+          "p95": 3.519833,
+          "p99": 5.064125
+        },
+        "delivery_ms": {
+          "max": 9.089042,
+          "p50": 0.825333,
+          "p95": 3.543959,
+          "p99": 5.211208
+        }
+      },
+      "burst": {
+        "ack_ms": {
+          "max": 8.971583,
+          "p50": 0.480917,
+          "p95": 3.234833,
+          "p99": 5.545334
+        },
+        "delivery_ms": {
+          "max": 9.082667,
+          "p50": 0.480709,
+          "p95": 3.242417,
+          "p99": 5.5465
+        }
+      }
+    },
+    "integrity": {
+      "offered": 8000,
+      "accepted": 8000,
+      "delivered": 8000,
+      "duplicate": 0,
+      "publish_errors": 0,
+      "connection_or_receive_errors": 0
+    },
+    "resources": {
+      "starting": {
+        "samples": 2,
+        "cpu_mean_percent": 4.915,
+        "cpu_median_percent": 4.915,
+        "cpu_mean_excluding_first_sample_percent": 0.02,
+        "cpu_max_percent": 9.81,
+        "memory_mean_mib": 70.16,
+        "memory_max_mib": 70.16
+      },
+      "setup": {
+        "samples": 5,
+        "cpu_mean_percent": 15.904,
+        "cpu_median_percent": 15.91,
+        "cpu_mean_excluding_first_sample_percent": 15.558,
+        "cpu_max_percent": 17.29,
+        "memory_mean_mib": 275.94,
+        "memory_max_mib": 413.4
+      },
+      "idle": {
+        "samples": 5,
+        "cpu_mean_percent": 4.036,
+        "cpu_median_percent": 4.31,
+        "cpu_mean_excluding_first_sample_percent": 4.865,
+        "cpu_max_percent": 6.97,
+        "memory_mean_mib": 418.78,
+        "memory_max_mib": 419.5
+      },
+      "steady": {
+        "samples": 14,
+        "cpu_mean_percent": 7.789,
+        "cpu_median_percent": 7.925,
+        "cpu_mean_excluding_first_sample_percent": 7.749,
+        "cpu_max_percent": 11.48,
+        "memory_mean_mib": 421.943,
+        "memory_max_mib": 424.6
+      },
+      "drain": {
+        "samples": 4,
+        "cpu_mean_percent": 7.985,
+        "cpu_median_percent": 8.955,
+        "cpu_mean_excluding_first_sample_percent": 7.177,
+        "cpu_max_percent": 10.43,
+        "memory_mean_mib": 429.85,
+        "memory_max_mib": 434.7
+      },
+      "burst": {
+        "samples": 2,
+        "cpu_mean_percent": 10.185,
+        "cpu_median_percent": 10.185,
+        "cpu_mean_excluding_first_sample_percent": 9.11,
+        "cpu_max_percent": 11.26,
+        "memory_mean_mib": 429.55,
+        "memory_max_mib": 431.1
+      }
+    }
+  },
+  {
+    "file": "docs/benchmarks/perf-centrifugo-round2.json",
+    "instrumented": false,
+    "response_mode": null,
+    "latency": {
+      "steady": {
+        "ack_ms": {
+          "max": 9.30875,
+          "p50": 0.700666,
+          "p95": 3.146083,
+          "p99": 5.210708
+        },
+        "delivery_ms": {
+          "max": 9.340541,
+          "p50": 0.705833,
+          "p95": 3.131042,
+          "p99": 5.184083
+        }
+      },
+      "burst": {
+        "ack_ms": {
+          "max": 10.776292,
+          "p50": 0.45775,
+          "p95": 3.363958,
+          "p99": 5.666916
+        },
+        "delivery_ms": {
+          "max": 10.763709,
+          "p50": 0.4565,
+          "p95": 3.385625,
+          "p99": 5.685083
+        }
+      }
+    },
+    "integrity": {
+      "offered": 8000,
+      "accepted": 8000,
+      "delivered": 8000,
+      "duplicate": 0,
+      "publish_errors": 0,
+      "connection_or_receive_errors": 0
+    },
+    "resources": {
+      "starting": {
+        "samples": 3,
+        "cpu_mean_percent": 3.14,
+        "cpu_median_percent": 0.02,
+        "cpu_mean_excluding_first_sample_percent": 0.015,
+        "cpu_max_percent": 9.39,
+        "memory_mean_mib": 72.073,
+        "memory_max_mib": 72.15
+      },
+      "setup": {
+        "samples": 5,
+        "cpu_mean_percent": 18.756,
+        "cpu_median_percent": 18.92,
+        "cpu_mean_excluding_first_sample_percent": 19.043,
+        "cpu_max_percent": 21.43,
+        "memory_mean_mib": 279.86,
+        "memory_max_mib": 473.2
+      },
+      "idle": {
+        "samples": 5,
+        "cpu_mean_percent": 3.758,
+        "cpu_median_percent": 3.9,
+        "cpu_mean_excluding_first_sample_percent": 4.52,
+        "cpu_max_percent": 7.88,
+        "memory_mean_mib": 477.52,
+        "memory_max_mib": 478.2
+      },
+      "steady": {
+        "samples": 14,
+        "cpu_mean_percent": 8.152,
+        "cpu_median_percent": 8.535,
+        "cpu_mean_excluding_first_sample_percent": 8.017,
+        "cpu_max_percent": 11.28,
+        "memory_mean_mib": 478.529,
+        "memory_max_mib": 479.4
+      },
+      "drain": {
+        "samples": 4,
+        "cpu_mean_percent": 8.652,
+        "cpu_median_percent": 9.535,
+        "cpu_mean_excluding_first_sample_percent": 7.907,
+        "cpu_max_percent": 10.89,
+        "memory_mean_mib": 479.625,
+        "memory_max_mib": 480.4
+      },
+      "burst": {
+        "samples": 2,
+        "cpu_mean_percent": 10.045,
+        "cpu_median_percent": 10.045,
+        "cpu_mean_excluding_first_sample_percent": 9.53,
+        "cpu_max_percent": 10.56,
+        "memory_mean_mib": 480.35,
+        "memory_max_mib": 481.0
+      }
+    }
+  }
+]

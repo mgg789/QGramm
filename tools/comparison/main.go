@@ -116,7 +116,15 @@ func main() {
 	rate := flag.Int("rate", 100, "")
 	burstRate := flag.Int("burst-rate", 1000, "")
 	out := flag.String("out", "result.json", "")
+	idle := flag.Duration("idle", 10*time.Second, "connected idle interval before traffic")
+	phaseFile := flag.String("phase-file", "", "private workload phase marker")
 	flag.Parse()
+	mark := func(name string) {
+		if *phaseFile != "" {
+			_ = os.WriteFile(*phaseFile, []byte(name), 0600)
+		}
+	}
+	mark("setup")
 	if *duration <= 0 || *burst <= 0 || *rate <= 0 || *burstRate <= 0 {
 		panic("positive durations and rates required")
 	}
@@ -242,7 +250,8 @@ func main() {
 	defer closeAll()
 	setupSeconds := time.Since(setup).Seconds()
 	fmt.Println("setup complete", *service, *users)
-	time.Sleep(3 * time.Second)
+	mark("idle")
+	time.Sleep(*idle)
 	phases = make([]phase, 2)
 	ackSamples = make([][]float64, 2)
 	deliverySamples = make([][]float64, 2)
@@ -253,6 +262,7 @@ func main() {
 		rate int
 	}{{"steady", *duration, *rate}, {"burst", *burst, *burstRate}} {
 		phases[p].Name = spec.name
+		mark(spec.name)
 		phases[p].OfferedRate = spec.rate
 		start := time.Now()
 		count := int(spec.dur.Seconds() * float64(spec.rate))
@@ -288,6 +298,7 @@ func main() {
 		wg.Wait()
 		phases[p].Elapsed = time.Since(start).Seconds()
 		phases[p].ActualRate = float64(phases[p].Offered) / phases[p].Elapsed
+		mark("drain")
 		time.Sleep(3 * time.Second)
 	}
 	deadline := time.Now().Add(30 * time.Second)
