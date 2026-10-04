@@ -1,0 +1,185 @@
+{
+  "accept_p95_ms": 4.57,
+  "accepted": 7987,
+  "backpressure": 0,
+  "burst_rate": 1000,
+  "burst_seconds": 5,
+  "delivered": 7987,
+  "delivery_p95_ms": 7.181,
+  "elapsed_seconds": 35.839219792,
+  "failed": 0,
+  "generator_skipped": 0,
+  "group_size": 2,
+  "history_messages": 7987,
+  "limitations": [
+    "synthetic payload and shared recipient HPKE fixture key",
+    "10000 users; one active 2-member conversation",
+    "HTTP behind isolated trusted proxy header; TLS CPU not measured",
+    "generator runs outside server container; resource stats recorded separately"
+  ],
+  "offered": 7987,
+  "status_counts": {
+    "201": 7987
+  },
+  "steady_accept_p95_ms": 4.206,
+  "steady_accepted": 3000,
+  "steady_backpressure": 0,
+  "steady_delivery_p95_ms": 4.388,
+  "steady_rate": 100,
+  "steady_seconds": 30,
+  "users_connected": 10000,
+  "environment": {
+    "date": "2026-10-04",
+    "server": "Linux arm64 Docker Desktop",
+    "go": "1.26.8",
+    "cpu_limit": 4,
+    "ram_limit_gib": 8,
+    "storage": "Docker volume in desktop VM; separately qualified SSD not tested",
+    "image_manifest": "sha256:0eca03a78f5be1fdba9a0d06428b5d349bde381969e9267dbc00c8df276155fd",
+    "source_commit": "3147dc9",
+    "source_details": "minimal service code at commit, Dockerfile selective dependencies/license edits; later AI delete change excluded from minimal binary"
+  },
+  "resource_samples": [
+    {
+      "elapsed_seconds": 1.02,
+      "cpu": "0.00%",
+      "memory": "2.656MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 3.07,
+      "cpu": "0.00%",
+      "memory": "2.656MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 5.09,
+      "cpu": "31.45%",
+      "memory": "11.14MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 7.12,
+      "cpu": "18.47%",
+      "memory": "12.33MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 9.14,
+      "cpu": "17.58%",
+      "memory": "13.26MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 11.16,
+      "cpu": "15.52%",
+      "memory": "13MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 13.19,
+      "cpu": "16.02%",
+      "memory": "14.27MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 15.21,
+      "cpu": "46.06%",
+      "memory": "117.9MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 17.24,
+      "cpu": "49.46%",
+      "memory": "252.3MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 19.26,
+      "cpu": "53.62%",
+      "memory": "397.3MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 21.29,
+      "cpu": "18.31%",
+      "memory": "448.2MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 23.32,
+      "cpu": "16.93%",
+      "memory": "458.9MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 25.34,
+      "cpu": "16.46%",
+      "memory": "470.6MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 27.37,
+      "cpu": "16.95%",
+      "memory": "483.1MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 29.4,
+      "cpu": "17.97%",
+      "memory": "495.1MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 31.43,
+      "cpu": "15.95%",
+      "memory": "507.6MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 33.45,
+      "cpu": "15.91%",
+      "memory": "519.7MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 35.48,
+      "cpu": "18.41%",
+      "memory": "532.1MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 37.51,
+      "cpu": "20.92%",
+      "memory": "544.5MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 39.54,
+      "cpu": "28.22%",
+      "memory": "558.1MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 41.56,
+      "cpu": "22.04%",
+      "memory": "563.5MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 43.58,
+      "cpu": "19.61%",
+      "memory": "570.1MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 45.61,
+      "cpu": "23.74%",
+      "memory": "572.3MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 47.64,
+      "cpu": "21.68%",
+      "memory": "572MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 49.68,
+      "cpu": "25.87%",
+      "memory": "572.3MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 51.71,
+      "cpu": "53.52%",
+      "memory": "619.4MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 53.74,
+      "cpu": "53.55%",
+      "memory": "654.3MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 55.76,
+      "cpu": "94.31%",
+      "memory": "657MiB / 7.748GiB"
+    }
+  ],
+  "resource_sampling": "docker stats every approximately two seconds across provisioning/load; sampled maxima, not exact peak"
+}

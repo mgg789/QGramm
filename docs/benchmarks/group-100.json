@@ -1,0 +1,41 @@
+{
+  "accept_p95_ms": 43.129,
+  "accepted": 398,
+  "backpressure": 0,
+  "burst_rate": 100,
+  "burst_seconds": 3,
+  "delivered": 39402,
+  "delivery_p95_ms": 188.992,
+  "elapsed_seconds": 13.173312667,
+  "failed": 0,
+  "generator_skipped": 0,
+  "history_messages": 398,
+  "limitations": [
+    "synthetic payload and shared recipient HPKE fixture key",
+    "1000 users; one active 100-member group; 99 recipient subscriptions",
+    "HTTP behind isolated trusted proxy header; TLS CPU not measured",
+    "generator runs outside server container; resource stats recorded separately"
+  ],
+  "offered": 398,
+  "status_counts": {
+    "201": 398
+  },
+  "steady_accept_p95_ms": 13.478,
+  "steady_accepted": 99,
+  "steady_backpressure": 0,
+  "steady_delivery_p95_ms": 21.328,
+  "steady_rate": 10,
+  "steady_seconds": 10,
+  "users_connected": 1000,
+  "group_size": 100,
+  "environment": {
+    "date": "2026-10-04",
+    "server": "Linux arm64 Docker Desktop",
+    "cpu_limit": 4,
+    "ram_limit_gib": 8,
+    "go": "1.26.4 cross-compiled on macOS",
+    "storage": "Docker volume; not separately qualified SSD",
+    "source": "pre-release working tree after subscription-index and retired-key changes",
+    "resource_peak": "not measured"
+  }
+}

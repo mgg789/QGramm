@@ -1,0 +1,8 @@
+[server]
+listen = "127.0.0.1:8080"
+allow_insecure_loopback = true
+[features]
+calls = true
+[calls]
+turn_urls = ["turn:127.0.0.1:3478"]
+turn_secret_env = "QGRAMM_BROWSER_TURN"

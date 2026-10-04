@@ -1,0 +1,384 @@
+// qgramm-bench is development acceptance tooling, not a shipped client SDK.
+package main
+
+import (
+	"bytes"
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/gorilla/websocket"
+	"github.com/mgg789/QGramm/internal/cryptoenc"
+	"io"
+	"net/http"
+	"os"
+	"sort"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+)
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+type client struct {
+	base, management string
+	private          ed25519.PrivateKey
+	engine           *cryptoenc.Engine
+	http             *http.Client
+}
+
+func (c *client) token(user string) string {
+	now := time.Now()
+	token, _ := jwt.NewWithClaims(jwt.SigningMethodEdDSA, jwt.MapClaims{"iss": "qgramm", "aud": "qgramm", "sub": user, "device_id": user, "iat": now.Unix(), "exp": now.Add(15 * time.Minute).Unix()}).SignedString(c.private)
+	return token
+}
+func (c *client) request(method, path, user string, body any) ([]byte, int, error) {
+	raw, _ := json.Marshal(body)
+	r, err := http.NewRequest(method, c.base+path, bytes.NewReader(raw))
+	if err != nil {
+		return nil, 0, err
+	}
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("X-Forwarded-Proto", "https")
+	token := c.management
+	if user != "" {
+		token = c.token(user)
+	}
+	r.Header.Set("Authorization", "Bearer "+token)
+	response, err := c.http.Do(r)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer response.Body.Close()
+	data, err := io.ReadAll(io.LimitReader(response.Body, 2<<20))
+	return data, response.StatusCode, err
+}
+func initEnv(path string) error {
+	public, private, _ := ed25519.GenerateKey(rand.Reader)
+	random := func(n int) string { b := make([]byte, n); rand.Read(b); return base64.StdEncoding.EncodeToString(b) }
+	data := "QGRAMM_TOKEN_PUBLIC_KEY=" + base64.StdEncoding.EncodeToString(public) + "\nQGRAMM_BENCH_SIGNING_KEY=" + base64.StdEncoding.EncodeToString(private) + "\nQGRAMM_MASTER_KEY=" + random(32) + "\nQGRAMM_HPKE_KEY=" + random(32) + "\nQGRAMM_MANAGEMENT_SECRET=" + random(32) + "\n"
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.WriteString(data)
+	return err
+}
+func run() error {
+	envFile := flag.String("env", "", "private synthetic test environment file")
+	init := flag.Bool("init", false, "create test environment only")
+	base := flag.String("url", "http://127.0.0.1:8080", "isolated test server")
+	users := flag.Int("users", 10000, "distinct concurrent users/sockets")
+	groupSize := flag.Int("group-size", 2, "active chat members; above two requires groups build")
+	duration := flag.Duration("duration", 20*time.Second, "steady traffic duration")
+	rate := flag.Int("rate", 100, "steady offered messages/sec")
+	burst := flag.Duration("burst", 5*time.Second, "burst duration")
+	burstRate := flag.Int("burst-rate", 1000, "burst offered messages/sec")
+	out := flag.String("out", "", "JSON evidence path")
+	flag.Parse()
+	if *envFile == "" {
+		return fmt.Errorf("-env required")
+	}
+	if *init {
+		return initEnv(*envFile)
+	}
+	if *users < 2 || *users > 100000 || *rate < 1 || *burstRate < 1 || *groupSize < 2 || *groupSize > *users || *groupSize > 1000 {
+		return fmt.Errorf("invalid workload")
+	}
+	raw, err := os.ReadFile(*envFile)
+	if err != nil {
+		return err
+	}
+	env := map[string]string{}
+	for _, line := range strings.Split(string(raw), "\n") {
+		k, v, ok := strings.Cut(line, "=")
+		if ok {
+			env[k] = v
+		}
+	}
+	private, err := base64.StdEncoding.DecodeString(env["QGRAMM_BENCH_SIGNING_KEY"])
+	if err != nil || len(private) != 64 {
+		return fmt.Errorf("test signing key invalid")
+	}
+	key := make([]byte, 32)
+	rand.Read(key)
+	engine, err := cryptoenc.New(key, key)
+	if err != nil {
+		return err
+	}
+	c := &client{*base, env["QGRAMM_MANAGEMENT_SECRET"], ed25519.PrivateKey(private), engine, &http.Client{Timeout: 20 * time.Second, Transport: &http.Transport{MaxIdleConns: 256, MaxIdleConnsPerHost: 128, MaxConnsPerHost: 128}}}
+	seed := make([]byte, 8)
+	rand.Read(seed)
+	prefix := "load-" + base64.RawURLEncoding.EncodeToString(seed) + "-"
+	names := make([]string, *users)
+	for i := range names {
+		names[i] = fmt.Sprintf("%s%d", prefix, i)
+	}
+	setupStart := time.Now()
+	work := make(chan string)
+	var wg sync.WaitGroup
+	var setupError atomic.Bool
+	var setupDiagnostic sync.Once
+	provision := func(method, path string, body any) bool {
+		for retry := 0; retry < 20; retry++ {
+			_, status, e := c.request(method, path, "", body)
+			if e == nil && (status == 200 || status == 201) {
+				return true
+			}
+			if e == nil && status != 503 && status != 429 {
+				setupDiagnostic.Do(func() { fmt.Fprintf(os.Stderr, "provisioning %s status=%d transport_error=%v\n", path, status, e) })
+				return false
+			}
+			time.Sleep(25 * time.Millisecond)
+		}
+		return false
+	}
+	for i := 0; i < 16; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for name := range work {
+				if !provision("PUT", "/management/v1/users/"+name, map[string]bool{"disabled": false}) || !provision("PUT", "/management/v1/users/"+name+"/devices/"+name, map[string]string{"public_key": engine.PublicKey()}) {
+					setupError.Store(true)
+				}
+			}
+		}()
+	}
+	for _, name := range names {
+		work <- name
+	}
+	close(work)
+	wg.Wait()
+	if setupError.Load() {
+		return fmt.Errorf("provisioning failed")
+	}
+	chat := prefix + "chat"
+	chatRoute := "/management/v1/chats/direct"
+	if *groupSize > 2 {
+		chatRoute = "/management/v1/chats/groups"
+	}
+	if !provision("POST", chatRoute, map[string]any{"id": chat, "members": names[:*groupSize]}) {
+		return fmt.Errorf("chat setup failed")
+	}
+	caps, status, err := c.request("GET", "/v1/capabilities", names[0], nil)
+	if err != nil || status != 200 {
+		return fmt.Errorf("capabilities unavailable")
+	}
+	var capability struct {
+		Key string `json:"server_key"`
+	}
+	json.Unmarshal(caps, &capability)
+	pub, err := base64.StdEncoding.DecodeString(capability.Key)
+	if err != nil {
+		return err
+	}
+	connections := make([]*websocket.Conn, *users)
+	var connected atomic.Int64
+	var socketFailures atomic.Int64
+	var delivered atomic.Int64
+	var started sync.Map
+	var metricMu sync.Mutex
+	statusCounts := map[int]int{}
+	var sendDiagnostic sync.Once
+	latencies := []float64{}
+	deliveryLatencies := []float64{}
+	var receiveWG sync.WaitGroup
+	connectJobs := make(chan int)
+	for i := 0; i < 16; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for index := range connectJobs {
+				var conn *websocket.Conn
+				for retry := 0; retry < 20; retry++ {
+					data, status, e := c.request("POST", "/v1/ws-tickets", names[index], nil)
+					if e == nil && status == 201 {
+						var ticket struct {
+							Ticket string `json:"ticket"`
+						}
+						json.Unmarshal(data, &ticket)
+						url := "ws" + strings.TrimPrefix(c.base, "http") + "/v1/ws?ticket=" + ticket.Ticket
+						headers := http.Header{"X-Forwarded-Proto": []string{"https"}}
+						conn, _, e = websocket.DefaultDialer.Dial(url, headers)
+						if e == nil {
+							break
+						}
+					}
+					time.Sleep(50 * time.Millisecond)
+				}
+				if conn == nil {
+					socketFailures.Add(1)
+					continue
+				}
+				connections[index] = conn
+				connected.Add(1)
+				if index > 0 && index < *groupSize {
+					conn.WriteJSON(map[string]any{"type": "subscribe", "chat_id": chat, "after": 0})
+				}
+				receiveWG.Add(1)
+				go func(conn *websocket.Conn, measure bool) {
+					defer receiveWG.Done()
+					for {
+						_, data, e := conn.ReadMessage()
+						if e != nil {
+							return
+						}
+						if !measure {
+							continue
+						}
+						var event struct {
+							Type string `json:"type"`
+							Data struct {
+								OperationID string `json:"operation_id"`
+							}
+						}
+						if json.Unmarshal(data, &event) == nil && event.Type == "message.created" {
+							delivered.Add(1)
+							if stamp, ok := started.Load(event.Data.OperationID); ok {
+								metricMu.Lock()
+								deliveryLatencies = append(deliveryLatencies, float64(time.Since(stamp.(time.Time)).Microseconds())/1000)
+								metricMu.Unlock()
+							}
+						}
+					}
+				}(conn, index > 0 && index < *groupSize)
+			}
+		}()
+	}
+	for i := range names {
+		connectJobs <- i
+	}
+	close(connectJobs)
+	wg.Wait()
+	defer func() {
+		for _, conn := range connections {
+			if conn != nil {
+				conn.Close()
+			}
+		}
+		receiveWG.Wait()
+	}()
+	if connected.Load() != int64(*users) {
+		return fmt.Errorf("connected %d/%d, failures %d", connected.Load(), *users, socketFailures.Load())
+	}
+	fmt.Printf("Established %d distinct-user sockets in %s\n", connected.Load(), time.Since(setupStart).Round(time.Millisecond))
+	var accepted, rejected, failed, offered, generatorSkipped atomic.Int64
+	sem := make(chan struct{}, 64)
+	send := func(op string) {
+		defer wg.Done()
+		defer func() { <-sem }()
+		stamp := time.Now()
+		started.Store(op, stamp)
+		envelope, e := cryptoenc.SealEnvelope(pub, []byte("benchmark payload"), cryptoenc.Binding(chat, names[0], names[0], op))
+		if e != nil {
+			failed.Add(1)
+			return
+		}
+		_, status, e := c.request("POST", "/v1/chats/"+chat+"/messages", names[0], map[string]any{"operation_id": op, "envelope": envelope})
+		metricMu.Lock()
+		statusCounts[status]++
+		metricMu.Unlock()
+		if e != nil {
+			failed.Add(1)
+		} else if status == 201 {
+			accepted.Add(1)
+			metricMu.Lock()
+			latencies = append(latencies, float64(time.Since(stamp).Microseconds())/1000)
+			metricMu.Unlock()
+		} else if status == 503 || status == 429 {
+			rejected.Add(1)
+			started.Delete(op)
+		} else {
+			sendDiagnostic.Do(func() { fmt.Fprintf(os.Stderr, "unexpected send status=%d\n", status) })
+			failed.Add(1)
+			started.Delete(op)
+		}
+	}
+	phase := func(d time.Duration, frequency int) {
+		timer := time.NewTimer(d)
+		ticker := time.NewTicker(time.Second / time.Duration(frequency))
+		defer timer.Stop()
+		defer ticker.Stop()
+		for {
+			select {
+			case <-timer.C:
+				wg.Wait()
+				return
+			case <-ticker.C:
+				n := offered.Add(1)
+				select {
+				case sem <- struct{}{}:
+					wg.Add(1)
+					go send(fmt.Sprintf("%sop-%d", prefix, n))
+				default:
+					generatorSkipped.Add(1)
+				}
+			}
+		}
+	}
+	loadStart := time.Now()
+	phase(*duration, *rate)
+	steadyAccepted := accepted.Load()
+	steadyRejected := rejected.Load()
+	metricMu.Lock()
+	steadyLatency := append([]float64(nil), latencies...)
+	steadyDeliveryLatency := append([]float64(nil), deliveryLatencies...)
+	metricMu.Unlock()
+	phase(*burst, *burstRate)
+	deadline := time.Now().Add(15 * time.Second)
+	expectedDeliveries := accepted.Load() * int64(*groupSize-1)
+	for delivered.Load() < expectedDeliveries && time.Now().Before(deadline) {
+		time.Sleep(100 * time.Millisecond)
+	}
+	historyCount := 0
+	after := int64(0)
+	for {
+		data, status, e := c.request("GET", fmt.Sprintf("/v1/chats/%s/messages?after=%d&limit=200", chat, after), names[1], nil)
+		if e != nil || status != 200 {
+			return fmt.Errorf("history verification failed")
+		}
+		var messages []struct {
+			Seq int64 `json:"seq"`
+		}
+		if json.Unmarshal(data, &messages) != nil {
+			return fmt.Errorf("history JSON invalid")
+		}
+		if len(messages) == 0 {
+			break
+		}
+		historyCount += len(messages)
+		after = messages[len(messages)-1].Seq
+	}
+	percentile := func(values []float64) float64 {
+		if len(values) == 0 {
+			return 0
+		}
+		sort.Float64s(values)
+		return values[int(float64(len(values)-1)*0.95)]
+	}
+	metricMu.Lock()
+	result := map[string]any{"users_connected": connected.Load(), "offered": offered.Load(), "accepted": accepted.Load(), "steady_accepted": steadyAccepted, "steady_backpressure": steadyRejected, "backpressure": rejected.Load(), "failed": failed.Load(), "status_counts": statusCounts, "generator_skipped": generatorSkipped.Load(), "delivered": delivered.Load(), "history_messages": historyCount, "accept_p95_ms": percentile(latencies), "delivery_p95_ms": percentile(deliveryLatencies), "steady_accept_p95_ms": percentile(steadyLatency), "steady_delivery_p95_ms": percentile(steadyDeliveryLatency), "steady_seconds": duration.Seconds(), "steady_rate": *rate, "burst_seconds": burst.Seconds(), "burst_rate": *burstRate, "elapsed_seconds": time.Since(loadStart).Seconds(), "limitations": []string{"synthetic payload and shared recipient HPKE fixture key", fmt.Sprintf("%d users; one active %d-member conversation", *users, *groupSize), "HTTP behind isolated trusted proxy header; TLS CPU not measured", "generator runs outside server container; resource stats recorded separately"}}
+	result["group_size"] = *groupSize
+	data, _ := json.MarshalIndent(result, "", "  ")
+	metricMu.Unlock()
+	if *out != "" {
+		if err = os.WriteFile(*out, append(data, '\n'), 0644); err != nil {
+			return err
+		}
+	}
+	fmt.Println(string(data))
+	if historyCount != int(accepted.Load()) || delivered.Load() != expectedDeliveries || failed.Load() > 0 {
+		return fmt.Errorf("load acceptance integrity failed")
+	}
+	return nil
+}

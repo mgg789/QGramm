@@ -16,7 +16,7 @@ SQLite stores message bodies and event data encrypted under an independent AES-2
 
 MLS snapshots include signing/ratchet state, are encrypted, and must be saved atomically before emitting ciphertext/ACK. Restoring an old snapshot or running two instances over the same state can reuse counters. Single-instance deployment is required. Historical backups can retain secrets whose deletion would otherwise contribute to forward secrecy.
 
-Master-key replacement is **not** an online rotation mechanism: replacing it without reencrypting existing records loses readability. HPKE-key replacement changes capabilities/key ID and rejects old in-flight envelopes; obtain the new authenticated key and retry under a new operation after confirming previous acceptance. Seamless keyring-based rotation and automated master re-encryption are not provided in this iteration.
+Rotate by replacing the active secret reference/value and listing retired secret references in `security.previous_master_key_envs` and `security.previous_hpke_key_envs` (at most four each), then restart. New storage records and advertised HPKE keys always use the primary keys; retained records/envelopes can be decrypted with explicitly retained keys. Bind the new public key through the external authority. Removing a retired HPKE key rejects its envelopes; removing a retired master makes its records unreadable. Idempotency still rejects changed requests under an existing operation ID. Keep necessary master keys alongside backups; a keyring does not reencrypt old records or create forward secrecy. Automatic bulk re-encryption is not supplied.
 
 ## Authorization and abuse
 

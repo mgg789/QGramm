@@ -1,0 +1,27 @@
+{
+  "date": "2026-10-04",
+  "provider": "DeepSeek",
+  "adapter": "OpenAI-compatible Chat Completions",
+  "base_url": "https://api.deepseek.com/v1",
+  "model": "deepseek-flash",
+  "command": "QGRAMM_LIVE_TEST=1 go test -race -tags qg_openai ./internal/modules -run ^TestLiveOpenAICompatibleEncryptedConversation$ -count=1 -v",
+  "result": "PASS",
+  "duration_seconds": 3.5,
+  "verified": [
+    "actual Core admission and durable AI worker",
+    "HPKE input",
+    "identical operation retry creates one job",
+    "real provider response",
+    "encrypted result and recipient HPKE decryption"
+  ],
+  "not_verified": [
+    "OpenAI-hosted API",
+    "Anthropic-hosted API",
+    "live tools",
+    "live provider inside Docker",
+    "live provider with independent MLS peer"
+  ],
+  "credential_source": "operator local file; contents and path omitted",
+  "prompt": "synthetic short marker; no personal data",
+  "response": "omitted"
+}

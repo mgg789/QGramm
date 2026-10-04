@@ -1,0 +1,12 @@
+FROM golang:1.26-alpine@sha256:8ac98ca534ac3f51e1f420a1dd2c15e74c75cfa0f23f3ad27eb5d7236c349a0c
+RUN apk add --no-cache git ca-certificates gcc musl-dev
+RUN git clone https://github.com/thomas-vilte/mls-go.git /upstream && cd /upstream && git checkout e7ef547b6bab2a63a83aaed6fcce949b71a11139
+COPY go.mod go.sum /qgramm/
+COPY tools/mls-interop/go.mod tools/mls-interop/go.sum /qgramm/tools/mls-interop/
+WORKDIR /qgramm/tools/mls-interop
+RUN go mod download
+COPY internal /qgramm/internal
+COPY tools/mls-interop /qgramm/tools/mls-interop
+ENV QG_INTEROP_OPENMLS=openmls:50051
+ENV QG_INTEROP_FIXTURE_IP=11.99.0.2
+ENTRYPOINT ["go","test","-mod=readonly","-count=1","-race","-tags","qg_e2ee qg_openai","-v","./..."]

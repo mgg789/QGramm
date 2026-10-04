@@ -15,3 +15,6 @@ work
 outputs
 compose.yaml
 coverage.out
+**/node_modules
+**/__pycache__
+tools/browser-webrtc/.work

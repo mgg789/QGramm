@@ -1,0 +1,8 @@
+[server]
+listen = "127.0.0.1:8080"
+allow_insecure_loopback = true
+[features]
+calls = true
+[calls]
+turn_urls = ["turn:qgturn:3478?transport=udp"]
+turn_secret_env = "QGRAMM_TEST_TURN"

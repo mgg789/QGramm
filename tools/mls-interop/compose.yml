@@ -1,0 +1,29 @@
+services:
+  openmls:
+    image: qgramm-mls-interop-openmls:latest
+    build:
+      context: ../..
+      dockerfile: tools/mls-interop/Dockerfile.openmls
+    networks:
+      fixture:
+        ipv4_address: 11.99.0.3
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/50051"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  runner:
+    build:
+      context: ../..
+      dockerfile: tools/mls-interop/Dockerfile.runner
+    networks:
+      fixture:
+        ipv4_address: 11.99.0.2
+    depends_on:
+      openmls:
+        condition: service_healthy
+networks:
+  fixture:
+    ipam:
+      config:
+        - subnet: 11.99.0.0/24

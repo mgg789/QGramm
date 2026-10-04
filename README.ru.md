@@ -26,6 +26,6 @@ docker compose --env-file .env up -d --build
 
 `expected_concurrent_users` задает ожидаемое число подключенных пользователей. CLI рассчитывает внутренние лимиты и генерирует Compose с оценкой ресурсов. Пока расчет некалиброванный; это не обещание производительности.
 
-[Интеграция](docs/integration.ru.md) · [API](docs/openapi.json) · [Конфигурация](docs/configuration.md) · [Безопасность](docs/security.md) · [Результаты проверок](docs/verification.md)
+[Интеграция](docs/integration.ru.md) · [Русский справочник](docs/reference.ru.md) · [API](docs/openapi.json) · [Конфигурация](docs/configuration.md) · [Безопасность](docs/security.md) · [Измерения](docs/benchmark.md) · [Результаты проверок](docs/verification.md)
 
-Ядро находится на стадии проверки. Полный релиз требует независимой MLS-совместимости, браузерных звонков/TURN, живых AI API и нагрузочной приемки. Аудит криптографии не заявляется.
+Это предварительная версия. Пройдены race/build matrix, независимый OpenMLS для поддерживаемого профиля, Pion direct/TURN, живой DeepSeek и тест 10 000 соединений без потери принятых сообщений. Остаются браузерное аудио и другие внешние контуры из [статуса приемки](docs/verification.md). Полный production-релиз и криптоаудит не заявляются.

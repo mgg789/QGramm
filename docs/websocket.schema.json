@@ -1,0 +1,1596 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "QGramm WebSocket JSON frames",
+  "description": "Client sends subscribe/unsubscribe. Server sends durable Event or error frames. No WS ack message: use POST /v1/chats/{chat}/receipts HTTP delivered/read cursors. Replay after reconnect uses subscribe.after; 410/sync.error requires HTTP history/state recovery. Ping/pong are WebSocket control frames, not JSON.",
+  "$defs": {
+    "Error": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    "Envelope": {
+      "type": "object",
+      "properties": {
+        "key_id": {
+          "type": "string"
+        },
+        "enc": {
+          "type": "string",
+          "contentEncoding": "base64"
+        },
+        "ciphertext": {
+          "type": "string",
+          "contentEncoding": "base64"
+        }
+      },
+      "required": [
+        "key_id",
+        "enc",
+        "ciphertext"
+      ],
+      "additionalProperties": false
+    },
+    "MessageInput": {
+      "type": "object",
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_.-]+$"
+        },
+        "envelope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Envelope"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mls": {
+          "type": "string",
+          "contentEncoding": "base64"
+        },
+        "epoch": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reply_to": {
+          "type": "string"
+        },
+        "forward_from": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id"
+      ],
+      "additionalProperties": false,
+      "description": "basic requires envelope; e2ee requires MLS PrivateMessage and current epoch. Attachment/reply/forward fields require compiled features. No plaintext JSON payload field."
+    },
+    "Message": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "chat_id": {
+          "type": "string"
+        },
+        "sender": {
+          "type": "string"
+        },
+        "device_id": {
+          "type": "string"
+        },
+        "operation_id": {
+          "type": "string"
+        },
+        "seq": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "revision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "deleted": {
+          "type": "boolean"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "basic",
+            "e2ee"
+          ]
+        },
+        "epoch": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "created_at": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "envelope": {
+          "$ref": "#/$defs/Envelope"
+        },
+        "mls": {
+          "type": "string",
+          "contentEncoding": "base64"
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reply_to": {
+          "type": "string"
+        },
+        "forward_from": {
+          "type": "string"
+        },
+        "reactions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Reaction"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "chat_id",
+        "sender",
+        "device_id",
+        "operation_id",
+        "seq",
+        "revision",
+        "deleted",
+        "mode",
+        "created_at"
+      ],
+      "additionalProperties": false
+    },
+    "Reaction": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "user_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "user_id"
+      ],
+      "additionalProperties": false
+    },
+    "Chat": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "direct",
+            "group"
+          ]
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "basic",
+            "e2ee"
+          ]
+        },
+        "seq": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "epoch": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "pending_rekey": {
+          "type": "boolean"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "owner",
+            "admin",
+            "member"
+          ]
+        },
+        "can_send": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "mode",
+        "seq",
+        "epoch",
+        "pending_rekey",
+        "role",
+        "can_send"
+      ],
+      "additionalProperties": false
+    },
+    "RosterMember": {
+      "type": "object",
+      "properties": {
+        "device_id": {
+          "type": "string"
+        },
+        "leaf_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        }
+      },
+      "required": [
+        "device_id",
+        "leaf_index"
+      ],
+      "additionalProperties": false
+    },
+    "ChunkBinding": {
+      "type": "object",
+      "properties": {
+        "chat_id": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "device_id": {
+          "type": "string"
+        },
+        "operation_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "chat_id",
+        "user_id",
+        "device_id",
+        "operation_id"
+      ],
+      "additionalProperties": false
+    },
+    "MembershipEvent": {
+      "type": "object",
+      "properties": {
+        "user_id": {
+          "type": "string"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "can_send": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "user_id",
+        "active",
+        "can_send"
+      ],
+      "additionalProperties": false
+    },
+    "ReceiptEvent": {
+      "type": "object",
+      "properties": {
+        "user_id": {
+          "type": "string"
+        },
+        "device_id": {
+          "type": "string"
+        },
+        "delivered": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "read": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "user_id",
+        "device_id",
+        "delivered",
+        "read"
+      ],
+      "additionalProperties": false
+    },
+    "ReactionEvent": {
+      "type": "object",
+      "properties": {
+        "message_id": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "remove": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "message_id",
+        "user_id",
+        "type",
+        "remove"
+      ],
+      "additionalProperties": false
+    },
+    "MLSCommitEvent": {
+      "type": "object",
+      "properties": {
+        "transition_id": {
+          "type": "string"
+        },
+        "epoch": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "commit_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "transition_id",
+        "epoch",
+        "commit_hash"
+      ],
+      "additionalProperties": false
+    },
+    "MLSEpochEvent": {
+      "type": "object",
+      "properties": {
+        "transition_id": {
+          "type": "string"
+        },
+        "epoch": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "roster": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RosterMember"
+          }
+        }
+      },
+      "required": [
+        "transition_id",
+        "epoch",
+        "roster"
+      ],
+      "additionalProperties": false
+    },
+    "AIIdentityEvent": {
+      "type": "object",
+      "properties": {
+        "user_id": {
+          "type": "string"
+        },
+        "device_id": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string",
+          "enum": [
+            "openai",
+            "anthropic"
+          ]
+        }
+      },
+      "required": [
+        "user_id",
+        "device_id",
+        "provider"
+      ],
+      "additionalProperties": false
+    },
+    "CallRingingEvent": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "caller": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "audio",
+            "video"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "caller",
+        "mode"
+      ],
+      "additionalProperties": false
+    },
+    "CallSignalEvent": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "sender": {
+          "type": "string"
+        },
+        "device_id": {
+          "type": "string"
+        },
+        "operation_id": {
+          "type": "string"
+        },
+        "envelope": {
+          "$ref": "#/$defs/Envelope"
+        },
+        "to_device": {
+          "type": "string"
+        },
+        "to_user": {
+          "type": "string"
+        },
+        "mls": {
+          "type": "string",
+          "contentEncoding": "base64"
+        },
+        "epoch": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "accept",
+            "reject",
+            "end",
+            "offer",
+            "answer",
+            "ice"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "sender",
+        "device_id",
+        "operation_id",
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "CallTimeoutEvent": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "timeout"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "Event": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "message.created"
+            },
+            "seq": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "chat_id": {
+              "type": "string"
+            },
+            "message_id": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/$defs/Message"
+            }
+          },
+          "required": [
+            "type",
+            "seq",
+            "chat_id",
+            "data",
+            "message_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "message.edited"
+            },
+            "seq": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "chat_id": {
+              "type": "string"
+            },
+            "message_id": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/$defs/Message"
+            }
+          },
+          "required": [
+            "type",
+            "seq",
+            "chat_id",
+            "data",
+            "message_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "message.deleted"
+            },
+            "seq": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "chat_id": {
+              "type": "string"
+            },
+            "message_id": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/$defs/Message"
+            }
+          },
+          "required": [
+            "type",
+            "seq",
+            "chat_id",
+            "data",
+            "message_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "message.hidden"
+            },
+            "seq": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "chat_id": {
+              "type": "string"
+            },
+            "message_id": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/$defs/Message"
+            }
+          },
+          "required": [
+            "type",
+            "seq",
+            "chat_id",
+            "data",
+            "message_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "membership.changed"
+            },
+            "seq": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "chat_id": {
+              "type": "string"
+            },
+            "message_id": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/$defs/MembershipEvent"
+            }
+          },
+          "required": [
+            "type",
+            "seq",
+            "chat_id",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "receipt.updated"
+            },
+            "seq": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "chat_id": {
+              "type": "string"
+            },
+            "message_id": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/$defs/ReceiptEvent"
+            }
+          },
+          "required": [
+            "type",
+            "seq",
+            "chat_id",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "reaction.updated"
+            },
+            "seq": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "chat_id": {
+              "type": "string"
+            },
+            "message_id": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/$defs/Message"
+            }
+          },
+          "required": [
+            "type",
+            "seq",
+            "chat_id",
+            "data",
+            "message_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "mls.commit.pending"
+            },
+            "seq": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "chat_id": {
+              "type": "string"
+            },
+            "message_id": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/$defs/MLSCommitEvent"
+            }
+          },
+          "required": [
+            "type",
+            "seq",
+            "chat_id",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "mls.epoch.confirmed"
+            },
+            "seq": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "chat_id": {
+              "type": "string"
+            },
+            "message_id": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/$defs/MLSEpochEvent"
+            }
+          },
+          "required": [
+            "type",
+            "seq",
+            "chat_id",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "ai.participant.created"
+            },
+            "seq": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "chat_id": {
+              "type": "string"
+            },
+            "message_id": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/$defs/AIIdentityEvent"
+            }
+          },
+          "required": [
+            "type",
+            "seq",
+            "chat_id",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "call.ringing"
+            },
+            "seq": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "chat_id": {
+              "type": "string"
+            },
+            "message_id": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/$defs/CallRingingEvent"
+            }
+          },
+          "required": [
+            "type",
+            "seq",
+            "chat_id",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "call.accept"
+            },
+            "seq": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "chat_id": {
+              "type": "string"
+            },
+            "message_id": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/$defs/CallSignalEvent"
+            }
+          },
+          "required": [
+            "type",
+            "seq",
+            "chat_id",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "call.reject"
+            },
+            "seq": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "chat_id": {
+              "type": "string"
+            },
+            "message_id": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/$defs/CallSignalEvent"
+            }
+          },
+          "required": [
+            "type",
+            "seq",
+            "chat_id",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "call.offer"
+            },
+            "seq": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "chat_id": {
+              "type": "string"
+            },
+            "message_id": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/$defs/CallSignalEvent"
+            }
+          },
+          "required": [
+            "type",
+            "seq",
+            "chat_id",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "call.answer"
+            },
+            "seq": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "chat_id": {
+              "type": "string"
+            },
+            "message_id": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/$defs/CallSignalEvent"
+            }
+          },
+          "required": [
+            "type",
+            "seq",
+            "chat_id",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "call.ice"
+            },
+            "seq": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "chat_id": {
+              "type": "string"
+            },
+            "message_id": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/$defs/CallSignalEvent"
+            }
+          },
+          "required": [
+            "type",
+            "seq",
+            "chat_id",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "call.end"
+            },
+            "seq": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "chat_id": {
+              "type": "string"
+            },
+            "data": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/CallSignalEvent"
+                },
+                {
+                  "$ref": "#/$defs/CallTimeoutEvent"
+                }
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "seq",
+            "chat_id",
+            "data"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "MutationInput": {
+      "type": "object",
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "expected_revision": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "message": {
+          "$ref": "#/$defs/MessageReplacement"
+        },
+        "type": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "remove": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "operation_id"
+      ],
+      "additionalProperties": false,
+      "description": "PATCH requires expected_revision matching current revision and message replacement; the nested operation_id is overridden by the outer operation_id. DELETE and reaction mutations use the same decoded type but ignore unrelated fields."
+    },
+    "MessageReplacement": {
+      "type": "object",
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_.-]+$"
+        },
+        "envelope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Envelope"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mls": {
+          "type": "string",
+          "contentEncoding": "base64"
+        },
+        "epoch": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reply_to": {
+          "type": "string"
+        },
+        "forward_from": {
+          "type": "string"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "MutationResult": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "updated": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "updated"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "UploadCreate": {
+      "type": "object",
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "size": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1
+        },
+        "chunks": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "envelope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Envelope"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "operation_id",
+        "size",
+        "chunks",
+        "sha256"
+      ],
+      "additionalProperties": false,
+      "description": "basic envelope wraps 32-byte file key; e2ee envelope must be absent. Sizes and hashes describe encrypted wire chunks; configured size/quota/chunk bounds apply."
+    },
+    "UploadCreated": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "uploading",
+            "ready",
+            "deleted"
+          ]
+        },
+        "expires_at": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "id",
+        "state",
+        "expires_at"
+      ],
+      "additionalProperties": false
+    },
+    "UploadStatus": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "uploading",
+            "ready"
+          ]
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "basic",
+            "e2ee"
+          ]
+        },
+        "size": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "chunks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "size": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "index",
+              "size",
+              "sha256"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "total_chunks": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "expires_at": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "chunk_binding": {
+          "$ref": "#/$defs/ChunkBinding"
+        }
+      },
+      "required": [
+        "id",
+        "state",
+        "mode",
+        "size",
+        "chunks",
+        "total_chunks",
+        "sha256",
+        "expires_at",
+        "chunk_binding"
+      ],
+      "additionalProperties": false
+    },
+    "MLSConfirm": {
+      "type": "object",
+      "properties": {
+        "transition_id": {
+          "type": "string"
+        },
+        "group_id": {
+          "type": "string",
+          "contentEncoding": "base64"
+        },
+        "group_context": {
+          "type": "string",
+          "contentEncoding": "base64"
+        },
+        "previous_epoch": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": -1
+        },
+        "epoch": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "signer_device": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "string",
+          "contentEncoding": "base64"
+        },
+        "roster": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RosterMember"
+          }
+        }
+      },
+      "required": [
+        "group_id",
+        "group_context",
+        "previous_epoch",
+        "epoch",
+        "signer_device",
+        "signature",
+        "roster"
+      ],
+      "additionalProperties": false,
+      "description": "previous_epoch=-1 initializes a new relay. Otherwise transition_id is required. Signature is Ed25519 over canonical MLSRosterProof JSON, not over this request body. See RFC relay documentation."
+    },
+    "MLSRosterProof": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "chat_id": {
+          "type": "string"
+        },
+        "group_id": {
+          "type": "string",
+          "contentEncoding": "base64"
+        },
+        "previous_epoch": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "epoch": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "commit_hash": {
+          "type": "string"
+        },
+        "context_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "roster": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RosterMember"
+          }
+        }
+      },
+      "required": [
+        "version",
+        "chat_id",
+        "group_id",
+        "previous_epoch",
+        "epoch",
+        "commit_hash",
+        "context_hash",
+        "roster"
+      ],
+      "additionalProperties": false,
+      "description": "Exact declaration field order shown here; sort roster by device_id, use Go encoding/json escaping. commit_hash is empty for initialization, otherwise SHA256 wire commit. context_hash=SHA256 binary GroupContext."
+    },
+    "CallSignalInput": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "accept",
+            "reject",
+            "end",
+            "offer",
+            "answer",
+            "ice"
+          ]
+        },
+        "operation_id": {
+          "type": "string"
+        },
+        "to_device": {
+          "type": "string"
+        },
+        "envelope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Envelope"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mls": {
+          "type": "string",
+          "contentEncoding": "base64"
+        },
+        "epoch": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "type",
+        "operation_id"
+      ],
+      "additionalProperties": false
+    },
+    "CallSignalPlaintext": {
+      "type": "object",
+      "properties": {
+        "sdp": {
+          "type": "string"
+        },
+        "candidate": {
+          "type": "string"
+        },
+        "sdp_mid": {
+          "type": "string"
+        },
+        "sdp_mline_index": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "AIJob": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "message_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "queued",
+            "running",
+            "succeeded",
+            "failed",
+            "uncertain"
+          ]
+        },
+        "result_id": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "updated_at": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "id",
+        "message_id",
+        "status",
+        "result_id",
+        "created_at",
+        "updated_at"
+      ],
+      "additionalProperties": false
+    },
+    "Subscribe": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "subscribe"
+        },
+        "chat_id": {
+          "type": "string"
+        },
+        "after": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "type",
+        "chat_id"
+      ],
+      "additionalProperties": true
+    },
+    "Unsubscribe": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "unsubscribe"
+        },
+        "chat_id": {
+          "type": "string"
+        },
+        "after": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "type",
+        "chat_id"
+      ],
+      "additionalProperties": true
+    },
+    "SubscriptionError": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "error"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    "SyncError": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "sync.error"
+        },
+        "chat_id": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "chat_id",
+        "error"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/Subscribe"
+    },
+    {
+      "$ref": "#/$defs/Unsubscribe"
+    },
+    {
+      "$ref": "#/$defs/Event"
+    },
+    {
+      "$ref": "#/$defs/SubscriptionError"
+    },
+    {
+      "$ref": "#/$defs/SyncError"
+    }
+  ]
+}

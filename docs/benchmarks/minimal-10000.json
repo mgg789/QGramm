@@ -1,0 +1,46 @@
+{
+  "accept_p95_ms": 11.356,
+  "accepted": 6813,
+  "backpressure": 171,
+  "burst_rate": 1000,
+  "burst_seconds": 5,
+  "delivered": 6813,
+  "delivery_p95_ms": 71.844,
+  "elapsed_seconds": 25.747541541,
+  "failed": 0,
+  "generator_skipped": 0,
+  "history_messages": 6813,
+  "limitations": [
+    "synthetic payload and shared recipient HPKE fixture key",
+    "10000 mostly idle users; one active direct conversation",
+    "HTTP behind isolated trusted proxy header; TLS CPU not measured",
+    "generator runs outside server container; resource stats recorded separately"
+  ],
+  "offered": 6984,
+  "status_counts": {
+    "201": 6813,
+    "503": 171
+  },
+  "steady_accept_p95_ms": 5.422,
+  "steady_accepted": 1999,
+  "steady_backpressure": 0,
+  "steady_delivery_p95_ms": 5.596,
+  "steady_rate": 100,
+  "steady_seconds": 20,
+  "users_connected": 10000,
+  "environment": {
+    "date": "2026-10-04",
+    "server": "Linux arm64 Docker Desktop",
+    "go": "1.26.8",
+    "cpu_limit": 4,
+    "ram_limit_gib": 8,
+    "storage": "Docker volume in desktop VM; not separately qualified local SSD",
+    "image_manifest": "sha256:b08c7d3f0edca1932b9d678ce51f2ff47128697e8456daf490f33e18cfae0602",
+    "source": "ac65be7 plus pre-release module and subscriber-index working tree; image precedes retired-key support",
+    "resource_sample": {
+      "cpu_percent_of_one_core": 15.76,
+      "scope": "one sampled Docker stats reading during run; not peak",
+      "docker_memory_usage_mib": 513.3
+    }
+  }
+}

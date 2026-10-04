@@ -1,0 +1,7 @@
+{
+ "name":"qgramm-native-browser-acceptance",
+ "private":true,
+ "type":"module",
+ "scripts":{"check":"node run.mjs"},
+ "dependencies":{"@hpke/core":"1.9.0","esbuild":"0.28.2","jose":"6.2.12","playwright-core":"1.63.0"}
+}

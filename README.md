@@ -44,8 +44,8 @@ go test -race ./...
 sh scripts/build-matrix.sh
 ```
 
-This is a new core implementation under validation. See [verification](docs/verification.md) for exact evidence and outstanding release gates. An implemented endpoint is not evidence of audited cryptography, browser WebRTC acceptance, real AI provider acceptance or the 10,000-connection target.
+This is a pre-release. Race/build matrix, independent OpenMLS for the documented profile, Pion direct/TURN, live DeepSeek and a 10,000-connection load run passed. Native browser audio and other external gates remain incomplete. See [verification](docs/verification.md) and [benchmarks](docs/benchmark.md) for exact scopes; no audited-cryptography or full production-release claim.
 
 ## License
 
-Apache-2.0. Third-party licenses and cryptographic-library limitations are listed in `NOTICE` and the security documentation.
+Apache-2.0. `NOTICE` and `THIRD_PARTY_LICENSES.txt` retain dependency notices and license texts; cryptographic limitations are in the security documentation.
