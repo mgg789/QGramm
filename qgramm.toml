@@ -1,0 +1,66 @@
+# Secrets are environment variable NAMES, never secret values.
+# Default is local development. Use configs/container.toml behind HTTPS ingress.
+[server]
+listen = "127.0.0.1:8080"
+allow_insecure_loopback = true
+origins = []
+
+[storage]
+path = "data/qgramm.db"
+files = "data/files"
+
+[security]
+issuer = "qgramm"
+audience = "qgramm"
+token_public_key_env = "QGRAMM_TOKEN_PUBLIC_KEY"
+management_secret_env = "QGRAMM_MANAGEMENT_SECRET"
+master_key_env = "QGRAMM_MASTER_KEY"
+hpke_key_env = "QGRAMM_HPKE_KEY"
+
+[features]
+groups = false
+files = false
+e2ee = false
+calls = false
+delete = false
+edit = false
+reply = false
+forward = false
+reactions = false
+openai = false
+anthropic = false
+mcp = false
+http_tools = false
+
+[capacity]
+expected_concurrent_users = 1000
+# Zero means derive an initial bound from the effective CPU/memory budget.
+max_connections = 0
+queue_depth = 0
+workers = 0
+
+[policy]
+history = "since_join"
+delete_mode = "global"
+reaction_types = ["👍", "❤️", "👎"]
+event_retention_hours = 720
+dedup_retention_hours = 24
+max_message_bytes = 65536
+max_batch = 100
+max_file_bytes = 67108864
+max_chunk_bytes = 1048576
+max_storage_bytes = 10737418240
+upload_ttl_hours = 24
+
+[ai]
+openai_url = "https://api.openai.com/v1"
+anthropic_url = "https://api.anthropic.com/v1"
+openai_key_env = "QGRAMM_OPENAI_KEY"
+anthropic_key_env = "QGRAMM_ANTHROPIC_KEY"
+model = "operator-selected-model"
+max_steps = 8
+
+[calls]
+turn_urls = []
+turn_secret_env = "QGRAMM_TURN_SECRET"
+credential_ttl_seconds = 600

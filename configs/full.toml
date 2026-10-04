@@ -1,0 +1,34 @@
+[server]
+listen = "127.0.0.1:8080"
+allow_insecure_loopback = true
+[features]
+groups = true
+files = true
+e2ee = true
+calls = true
+delete = true
+edit = true
+reply = true
+forward = true
+reactions = true
+openai = true
+anthropic = true
+mcp = true
+http_tools = true
+[ai]
+openai_key_env = "QGRAMM_OPENAI_KEY"
+anthropic_key_env = "QGRAMM_ANTHROPIC_KEY"
+model = "operator-selected-model"
+[[ai.tools]]
+name = "approved-http"
+kind = "http"
+url = "https://tools.example.com/query"
+secret_env = "QGRAMM_TOOL_KEY"
+methods = ["POST"]
+allow_private = false
+[ai.tools.schema]
+type = "object"
+[calls]
+turn_urls = ["turns:turn.example.com:5349"]
+turn_secret_env = "QGRAMM_TURN_SECRET"
+credential_ttl_seconds = 600

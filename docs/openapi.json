@@ -1,0 +1,4394 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "QGramm",
+    "version": "1",
+    "description": "All compiled-feature routes. A binary exposes only selected modules; query capabilities. Schemas are maintained maps checked for exact source route coverage. Deployment policy sets runtime size/retention limits."
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "operationId": "GET_healthz",
+        "summary": "GET /healthz",
+        "x-source": "internal/core/management.go",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "ok"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "GET_readyz",
+        "summary": "GET /readyz",
+        "x-source": "internal/core/management.go",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "ready"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/capabilities": {
+      "get": {
+        "operationId": "GET_v1_capabilities",
+        "summary": "GET /v1/capabilities",
+        "x-source": "internal/core/management.go",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "protocol_version": {
+                      "const": 1
+                    },
+                    "features": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "server_key": {
+                      "type": "string",
+                      "contentEncoding": "base64"
+                    },
+                    "server_key_id": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "hpke_suite": {
+                      "const": "X25519-HKDF-SHA256-AES128GCM"
+                    },
+                    "delivery": {
+                      "const": "at-least-once"
+                    },
+                    "event_retention_hours": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "dedup_retention_hours": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "history": {
+                      "type": "string",
+                      "enum": [
+                        "all",
+                        "since_join"
+                      ]
+                    },
+                    "delete_mode": {
+                      "type": "string",
+                      "enum": [
+                        "global",
+                        "author_only"
+                      ]
+                    },
+                    "reaction_types": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "max_batch": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "ai_trust_boundary": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "protocol_version",
+                    "features",
+                    "server_key",
+                    "server_key_id",
+                    "hpke_suite",
+                    "delivery",
+                    "event_retention_hours",
+                    "dedup_retention_hours",
+                    "history",
+                    "delete_mode",
+                    "reaction_types",
+                    "max_batch",
+                    "ai_trust_boundary"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/ws-tickets": {
+      "post": {
+        "operationId": "POST_v1_ws_tickets",
+        "summary": "POST /v1/ws-tickets",
+        "x-source": "internal/core/management.go",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ticket": {
+                      "type": "string"
+                    },
+                    "expires_in": {
+                      "const": 30
+                    }
+                  },
+                  "required": [
+                    "ticket",
+                    "expires_in"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/ws": {
+      "get": {
+        "operationId": "GET_v1_ws",
+        "summary": "GET /v1/ws",
+        "x-source": "internal/core/management.go",
+        "parameters": [
+          {
+            "name": "ticket",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "101": {
+            "description": "WebSocket upgrade; frames in websocket.schema.json"
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/chats": {
+      "get": {
+        "operationId": "GET_v1_chats",
+        "summary": "GET /v1/chats",
+        "x-source": "internal/core/management.go",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Chat"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/chats/{chat}/messages": {
+      "get": {
+        "operationId": "GET_v1_chats_chat_messages",
+        "summary": "GET /v1/chats/{chat}/messages",
+        "x-source": "internal/core/management.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Message"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "POST_v1_chats_chat_messages",
+        "summary": "POST /v1/chats/{chat}/messages",
+        "x-source": "internal/core/management.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/chats/{chat}/messages/batch": {
+      "post": {
+        "operationId": "POST_v1_chats_chat_messages_batch",
+        "summary": "POST /v1/chats/{chat}/messages/batch",
+        "x-source": "internal/core/management.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "operation_id": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "const": 201
+                          },
+                          "message": {
+                            "$ref": "#/components/schemas/Message"
+                          }
+                        },
+                        "required": [
+                          "operation_id",
+                          "status",
+                          "message"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "operation_id": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "error": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "operation_id",
+                          "status",
+                          "error"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "messages": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/MessageInput"
+                    },
+                    "minItems": 1
+                  }
+                },
+                "required": [
+                  "messages"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/chats/{chat}/events": {
+      "get": {
+        "operationId": "GET_v1_chats_chat_events",
+        "summary": "GET /v1/chats/{chat}/events",
+        "x-source": "internal/core/management.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Event"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/chats/{chat}/receipts": {
+      "post": {
+        "operationId": "POST_v1_chats_chat_receipts",
+        "summary": "POST /v1/chats/{chat}/receipts",
+        "x-source": "internal/core/management.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "acknowledged"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "delivered": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  },
+                  "read": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/management/v1/users/{user}": {
+      "put": {
+        "operationId": "PUT_management_v1_users_user",
+        "summary": "PUT /management/v1/users/{user}",
+        "x-source": "internal/core/management.go",
+        "parameters": [
+          {
+            "name": "user",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "disabled": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "disabled"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "disabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/management/v1/users/{user}/devices/{device}": {
+      "put": {
+        "operationId": "PUT_management_v1_users_user_devices_device",
+        "summary": "PUT /management/v1/users/{user}/devices/{device}",
+        "x-source": "internal/core/management.go",
+        "parameters": [
+          {
+            "name": "user",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "device",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "user_id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "public_key": {
+                    "type": "string",
+                    "contentEncoding": "base64"
+                  },
+                  "signing_key": {
+                    "type": "string",
+                    "contentEncoding": "base64"
+                  }
+                },
+                "required": [
+                  "public_key"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "DELETE_management_v1_users_user_devices_device",
+        "summary": "DELETE /management/v1/users/{user}/devices/{device}",
+        "x-source": "internal/core/management.go",
+        "parameters": [
+          {
+            "name": "user",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "device",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revoked": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "revoked"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ]
+      }
+    },
+    "/management/v1/chats/direct": {
+      "post": {
+        "operationId": "POST_management_v1_chats_direct",
+        "summary": "POST /management/v1/chats/direct",
+        "x-source": "internal/core/management.go",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "const": "direct"
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "basic",
+                        "e2ee"
+                      ]
+                    },
+                    "pending_rekey": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "mode",
+                    "pending_rekey"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9_.-]+$"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "basic",
+                      "e2ee"
+                    ]
+                  },
+                  "members": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_.-]+$"
+                    },
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "members"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/management/v1/chats/groups": {
+      "post": {
+        "operationId": "POST_management_v1_chats_groups",
+        "summary": "POST /management/v1/chats/groups",
+        "x-source": "internal/modules/groups.go",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "const": "group"
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "basic",
+                        "e2ee"
+                      ]
+                    },
+                    "pending_rekey": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "mode",
+                    "pending_rekey"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9_.-]+$"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "basic",
+                      "e2ee"
+                    ]
+                  },
+                  "members": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_.-]+$"
+                    },
+                    "minItems": 2,
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "members"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/management/v1/chats/{chat}/members/{user}": {
+      "put": {
+        "operationId": "PUT_management_v1_chats_chat_members_user",
+        "summary": "PUT /management/v1/chats/{chat}/members/{user}",
+        "x-source": "internal/core/management.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "updated": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "updated"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "owner",
+                      "admin",
+                      "member"
+                    ]
+                  },
+                  "can_send": {
+                    "type": "boolean"
+                  },
+                  "active": {
+                    "type": "boolean"
+                  },
+                  "allow_history": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "role"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/chats/{chat}/messages/{message}": {
+      "patch": {
+        "operationId": "PATCH_v1_chats_chat_messages_message",
+        "summary": "PATCH /v1/chats/{chat}/messages/{message}",
+        "x-source": "internal/modules/edit.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "message",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResult"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationInput"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "DELETE_v1_chats_chat_messages_message",
+        "summary": "DELETE /v1/chats/{chat}/messages/{message}",
+        "x-source": "internal/modules/delete.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "message",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResult"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/chats/{chat}/messages/{message}/reactions": {
+      "get": {
+        "operationId": "GET_v1_chats_chat_messages_message_reactions",
+        "summary": "GET /v1/chats/{chat}/messages/{message}/reactions",
+        "x-source": "internal/modules/reactions.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "message",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "integer",
+                        "format": "int64"
+                      },
+                      "user_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "user_id"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "POST_v1_chats_chat_messages_message_reactions",
+        "summary": "POST /v1/chats/{chat}/messages/{message}/reactions",
+        "x-source": "internal/modules/reactions.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "message",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResult"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/chats/{chat}/uploads": {
+      "post": {
+        "operationId": "POST_v1_chats_chat_uploads",
+        "summary": "POST /v1/chats/{chat}/uploads",
+        "x-source": "internal/modules/files.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadCreated"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadCreated"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/uploads/{upload}": {
+      "get": {
+        "operationId": "GET_v1_uploads_upload",
+        "summary": "GET /v1/uploads/{upload}",
+        "x-source": "internal/modules/files.go",
+        "parameters": [
+          {
+            "name": "upload",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadStatus"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/uploads/{upload}/chunks/{index}": {
+      "put": {
+        "operationId": "PUT_v1_uploads_upload_chunks_index",
+        "summary": "PUT /v1/uploads/{upload}/chunks/{index}",
+        "x-source": "internal/modules/files.go",
+        "parameters": [
+          {
+            "name": "upload",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "X-Chunk-SHA256",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "index": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "index"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "index": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "index"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "GET_v1_uploads_upload_chunks_index",
+        "summary": "GET /v1/uploads/{upload}/chunks/{index}",
+        "x-source": "internal/modules/files.go",
+        "parameters": [
+          {
+            "name": "upload",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/uploads/{upload}/complete": {
+      "post": {
+        "operationId": "POST_v1_uploads_upload_complete",
+        "summary": "POST /v1/uploads/{upload}/complete",
+        "x-source": "internal/modules/files.go",
+        "parameters": [
+          {
+            "name": "upload",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "ready"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/uploads/{upload}/key": {
+      "get": {
+        "operationId": "GET_v1_uploads_upload_key",
+        "summary": "GET /v1/uploads/{upload}/key",
+        "x-source": "internal/modules/files.go",
+        "parameters": [
+          {
+            "name": "upload",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "envelope": {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    "upload_id": {
+                      "type": "string"
+                    },
+                    "chunk_binding": {
+                      "$ref": "#/components/schemas/ChunkBinding"
+                    }
+                  },
+                  "required": [
+                    "envelope",
+                    "upload_id",
+                    "chunk_binding"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/calls/turn": {
+      "get": {
+        "operationId": "GET_v1_calls_turn",
+        "summary": "GET /v1/calls/turn",
+        "x-source": "internal/modules/calls.go",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "urls": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "username": {
+                      "type": "string"
+                    },
+                    "credential": {
+                      "type": "string"
+                    },
+                    "expires_at": {
+                      "type": "integer",
+                      "format": "int64"
+                    }
+                  },
+                  "required": [
+                    "urls",
+                    "username",
+                    "credential",
+                    "expires_at"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/chats/{chat}/calls": {
+      "post": {
+        "operationId": "POST_v1_chats_chat_calls",
+        "summary": "POST /v1/chats/{chat}/calls",
+        "x-source": "internal/modules/calls.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "const": "ringing"
+                    },
+                    "seq": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "state",
+                    "seq"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "audio",
+                      "video"
+                    ]
+                  }
+                },
+                "required": [
+                  "mode"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/calls/{call}/signals": {
+      "post": {
+        "operationId": "POST_v1_calls_call_signals",
+        "summary": "POST /v1/calls/{call}/signals",
+        "x-source": "internal/modules/calls.go",
+        "parameters": [
+          {
+            "name": "call",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "seq": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "ringing",
+                        "active",
+                        "ended"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "seq",
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CallSignalInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mls/keypackages": {
+      "post": {
+        "operationId": "POST_v1_mls_keypackages",
+        "summary": "POST /v1/mls/keypackages",
+        "x-source": "internal/modules/e2ee.go",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "key_package": {
+                    "type": "string",
+                    "contentEncoding": "base64"
+                  }
+                },
+                "required": [
+                  "key_package"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/chats/{chat}/mls/keypackages/{device}/claim": {
+      "post": {
+        "operationId": "POST_v1_chats_chat_mls_keypackages_device_claim",
+        "summary": "POST /v1/chats/{chat}/mls/keypackages/{device}/claim",
+        "x-source": "internal/modules/e2ee.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "device",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "device_id": {
+                      "type": "string"
+                    },
+                    "key_package": {
+                      "type": "string",
+                      "contentEncoding": "base64"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "device_id",
+                    "key_package"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/chats/{chat}/mls/commits": {
+      "post": {
+        "operationId": "POST_v1_chats_chat_mls_commits",
+        "summary": "POST /v1/chats/{chat}/mls/commits",
+        "x-source": "internal/modules/e2ee.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "transition_id": {
+                      "type": "string"
+                    },
+                    "commit_hash": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "pending_rekey": {
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "transition_id",
+                    "commit_hash",
+                    "pending_rekey"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "commit": {
+                    "type": "string",
+                    "contentEncoding": "base64"
+                  },
+                  "welcomes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "device_id": {
+                          "type": "string"
+                        },
+                        "key_package_id": {
+                          "type": "string"
+                        },
+                        "welcome": {
+                          "type": "string",
+                          "contentEncoding": "base64"
+                        }
+                      },
+                      "required": [
+                        "device_id",
+                        "key_package_id",
+                        "welcome"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "commit"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/chats/{chat}/mls": {
+      "get": {
+        "operationId": "GET_v1_chats_chat_mls",
+        "summary": "GET /v1/chats/{chat}/mls",
+        "x-source": "internal/modules/e2ee.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "group_id": {
+                      "type": "string",
+                      "contentEncoding": "base64"
+                    },
+                    "group_context": {
+                      "type": "string",
+                      "contentEncoding": "base64"
+                    },
+                    "epoch": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0
+                    },
+                    "pending_rekey": {
+                      "type": "boolean"
+                    },
+                    "roster": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RosterMember"
+                      }
+                    },
+                    "suite": {
+                      "const": 1
+                    }
+                  },
+                  "required": [
+                    "group_id",
+                    "group_context",
+                    "epoch",
+                    "pending_rekey",
+                    "roster",
+                    "suite"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/chats/{chat}/mls/inbox": {
+      "get": {
+        "operationId": "GET_v1_chats_chat_mls_inbox",
+        "summary": "GET /v1/chats/{chat}/mls/inbox",
+        "x-source": "internal/modules/e2ee.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after_welcome",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after_commit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "welcomes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "epoch": {
+                            "type": "integer",
+                            "format": "int64",
+                            "minimum": 0
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "welcome"
+                            ]
+                          },
+                          "wire": {
+                            "type": "string",
+                            "contentEncoding": "base64"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "epoch",
+                          "kind",
+                          "wire"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "commits": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "epoch": {
+                            "type": "integer",
+                            "format": "int64",
+                            "minimum": 0
+                          },
+                          "commit_hash": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                          },
+                          "wire": {
+                            "type": "string",
+                            "contentEncoding": "base64"
+                          },
+                          "confirmed": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "epoch",
+                          "commit_hash",
+                          "wire",
+                          "confirmed"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "next_welcome": {
+                      "type": "string"
+                    },
+                    "next_commit": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "welcomes",
+                    "commits",
+                    "next_welcome",
+                    "next_commit"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      }
+    },
+    "/management/v1/chats/{chat}/mls/confirm": {
+      "post": {
+        "operationId": "POST_management_v1_chats_chat_mls_confirm",
+        "summary": "POST /management/v1/chats/{chat}/mls/confirm",
+        "x-source": "internal/modules/e2ee.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "epoch": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0
+                    },
+                    "pending_rekey": {
+                      "const": false
+                    }
+                  },
+                  "required": [
+                    "epoch",
+                    "pending_rekey"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MLSConfirm"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/management/v1/ai/participants": {
+      "post": {
+        "operationId": "POST_management_v1_ai_participants",
+        "summary": "POST /management/v1/ai/participants",
+        "x-source": "internal/modules/ai.go",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "chat_id": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": "string"
+                    },
+                    "device_id": {
+                      "type": "string"
+                    },
+                    "provider": {
+                      "type": "string",
+                      "enum": [
+                        "openai",
+                        "anthropic"
+                      ]
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "basic",
+                        "e2ee"
+                      ]
+                    },
+                    "epoch": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0
+                    },
+                    "welcome": {
+                      "type": "string",
+                      "contentEncoding": "base64"
+                    },
+                    "tools": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "chat_id",
+                    "user_id",
+                    "device_id",
+                    "provider",
+                    "mode",
+                    "epoch",
+                    "welcome",
+                    "tools"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user_id": {
+                    "type": "string"
+                  },
+                  "device_id": {
+                    "type": "string"
+                  },
+                  "provider": {
+                    "type": "string",
+                    "enum": [
+                      "openai",
+                      "anthropic"
+                    ]
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "basic",
+                      "e2ee"
+                    ]
+                  },
+                  "key_package": {
+                    "type": "string",
+                    "contentEncoding": "base64"
+                  },
+                  "tools": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "user_id",
+                  "device_id",
+                  "provider"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/management/v1/ai/chats/{chat}/tools": {
+      "put": {
+        "operationId": "PUT_management_v1_ai_chats_chat_tools",
+        "summary": "PUT /management/v1/ai/chats/{chat}/tools",
+        "x-source": "internal/modules/ai.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tools": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "tools"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tools": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/management/v1/ai/chats/{chat}/jobs": {
+      "get": {
+        "operationId": "GET_management_v1_ai_chats_chat_jobs",
+        "summary": "GET /management/v1/ai/chats/{chat}/jobs",
+        "x-source": "internal/modules/ai.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jobs": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AIJob"
+                      }
+                    }
+                  },
+                  "required": [
+                    "jobs"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false
+      },
+      "Envelope": {
+        "type": "object",
+        "properties": {
+          "key_id": {
+            "type": "string"
+          },
+          "enc": {
+            "type": "string",
+            "contentEncoding": "base64"
+          },
+          "ciphertext": {
+            "type": "string",
+            "contentEncoding": "base64"
+          }
+        },
+        "required": [
+          "key_id",
+          "enc",
+          "ciphertext"
+        ],
+        "additionalProperties": false
+      },
+      "MessageInput": {
+        "type": "object",
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.-]+$"
+          },
+          "envelope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Envelope"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mls": {
+            "type": "string",
+            "contentEncoding": "base64"
+          },
+          "epoch": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reply_to": {
+            "type": "string"
+          },
+          "forward_from": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation_id"
+        ],
+        "additionalProperties": false,
+        "description": "basic requires envelope; e2ee requires MLS PrivateMessage and current epoch. Attachment/reply/forward fields require compiled features. No plaintext JSON payload field."
+      },
+      "Message": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "chat_id": {
+            "type": "string"
+          },
+          "sender": {
+            "type": "string"
+          },
+          "device_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "seq": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "basic",
+              "e2ee"
+            ]
+          },
+          "epoch": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "created_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "envelope": {
+            "$ref": "#/components/schemas/Envelope"
+          },
+          "mls": {
+            "type": "string",
+            "contentEncoding": "base64"
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reply_to": {
+            "type": "string"
+          },
+          "forward_from": {
+            "type": "string"
+          },
+          "reactions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Reaction"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "chat_id",
+          "sender",
+          "device_id",
+          "operation_id",
+          "seq",
+          "revision",
+          "deleted",
+          "mode",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "Reaction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "user_id"
+        ],
+        "additionalProperties": false
+      },
+      "Chat": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "direct",
+              "group"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "basic",
+              "e2ee"
+            ]
+          },
+          "seq": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "epoch": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "pending_rekey": {
+            "type": "boolean"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "member"
+            ]
+          },
+          "can_send": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "mode",
+          "seq",
+          "epoch",
+          "pending_rekey",
+          "role",
+          "can_send"
+        ],
+        "additionalProperties": false
+      },
+      "RosterMember": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string"
+          },
+          "leaf_index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          }
+        },
+        "required": [
+          "device_id",
+          "leaf_index"
+        ],
+        "additionalProperties": false
+      },
+      "ChunkBinding": {
+        "type": "object",
+        "properties": {
+          "chat_id": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          },
+          "device_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "chat_id",
+          "user_id",
+          "device_id",
+          "operation_id"
+        ],
+        "additionalProperties": false
+      },
+      "MembershipEvent": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "can_send": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "user_id",
+          "active",
+          "can_send"
+        ],
+        "additionalProperties": false
+      },
+      "ReceiptEvent": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "device_id": {
+            "type": "string"
+          },
+          "delivered": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "read": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "user_id",
+          "device_id",
+          "delivered",
+          "read"
+        ],
+        "additionalProperties": false
+      },
+      "ReactionEvent": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "remove": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "message_id",
+          "user_id",
+          "type",
+          "remove"
+        ],
+        "additionalProperties": false
+      },
+      "MLSCommitEvent": {
+        "type": "object",
+        "properties": {
+          "transition_id": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "commit_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "transition_id",
+          "epoch",
+          "commit_hash"
+        ],
+        "additionalProperties": false
+      },
+      "MLSEpochEvent": {
+        "type": "object",
+        "properties": {
+          "transition_id": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "roster": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RosterMember"
+            }
+          }
+        },
+        "required": [
+          "transition_id",
+          "epoch",
+          "roster"
+        ],
+        "additionalProperties": false
+      },
+      "AIIdentityEvent": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "device_id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "openai",
+              "anthropic"
+            ]
+          }
+        },
+        "required": [
+          "user_id",
+          "device_id",
+          "provider"
+        ],
+        "additionalProperties": false
+      },
+      "CallRingingEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "caller": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "audio",
+              "video"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "caller",
+          "mode"
+        ],
+        "additionalProperties": false
+      },
+      "CallSignalEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sender": {
+            "type": "string"
+          },
+          "device_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "envelope": {
+            "$ref": "#/components/schemas/Envelope"
+          },
+          "to_device": {
+            "type": "string"
+          },
+          "to_user": {
+            "type": "string"
+          },
+          "mls": {
+            "type": "string",
+            "contentEncoding": "base64"
+          },
+          "epoch": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "accept",
+              "reject",
+              "end",
+              "offer",
+              "answer",
+              "ice"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "sender",
+          "device_id",
+          "operation_id",
+          "type"
+        ],
+        "additionalProperties": false
+      },
+      "CallTimeoutEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "timeout"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "Event": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "message.created"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "message_id": {
+                "type": "string"
+              },
+              "data": {
+                "$ref": "#/components/schemas/Message"
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data",
+              "message_id"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "message.edited"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "message_id": {
+                "type": "string"
+              },
+              "data": {
+                "$ref": "#/components/schemas/Message"
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data",
+              "message_id"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "message.deleted"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "message_id": {
+                "type": "string"
+              },
+              "data": {
+                "$ref": "#/components/schemas/Message"
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data",
+              "message_id"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "message.hidden"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "message_id": {
+                "type": "string"
+              },
+              "data": {
+                "$ref": "#/components/schemas/Message"
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data",
+              "message_id"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "membership.changed"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "message_id": {
+                "type": "string"
+              },
+              "data": {
+                "$ref": "#/components/schemas/MembershipEvent"
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "receipt.updated"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "message_id": {
+                "type": "string"
+              },
+              "data": {
+                "$ref": "#/components/schemas/ReceiptEvent"
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "reaction.updated"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "message_id": {
+                "type": "string"
+              },
+              "data": {
+                "$ref": "#/components/schemas/Message"
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data",
+              "message_id"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "mls.commit.pending"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "message_id": {
+                "type": "string"
+              },
+              "data": {
+                "$ref": "#/components/schemas/MLSCommitEvent"
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "mls.epoch.confirmed"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "message_id": {
+                "type": "string"
+              },
+              "data": {
+                "$ref": "#/components/schemas/MLSEpochEvent"
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "ai.participant.created"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "message_id": {
+                "type": "string"
+              },
+              "data": {
+                "$ref": "#/components/schemas/AIIdentityEvent"
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "call.ringing"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "message_id": {
+                "type": "string"
+              },
+              "data": {
+                "$ref": "#/components/schemas/CallRingingEvent"
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "call.accept"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "message_id": {
+                "type": "string"
+              },
+              "data": {
+                "$ref": "#/components/schemas/CallSignalEvent"
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "call.reject"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "message_id": {
+                "type": "string"
+              },
+              "data": {
+                "$ref": "#/components/schemas/CallSignalEvent"
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "call.offer"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "message_id": {
+                "type": "string"
+              },
+              "data": {
+                "$ref": "#/components/schemas/CallSignalEvent"
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "call.answer"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "message_id": {
+                "type": "string"
+              },
+              "data": {
+                "$ref": "#/components/schemas/CallSignalEvent"
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "call.ice"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "message_id": {
+                "type": "string"
+              },
+              "data": {
+                "$ref": "#/components/schemas/CallSignalEvent"
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "call.end"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "data": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/CallSignalEvent"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CallTimeoutEvent"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "MutationInput": {
+        "type": "object",
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "message": {
+            "$ref": "#/components/schemas/MessageReplacement"
+          },
+          "type": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "remove": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "operation_id"
+        ],
+        "additionalProperties": false,
+        "description": "PATCH requires expected_revision matching current revision and message replacement; the nested operation_id is overridden by the outer operation_id. DELETE and reaction mutations use the same decoded type but ignore unrelated fields."
+      },
+      "MessageReplacement": {
+        "type": "object",
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.-]+$"
+          },
+          "envelope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Envelope"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mls": {
+            "type": "string",
+            "contentEncoding": "base64"
+          },
+          "epoch": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reply_to": {
+            "type": "string"
+          },
+          "forward_from": {
+            "type": "string"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "MutationResult": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "updated": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "updated"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "UploadCreate": {
+        "type": "object",
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "chunks": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 65536
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "envelope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Envelope"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "operation_id",
+          "size",
+          "chunks",
+          "sha256"
+        ],
+        "additionalProperties": false,
+        "description": "basic envelope wraps 32-byte file key; e2ee envelope must be absent. Sizes and hashes describe encrypted wire chunks; configured size/quota/chunk bounds apply."
+      },
+      "UploadCreated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "uploading",
+              "ready",
+              "deleted"
+            ]
+          },
+          "expires_at": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "expires_at"
+        ],
+        "additionalProperties": false
+      },
+      "UploadStatus": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "uploading",
+              "ready"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "basic",
+              "e2ee"
+            ]
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "chunks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0
+                },
+                "size": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "required": [
+                "index",
+                "size",
+                "sha256"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "total_chunks": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "expires_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "chunk_binding": {
+            "$ref": "#/components/schemas/ChunkBinding"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "mode",
+          "size",
+          "chunks",
+          "total_chunks",
+          "sha256",
+          "expires_at",
+          "chunk_binding"
+        ],
+        "additionalProperties": false
+      },
+      "MLSConfirm": {
+        "type": "object",
+        "properties": {
+          "transition_id": {
+            "type": "string"
+          },
+          "group_id": {
+            "type": "string",
+            "contentEncoding": "base64"
+          },
+          "group_context": {
+            "type": "string",
+            "contentEncoding": "base64"
+          },
+          "previous_epoch": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": -1
+          },
+          "epoch": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "signer_device": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string",
+            "contentEncoding": "base64"
+          },
+          "roster": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RosterMember"
+            }
+          }
+        },
+        "required": [
+          "group_id",
+          "group_context",
+          "previous_epoch",
+          "epoch",
+          "signer_device",
+          "signature",
+          "roster"
+        ],
+        "additionalProperties": false,
+        "description": "previous_epoch=-1 initializes a new relay. Otherwise transition_id is required. Signature is Ed25519 over canonical MLSRosterProof JSON, not over this request body. See RFC relay documentation."
+      },
+      "MLSRosterProof": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "const": 1
+          },
+          "chat_id": {
+            "type": "string"
+          },
+          "group_id": {
+            "type": "string",
+            "contentEncoding": "base64"
+          },
+          "previous_epoch": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "epoch": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "commit_hash": {
+            "type": "string"
+          },
+          "context_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "roster": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RosterMember"
+            }
+          }
+        },
+        "required": [
+          "version",
+          "chat_id",
+          "group_id",
+          "previous_epoch",
+          "epoch",
+          "commit_hash",
+          "context_hash",
+          "roster"
+        ],
+        "additionalProperties": false,
+        "description": "Exact declaration field order shown here; sort roster by device_id, use Go encoding/json escaping. commit_hash is empty for initialization, otherwise SHA256 wire commit. context_hash=SHA256 binary GroupContext."
+      },
+      "CallSignalInput": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "accept",
+              "reject",
+              "end",
+              "offer",
+              "answer",
+              "ice"
+            ]
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "to_device": {
+            "type": "string"
+          },
+          "envelope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Envelope"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mls": {
+            "type": "string",
+            "contentEncoding": "base64"
+          },
+          "epoch": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "type",
+          "operation_id"
+        ],
+        "additionalProperties": false
+      },
+      "CallSignalPlaintext": {
+        "type": "object",
+        "properties": {
+          "sdp": {
+            "type": "string"
+          },
+          "candidate": {
+            "type": "string"
+          },
+          "sdp_mid": {
+            "type": "string"
+          },
+          "sdp_mline_index": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "AIJob": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "message_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "uncertain"
+            ]
+          },
+          "result_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "updated_at": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "id",
+          "message_id",
+          "status",
+          "result_id",
+          "created_at",
+          "updated_at"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "securitySchemes": {
+      "deviceJWT": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "EdDSA JWT",
+        "description": "External authority signed JWT with sub=user_id, device_id, iss, aud, iat and exp; lifetime at most15 minutes."
+      },
+      "managementBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Runtime management secret, separate from device JWT."
+      }
+    }
+  }
+}

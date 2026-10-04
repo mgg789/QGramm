@@ -1,0 +1,9 @@
+[server]
+listen = "0.0.0.0:8080"
+# Isolate this HTTP listener behind your HTTPS reverse proxy.
+trusted_proxy = true
+[storage]
+path = "/data/qgramm.db"
+files = "/data/files"
+[capacity]
+expected_concurrent_users = 100

@@ -1,0 +1,17 @@
+QGramm
+Copyright 2026 QGramm contributors
+Licensed under the Apache License, Version 2.0.
+
+Third-party Go dependencies retain their own licenses. Direct dependencies:
+BurntSushi/toml: MIT
+golang-jwt/jwt/v5: MIT
+google/uuid: BSD-3-Clause
+gorilla/websocket: BSD-2-Clause
+modernc.org/sqlite and its embedded SQLite: BSD-3-Clause / SQLite public domain
+cloudflare/circl: BSD-3-Clause
+thomas-vilte/mls-go (E2EE builds only): MIT
+
+RFC9180 HPKE test vectors are taken from the CFRG HPKE repository.
+Distribution must retain relevant dependency copyright/license texts; the Go
+module cache contains the upstream licenses. The build process does not
+relicense dependencies or claim an independent cryptographic audit.
