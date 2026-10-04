@@ -20,6 +20,19 @@ Choose QGramm when your application already owns users and UI, and needs persist
 
 These are different scopes, not comparative performance measurements. Matrix and Zulip provide broader communication platforms; Centrifugo and NATS provide infrastructure. QGramm packages chat persistence and protocol semantics for integration, with [explicit acceptance limits](docs/verification.md).
 
+### Measured latency and resources
+
+Same Apple M5 Pro / Linux arm64 Docker VM, 4 CPU / 8 GiB container quotas, 10,000 WebSockets, one active sender/recipient. Steady load: 100 messages/s for 30 seconds, followed by a five-second 1,000/s burst. The table reports steady-phase latency and sampled resource maxima across setup/load.
+
+| Configuration | Acceptance p95 / p99, ms | Delivery p95 / p99, ms | Sampled CPU¹ / RAM |
+|---|---:|---:|---:|
+| QGramm: HPKE + JWT/ACL + SQLite FULL | 4.364 / 6.657 | 4.676 / 6.898 | 61.05% / 666.3 MiB |
+| NATS JetStream: fsync every publication | 3.945 / 6.641 | 4.018 / 6.621 | 23.50% / 469.3 MiB |
+| NATS JetStream: default deferred fsync | 2.759 / 5.161 | 2.788 / 5.186 | 23.66% / 489.5 MiB |
+| Centrifugo: in-memory history | 2.781 / 4.719 | 2.800 / 4.952 | 28.48% / 450.1 MiB |
+
+¹ 100% means one CPU. All submitted messages were delivered in these runs. Baselines carry plaintext application data and do not perform QGramm's per-send crypto, device/chat ACL and chat transactions. This measures those configurations, not maximum throughput or equivalent feature sets. [Method, versions and raw results](docs/comparison-benchmark.en.md) · [QGramm hardware/provenance](docs/benchmark.md). Matrix/Synapse and Zulip require separate application-level scenarios and are not included in these measurements.
+
 ## Small integration example
 
 ```sh

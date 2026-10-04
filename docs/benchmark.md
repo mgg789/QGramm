@@ -1,15 +1,17 @@
 # Load measurements
 
+[Measured alternative baselines](comparison-benchmark.md): NATS JetStream default/always fsync and Centrifugo memory history, with the same container quotas, connection count and nominal load. Their application semantics differ; the comparison records those differences.
+
 ## Current p95 / p99 run
 
 [Machine-readable result](benchmarks/minimal-10000-p99.json), 2026-10-04, exit 0:
 
 | Phase | Accepted | Acceptance p95 / p99, ms | Recipient delivery p95 / p99, ms |
 |---|---:|---:|---:|
-| 100/s for 30 seconds | 2,999 | 4.685 / 7.262 | 4.870 / 7.445 |
-| Steady + 1,000/s for 5 seconds | 7,989 | 4.625 / 7.640 | 6.930 / 17.636 |
+| 100/s for 30 seconds | 3,000 | 4.364 / 6.657 | 4.676 / 6.898 |
+| Steady + 1,000/s for 5 seconds | 7,988 | 5.354 / 19.578 | 9.368 / 87.170 |
 
-10,000 distinct users/device sockets; one active two-member basic chat. Offered = accepted = delivered = history = 7,989, with no unexpected failures, backpressure or semaphore skips. The nominal schedule is 8,000; host ticker scheduling produced 7,989 submissions. Sampled Docker maxima across setup/load: 666.4 MiB, 62.97% of one CPU; these are not exact peaks. Percentiles cover successful requests, not rejected operations.
+10,000 distinct users/device sockets; one active two-member basic chat. Offered = accepted = delivered = history = 7,988, with no unexpected failures, backpressure, semaphore skips or observed connection drops. Idle connections are monitored as well as the recipient. The nominal schedule is 8,000; host ticker scheduling produced 7,988 submissions. Sampled Docker maxima across setup/load: 666.3 MiB, 61.05% of one CPU; these are not exact peaks. Percentiles cover successful requests, not rejected operations.
 
 Hardware: Apple M5 Pro, 18 host logical CPUs, macOS 26.6.2; Linux arm64 Docker Desktop VM, kernel 6.12.76-linuxkit. Server container quota: 4 CPUs / 8 GiB; Docker reports approximately 7.748 GiB effective memory. SQLite uses a named Docker volume, WAL and FULL synchronous commits. SSD/fsync performance was not independently qualified. The host also runs other workloads; limits are quotas, not dedicated reservations. The generator runs on macOS, Go 1.26.4. Image ID, generator dirty-tree digest and existing server-image provenance are recorded separately in JSON: the reused service image matches the earlier final run; this is not a fresh build of the current documentation commit.
 

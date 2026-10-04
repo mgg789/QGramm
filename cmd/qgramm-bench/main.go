@@ -186,6 +186,8 @@ func run() error {
 	connections := make([]*websocket.Conn, *users)
 	var connected atomic.Int64
 	var socketFailures atomic.Int64
+	var unexpectedDisconnects atomic.Int64
+	var closing atomic.Bool
 	var delivered atomic.Int64
 	var started sync.Map
 	var metricMu sync.Mutex
@@ -237,6 +239,9 @@ func run() error {
 					for {
 						_, data, e := conn.ReadMessage()
 						if e != nil {
+							if !closing.Load() {
+								unexpectedDisconnects.Add(1)
+							}
 							return
 						}
 						if !measure {
@@ -272,6 +277,7 @@ func run() error {
 	close(connectJobs)
 	wg.Wait()
 	defer func() {
+		closing.Store(true)
 		for _, conn := range connections {
 			if conn != nil {
 				conn.Close()
@@ -379,6 +385,7 @@ func run() error {
 	metricMu.Lock()
 	result := map[string]any{"users_connected": connected.Load(), "offered": offered.Load(), "accepted": accepted.Load(), "steady_accepted": steadyAccepted, "steady_backpressure": steadyRejected, "backpressure": rejected.Load(), "failed": failed.Load(), "status_counts": statusCounts, "generator_skipped": generatorSkipped.Load(), "delivered": delivered.Load(), "history_messages": historyCount, "accept_p95_ms": percentile(latencies, .95), "delivery_p95_ms": percentile(deliveryLatencies, .95), "steady_accept_p95_ms": percentile(steadyLatency, .95), "steady_delivery_p95_ms": percentile(steadyDeliveryLatencies, .95), "steady_seconds": duration.Seconds(), "steady_rate": *rate, "burst_seconds": burst.Seconds(), "burst_rate": *burstRate, "elapsed_seconds": time.Since(loadStart).Seconds(), "limitations": []string{"synthetic payload and shared recipient HPKE fixture key", fmt.Sprintf("%d users; one active %d-member conversation", *users, *groupSize), "HTTP behind isolated trusted proxy header; TLS CPU not measured", "generator runs outside server container; resource stats recorded separately"}}
 	result["group_size"] = *groupSize
+	result["unexpected_disconnects"] = unexpectedDisconnects.Load()
 	result["accept_p99_ms"] = percentile(latencies, .99)
 	result["delivery_p99_ms"] = percentile(deliveryLatencies, .99)
 	result["steady_accept_p99_ms"] = percentile(steadyLatency, .99)
@@ -396,7 +403,7 @@ func run() error {
 		}
 	}
 	fmt.Println(string(data))
-	if historyCount != int(accepted.Load()) || delivered.Load() != expectedDeliveries || failed.Load() > 0 {
+	if historyCount != int(accepted.Load()) || delivered.Load() != expectedDeliveries || failed.Load() > 0 || unexpectedDisconnects.Load() > 0 {
 		return fmt.Errorf("load acceptance integrity failed")
 	}
 	return nil

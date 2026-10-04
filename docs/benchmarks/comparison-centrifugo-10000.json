@@ -1,0 +1,237 @@
+{
+  "connection_or_receive_errors": 0,
+  "connections": 10000,
+  "generator_max_inflight": 64,
+  "payload_bytes": 17,
+  "percentile_method": "nearest rank ceil(p*n)-1",
+  "phases": [
+    {
+      "name": "steady",
+      "offered": 3000,
+      "accepted": 3000,
+      "delivered": 3000,
+      "duplicate": 0,
+      "publish_errors": 0,
+      "ack_ms": {
+        "max": 7.700834,
+        "p50": 0.684167,
+        "p95": 2.781292,
+        "p99": 4.718916
+      },
+      "delivery_ms": {
+        "max": 7.694459,
+        "p50": 0.695958,
+        "p95": 2.800083,
+        "p99": 4.951791
+      },
+      "elapsed_seconds": 29.991481417,
+      "offered_rate": 100,
+      "actual_offered_per_second": 100.02840334187418
+    },
+    {
+      "name": "burst",
+      "offered": 5000,
+      "accepted": 5000,
+      "delivered": 5000,
+      "duplicate": 0,
+      "publish_errors": 0,
+      "ack_ms": {
+        "max": 9.264458,
+        "p50": 0.382583,
+        "p95": 2.554958,
+        "p99": 4.013333
+      },
+      "delivery_ms": {
+        "max": 9.238542,
+        "p50": 0.379833,
+        "p95": 2.544125,
+        "p99": 3.969833
+      },
+      "elapsed_seconds": 4.99981875,
+      "offered_rate": 1000,
+      "actual_offered_per_second": 1000.0362513141101
+    }
+  ],
+  "service": "centrifugo",
+  "setup_seconds": 9.648993459,
+  "container_state": {
+    "status": "running",
+    "oom_killed": false
+  },
+  "generator_exit_code": 0,
+  "environment": {
+    "date_utc": "2026-10-04T17:19:13Z",
+    "host_os": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "host_logical_cpus": 18,
+    "host_cpu": "Apple M5 Pro",
+    "generator_go": "go version go1.26.4 darwin/arm64",
+    "image_tag": "qgramm-comparison-centrifugo:6.2.3",
+    "image_id": "sha256:7f7d90f6ee572c26bb7fd46723d9bdf8e5aa511ba12b248401e7d330341d0a67",
+    "repo_digests": [
+      "qgramm-comparison-centrifugo@sha256:7f7d90f6ee572c26bb7fd46723d9bdf8e5aa511ba12b248401e7d330341d0a67"
+    ],
+    "cpu_limit": 4,
+    "ram_limit_gib": 8,
+    "server_kernel": "Linux be0f3286d1a8 6.12.76-linuxkit #1 SMP Thu Jun 11 15:44:51 UTC 2026 aarch64 Linux",
+    "storage": "in-memory bounded history, no volume",
+    "isolation": "shared Docker Desktop VM; generator on host; loopback only; sequential baseline runs",
+    "source_commit": "5ebc79864632f0291901efcff67dbced45dd0bc0",
+    "generator_sha256": "2f8d82b0145f087957aa618bdf1647744a61ee7701cb71bc342e9f76d5fba60f"
+  },
+  "resource_samples": [
+    {
+      "elapsed_seconds": 1.03,
+      "cpu": "5.83%",
+      "memory": "44.55MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 3.07,
+      "cpu": "0.02%",
+      "memory": "44.55MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 5.1,
+      "cpu": "16.57%",
+      "memory": "89.43MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 7.13,
+      "cpu": "17.95%",
+      "memory": "161.5MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 9.16,
+      "cpu": "19.13%",
+      "memory": "258.5MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 11.19,
+      "cpu": "14.61%",
+      "memory": "323.6MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 13.22,
+      "cpu": "20.38%",
+      "memory": "444.6MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 15.26,
+      "cpu": "0.53%",
+      "memory": "446.1MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 17.31,
+      "cpu": "1.82%",
+      "memory": "446.9MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 19.35,
+      "cpu": "5.65%",
+      "memory": "447.5MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 21.39,
+      "cpu": "6.68%",
+      "memory": "447.5MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 23.44,
+      "cpu": "9.15%",
+      "memory": "447.6MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 25.48,
+      "cpu": "7.90%",
+      "memory": "448.5MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 27.52,
+      "cpu": "10.21%",
+      "memory": "448.1MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 29.56,
+      "cpu": "11.21%",
+      "memory": "448MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 31.6,
+      "cpu": "10.61%",
+      "memory": "447.8MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 33.65,
+      "cpu": "9.65%",
+      "memory": "448.3MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 35.69,
+      "cpu": "6.10%",
+      "memory": "447.8MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 37.73,
+      "cpu": "6.32%",
+      "memory": "447.6MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 39.78,
+      "cpu": "5.37%",
+      "memory": "447.4MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 41.82,
+      "cpu": "4.60%",
+      "memory": "447.5MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 43.86,
+      "cpu": "6.00%",
+      "memory": "447.3MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 45.9,
+      "cpu": "4.61%",
+      "memory": "447.8MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 47.94,
+      "cpu": "6.30%",
+      "memory": "447.4MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 49.98,
+      "cpu": "7.88%",
+      "memory": "448.1MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 52.0,
+      "cpu": "9.58%",
+      "memory": "448.7MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 54.03,
+      "cpu": "10.82%",
+      "memory": "449.3MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 56.07,
+      "cpu": "7.14%",
+      "memory": "450.1MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 58.11,
+      "cpu": "28.48%",
+      "memory": "411.2MiB / 7.748GiB"
+    }
+  ],
+  "resource_sampling": "docker stats no-stream + 1s wait (~2s), sampled maxima; startup/idle/connections/load included",
+  "contract": {
+    "nats_sync_interval": null,
+    "auth": "distinct-user HS256 connection JWT; any authenticated user may subscribe/publish bench channel",
+    "durability": "in-memory history_size=10000 history_ttl=60s; ACK is publication accepted, not durable chat",
+    "application_crypto": "none; plaintext transport/application data in isolated loopback fixture",
+    "active_participants": 2,
+    "idle_connections": 9998
+  }
+}

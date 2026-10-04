@@ -1,0 +1,15 @@
+{
+  "attempts": [
+    {
+      "service": "nats",
+      "sync_interval": "always",
+      "stage": "connection setup before load",
+      "observed_error": "unexpected EOF from nats.Connect; generator exit status 2",
+      "connections_requested": 10000,
+      "load_started": false,
+      "cause": "unverified",
+      "cleanup": "owned container and volume removed by runner finally",
+      "measurement_policy": "excluded from successful-load latency/resource comparison"
+    }
+  ]
+}

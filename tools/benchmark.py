@@ -122,6 +122,7 @@ def main():
                 'generator_source_commit':command('git','rev-parse','HEAD',capture=True).strip(),
                 'server_source_commit':args.image_source_commit if args.image else command('git','rev-parse','HEAD',capture=True).strip(),
                 'generator_tracked_worktree_sha256':source.hexdigest(),
+                'generator_sha256':hashlib.sha256((ROOT/'cmd/qgramm-bench/main.go').read_bytes()).hexdigest(),
                 'source_dirty':bool(command('git','status','--porcelain',capture=True).strip()),
                 'storage':'Docker named volume; VM virtual disk; SSD unqualified',
                 'isolation':'Container quotas on shared host; generator on host; loopback port only'
