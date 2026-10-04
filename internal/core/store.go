@@ -120,7 +120,7 @@ func Open(cfg config.Config, compiled []string) (*Core, error) {
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	c := &Core{httpSlots: make(chan struct{}, cfg.Capacity.Workers*4), DB: db, Config: cfg, Engine: engine, Mux: http.NewServeMux(), Context: ctx, cancel: cancel, verifyKey: key, managementSecret: management, connections: map[string]map[*connection]struct{}{}}
+	c := &Core{httpSlots: make(chan struct{}, cfg.Capacity.Workers*4), httpPending: make(chan struct{}, cfg.Capacity.Workers*8), DB: db, Config: cfg, Engine: engine, Mux: http.NewServeMux(), Context: ctx, cancel: cancel, verifyKey: key, managementSecret: management, connections: map[string]map[*connection]struct{}{}}
 	if cfg.Storage.Path != ":memory:" {
 		readDSN, e := sqliteDSN(cfg.Storage.Path, true)
 		if e == nil {
@@ -144,14 +144,16 @@ func Open(cfg config.Config, compiled []string) (*Core, error) {
 	c.routes()
 	for _, name := range cfg.Features.Enabled() {
 		if err = registry[name](c); err != nil {
-			cancel()
-			if c.readDB != nil {
-				c.readDB.Close()
-			}
-			db.Close()
+			c.Close()
 			return nil, fmt.Errorf("module %s: %w", name, err)
 		}
 	}
+	if err := c.prepareHotWrites(); err != nil {
+		c.Close()
+		return nil, err
+	}
+	c.writer = newMessageWriter(c)
+	go c.replayLoop()
 	go c.cleanupLoop()
 	go c.connectionAuthLoop()
 	return c, nil
@@ -198,6 +200,14 @@ func secretKey(name string, n int) ([]byte, error) {
 }
 func (c *Core) Close() error {
 	c.cancel()
+	if c.writer != nil {
+		c.writer.close()
+	}
+	for i := len(c.shutdown) - 1; i >= 0; i-- {
+		c.shutdown[i]()
+	}
+	c.readStatements.close()
+	c.writeStatements.close()
 	c.mu.Lock()
 	for _, set := range c.connections {
 		for conn := range set {
@@ -215,7 +225,7 @@ func (c *Core) Member(ctx context.Context, user, chat string) (string, bool, int
 	var role string
 	var send bool
 	var joined int64
-	err := c.reader().QueryRowContext(ctx, `SELECT role,can_send,joined_seq FROM members WHERE chat_id=? AND user_id=? AND active=1`, chat, user).Scan(&role, &send, &joined)
+	err := c.readQueryRow(ctx, `SELECT role,can_send,joined_seq FROM members WHERE chat_id=? AND user_id=? AND active=1`, chat, user).Scan(&role, &send, &joined)
 	return role, send, joined, err
 }
 func (c *Core) Publish(ctx context.Context, chat, kind, message string, data any) (int64, error) {
@@ -232,7 +242,7 @@ func (c *Core) Publish(ctx context.Context, chat, kind, message string, data any
 }
 func (c *Core) Append(ctx context.Context, tx *sql.Tx, chat, kind, message string, data any) (int64, error) {
 	var seq int64
-	if err := tx.QueryRowContext(ctx, `UPDATE chats SET seq=seq+1 WHERE id=? RETURNING seq`, chat).Scan(&seq); err != nil {
+	if err := c.txQueryRow(ctx, tx, `UPDATE chats SET seq=seq+1 WHERE id=? RETURNING seq`, chat).Scan(&seq); err != nil {
 		return 0, err
 	}
 	var stored []byte
@@ -246,7 +256,7 @@ func (c *Core) Append(ctx context.Context, tx *sql.Tx, chat, kind, message strin
 			return 0, err
 		}
 	}
-	_, err := tx.ExecContext(ctx, `INSERT INTO events(chat_id,seq,kind,message_id,data,created_at) VALUES(?,?,?,?,?,?)`, chat, seq, kind, message, stored, time.Now().Unix())
+	_, err := c.txExec(ctx, tx, `INSERT INTO events(chat_id,seq,kind,message_id,data,created_at) VALUES(?,?,?,?,?,?)`, chat, seq, kind, message, stored, time.Now().Unix())
 	return seq, err
 }
 func (c *Core) cleanupLoop() {

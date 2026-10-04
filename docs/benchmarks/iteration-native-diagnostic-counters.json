@@ -1,0 +1,321 @@
+{
+  "scope": "instrumented native profile, 2000 subscribed users/1000 direct chats, 100 messages/s30s +1000/s5s; excluded from 10000-user comparative timings/resources",
+  "accepted_delivered_history": 7991,
+  "instrumented": true,
+  "private_profile_directory_mode": "0700",
+  "private_profiles_published": false,
+  "message_writer": {
+    "capacity": 32,
+    "queued": 0,
+    "admitted": 7991,
+    "rejected": 0,
+    "completed": 7991,
+    "cancelled": 0,
+    "queue_wait_ns": 3925034763,
+    "service_ns": 5790671766,
+    "commit_ns": 5003968126,
+    "commit_count": 7991,
+    "commit_errors": 0
+  },
+  "http_admission": {
+    "active": 0,
+    "pending": 0,
+    "admitted": 15033,
+    "rejected": 0,
+    "wait_ns": 0
+  },
+  "means_ms": {
+    "writer_queue_wait": 0.4911819250406707,
+    "writer_service": 0.7246492011012389,
+    "writer_commit": 0.6262004913027155,
+    "http_admission_wait_per_admitted_request": 0.0
+  },
+  "commit_fraction_of_writer_service": 0.8641429402683226,
+  "traffic_interval_between_snapshots": {
+    "start": "20261004T201735.070080425Z",
+    "end": "20261004T201820.249661543Z",
+    "note": "starts at idle snapshot before messages and ends after history; includes steady+burst+history, not phase-exact quantiles",
+    "writer_db_wait_count_delta": 0,
+    "writer_db_wait_duration_ns_delta": 0,
+    "reader_db_wait_count_delta": 12,
+    "reader_db_wait_duration_ns_delta": 649541
+  },
+  "counter_snapshots": [
+    {
+      "at": "20261004T201733.023900465Z",
+      "message_writer": {
+        "capacity": 32,
+        "queued": 0,
+        "admitted": 0,
+        "rejected": 0,
+        "completed": 0,
+        "cancelled": 0,
+        "queue_wait_ns": 0,
+        "service_ns": 0,
+        "commit_ns": 0,
+        "commit_count": 0,
+        "commit_errors": 0
+      },
+      "http_admission": {
+        "active": 15,
+        "pending": 0,
+        "admitted": 3520,
+        "rejected": 0,
+        "wait_ns": 0
+      },
+      "writer_db": {
+        "MaxOpenConnections": 1,
+        "OpenConnections": 1,
+        "InUse": 1,
+        "Idle": 0,
+        "WaitCount": 3519,
+        "WaitDuration": 14524880502,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      },
+      "reader_db": {
+        "MaxOpenConnections": 8,
+        "OpenConnections": 1,
+        "InUse": 0,
+        "Idle": 1,
+        "WaitCount": 0,
+        "WaitDuration": 0,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      }
+    },
+    {
+      "at": "20261004T201735.070080425Z",
+      "message_writer": {
+        "capacity": 32,
+        "queued": 0,
+        "admitted": 0,
+        "rejected": 0,
+        "completed": 0,
+        "cancelled": 0,
+        "queue_wait_ns": 0,
+        "service_ns": 0,
+        "commit_ns": 0,
+        "commit_count": 0,
+        "commit_errors": 0
+      },
+      "http_admission": {
+        "active": 0,
+        "pending": 0,
+        "admitted": 7001,
+        "rejected": 0,
+        "wait_ns": 0
+      },
+      "writer_db": {
+        "MaxOpenConnections": 1,
+        "OpenConnections": 1,
+        "InUse": 0,
+        "Idle": 1,
+        "WaitCount": 8984,
+        "WaitDuration": 35869963154,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      },
+      "reader_db": {
+        "MaxOpenConnections": 8,
+        "OpenConnections": 8,
+        "InUse": 0,
+        "Idle": 8,
+        "WaitCount": 3977,
+        "WaitDuration": 23360219760,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      }
+    },
+    {
+      "at": "20261004T201745.301356596Z",
+      "message_writer": {
+        "capacity": 32,
+        "queued": 0,
+        "admitted": 58,
+        "rejected": 0,
+        "completed": 58,
+        "cancelled": 0,
+        "queue_wait_ns": 266043,
+        "service_ns": 63406960,
+        "commit_ns": 54695081,
+        "commit_count": 58,
+        "commit_errors": 0
+      },
+      "http_admission": {
+        "active": 0,
+        "pending": 0,
+        "admitted": 7059,
+        "rejected": 0,
+        "wait_ns": 0
+      },
+      "writer_db": {
+        "MaxOpenConnections": 1,
+        "OpenConnections": 1,
+        "InUse": 0,
+        "Idle": 1,
+        "WaitCount": 8984,
+        "WaitDuration": 35869963154,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      },
+      "reader_db": {
+        "MaxOpenConnections": 8,
+        "OpenConnections": 8,
+        "InUse": 0,
+        "Idle": 8,
+        "WaitCount": 3977,
+        "WaitDuration": 23360219760,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      }
+    },
+    {
+      "at": "20261004T201815.831892763Z",
+      "message_writer": {
+        "capacity": 32,
+        "queued": 0,
+        "admitted": 4133,
+        "rejected": 0,
+        "completed": 4132,
+        "cancelled": 0,
+        "queue_wait_ns": 136004637,
+        "service_ns": 3500847679,
+        "commit_ns": 3028034119,
+        "commit_count": 4132,
+        "commit_errors": 0
+      },
+      "http_admission": {
+        "active": 1,
+        "pending": 0,
+        "admitted": 11134,
+        "rejected": 0,
+        "wait_ns": 0
+      },
+      "writer_db": {
+        "MaxOpenConnections": 1,
+        "OpenConnections": 1,
+        "InUse": 1,
+        "Idle": 0,
+        "WaitCount": 8984,
+        "WaitDuration": 35869963154,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      },
+      "reader_db": {
+        "MaxOpenConnections": 8,
+        "OpenConnections": 8,
+        "InUse": 0,
+        "Idle": 8,
+        "WaitCount": 3977,
+        "WaitDuration": 23360219760,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      }
+    },
+    {
+      "at": "20261004T201819.904614959Z",
+      "message_writer": {
+        "capacity": 32,
+        "queued": 0,
+        "admitted": 7991,
+        "rejected": 0,
+        "completed": 7991,
+        "cancelled": 0,
+        "queue_wait_ns": 3925034763,
+        "service_ns": 5790671766,
+        "commit_ns": 5003968126,
+        "commit_count": 7991,
+        "commit_errors": 0
+      },
+      "http_admission": {
+        "active": 1,
+        "pending": 0,
+        "admitted": 15010,
+        "rejected": 0,
+        "wait_ns": 0
+      },
+      "writer_db": {
+        "MaxOpenConnections": 1,
+        "OpenConnections": 1,
+        "InUse": 0,
+        "Idle": 1,
+        "WaitCount": 8984,
+        "WaitDuration": 35869963154,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      },
+      "reader_db": {
+        "MaxOpenConnections": 8,
+        "OpenConnections": 8,
+        "InUse": 0,
+        "Idle": 8,
+        "WaitCount": 3989,
+        "WaitDuration": 23360869301,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      }
+    },
+    {
+      "at": "20261004T201820.249661543Z",
+      "message_writer": {
+        "capacity": 32,
+        "queued": 0,
+        "admitted": 7991,
+        "rejected": 0,
+        "completed": 7991,
+        "cancelled": 0,
+        "queue_wait_ns": 3925034763,
+        "service_ns": 5790671766,
+        "commit_ns": 5003968126,
+        "commit_count": 7991,
+        "commit_errors": 0
+      },
+      "http_admission": {
+        "active": 0,
+        "pending": 0,
+        "admitted": 15033,
+        "rejected": 0,
+        "wait_ns": 0
+      },
+      "writer_db": {
+        "MaxOpenConnections": 1,
+        "OpenConnections": 1,
+        "InUse": 0,
+        "Idle": 1,
+        "WaitCount": 8984,
+        "WaitDuration": 35869963154,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      },
+      "reader_db": {
+        "MaxOpenConnections": 8,
+        "OpenConnections": 8,
+        "InUse": 0,
+        "Idle": 8,
+        "WaitCount": 3989,
+        "WaitDuration": 23360869301,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      }
+    }
+  ],
+  "limitations": [
+    "means from cumulative counters; no per-job p95/p99 samples",
+    "Commit timing includes SQLite commit/driver work; cannot isolate fsync from this counter",
+    "Profiling and forced GC change timing; 2000 users cannot qualify 10000-user latency or load capacity",
+    "Commit share is of serialized writer service, not end-to-end message latency"
+  ]
+}

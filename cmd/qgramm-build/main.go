@@ -145,7 +145,11 @@ func run(args []string) error {
 			}
 		}
 		estimate := config.EstimateResources(c)
-		data := fmt.Sprintf("# Generated explicitly by qgramm-build compose. Sizing is an uncalibrated estimate.\n# Estimated CPU: %d cores; memory: %d bytes. Load test before production.\nservices:\n  qgramm:\n    build:\n      context: %s\n      args:\n        CONFIG: %s\n    restart: unless-stopped\n    cpus: %d\n    mem_limit: %d\n    command: [\"-config\", \"/app/qgramm.toml\"]\n    ports:\n      - %s\n    environment:\n%s    volumes:\n%s    read_only: true\n    tmpfs:\n      - /tmp\n    security_opt:\n      - no-new-privileges:true\n    cap_drop: [ALL]\nvolumes:\n  qgramm-data:\n", estimate.CPUs, estimate.MemoryBytes, quote(cwd), quote(configRelative), estimate.CPUs, estimate.MemoryBytes, quote("127.0.0.1:"+port+":"+port), env.String(), volumes.String())
+		dockerfile := "Dockerfile"
+		if c.Features.Redis {
+			dockerfile = "Dockerfile.redis"
+		}
+		data := fmt.Sprintf("# Generated explicitly by qgramm-build compose. Sizing is an uncalibrated estimate.\n# Estimated CPU: %d cores; memory: %d bytes. Load test before production.\nservices:\n  qgramm:\n    build:\n      context: %s\n      dockerfile: %s\n      args:\n        CONFIG: %s\n    restart: unless-stopped\n    cpus: %d\n    mem_limit: %d\n    command: [\"-config\", \"/app/qgramm.toml\"]\n    ports:\n      - %s\n    environment:\n%s    volumes:\n%s    read_only: true\n    tmpfs:\n      - /tmp\n    security_opt:\n      - no-new-privileges:true\n    cap_drop: [ALL]\nvolumes:\n  qgramm-data:\n", estimate.CPUs, estimate.MemoryBytes, quote(cwd), quote(dockerfile), quote(configRelative), estimate.CPUs, estimate.MemoryBytes, quote("127.0.0.1:"+port+":"+port), env.String(), volumes.String())
 		return writeOutput(*out, []byte(data))
 	}
 	return nil

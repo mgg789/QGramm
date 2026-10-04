@@ -167,6 +167,26 @@
                     },
                     "ai_trust_boundary": {
                       "type": "string"
+                    },
+                    "redis": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "ready",
+                            "degraded_local_fallback"
+                          ]
+                        },
+                        "durable": {
+                          "const": false
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "durable"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [

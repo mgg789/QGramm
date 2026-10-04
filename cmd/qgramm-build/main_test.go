@@ -57,3 +57,18 @@ func TestRejectUnknownCommandBeforeWriting(t *testing.T) {
 		t.Fatal("unexpected output")
 	}
 }
+
+func TestRedisComposeSelectsEmbeddedDockerfile(t *testing.T) {
+	t.Chdir("../..")
+	out := filepath.Join(t.TempDir(), "compose.yaml")
+	if err := run([]string{"compose", "-config", "configs/redis.toml", "-out", out}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `dockerfile: "Dockerfile.redis"`) {
+		t.Fatalf("missing embedded Redis image selection: %s", data)
+	}
+}

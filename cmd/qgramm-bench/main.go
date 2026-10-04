@@ -93,6 +93,7 @@ func run() error {
 	responseMode := flag.String("response-mode", "full", "message acknowledgement: full or minimal (Prefer: return=minimal)")
 	phaseFile := flag.String("phase-file", "", "private workload phase marker for resource sampling")
 	idle := flag.Duration("idle", 0, "idle connected interval before traffic")
+	idleSubscriptions := flag.Bool("idle-subscriptions", false, "subscribe every inactive user to a paired empty direct chat")
 	flag.Parse()
 	if *responseMode != "full" && *responseMode != "minimal" {
 		return fmt.Errorf("invalid response mode")
@@ -111,6 +112,9 @@ func run() error {
 	}
 	if *users < 2 || *users > 100000 || *rate < 1 || *burstRate < 1 || *groupSize < 2 || *groupSize > *users || *groupSize > 1000 {
 		return fmt.Errorf("invalid workload")
+	}
+	if *idleSubscriptions && (*groupSize != 2 || *users%2 != 0) {
+		return fmt.Errorf("idle subscriptions require an even number of users and group-size=2")
 	}
 	raw, err := os.ReadFile(*envFile)
 	if err != nil {
@@ -187,6 +191,31 @@ func run() error {
 	if !provision("POST", chatRoute, map[string]any{"id": chat, "members": names[:*groupSize]}) {
 		return fmt.Errorf("chat setup failed")
 	}
+	idleChats := make([]string, *users)
+	if *idleSubscriptions {
+		pairs := make(chan int)
+		for i := 0; i < 16; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for index := range pairs {
+					id := fmt.Sprintf("%sidle-%d", prefix, index/2)
+					if !provision("POST", "/management/v1/chats/direct", map[string]any{"id": id, "members": names[index : index+2]}) {
+						setupError.Store(true)
+					}
+					idleChats[index], idleChats[index+1] = id, id
+				}
+			}()
+		}
+		for i := 2; i < *users; i += 2 {
+			pairs <- i
+		}
+		close(pairs)
+		wg.Wait()
+		if setupError.Load() {
+			return fmt.Errorf("idle chat setup failed")
+		}
+	}
 	caps, status, err := c.request("GET", "/v1/capabilities", names[0], nil)
 	if err != nil || status != 200 {
 		return fmt.Errorf("capabilities unavailable")
@@ -201,8 +230,10 @@ func run() error {
 	}
 	connections := make([]*websocket.Conn, *users)
 	var connected atomic.Int64
+	var subscribed atomic.Int64
 	var socketFailures atomic.Int64
 	var unexpectedDisconnects atomic.Int64
+	var websocketErrors atomic.Int64
 	var closing atomic.Bool
 	var delivered atomic.Int64
 	var started sync.Map
@@ -247,8 +278,16 @@ func run() error {
 				}
 				connections[index] = conn
 				connected.Add(1)
-				if index > 0 && index < *groupSize {
-					conn.WriteJSON(map[string]any{"type": "subscribe", "chat_id": chat, "after": 0})
+				if index > 0 && index < *groupSize || *idleSubscriptions {
+					subscription := chat
+					if index >= *groupSize {
+						subscription = idleChats[index]
+					}
+					if e := conn.WriteJSON(map[string]any{"type": "subscribe", "chat_id": subscription, "after": 0}); e != nil {
+						socketFailures.Add(1)
+					} else {
+						subscribed.Add(1)
+					}
 				}
 				receiveWG.Add(1)
 				go func(conn *websocket.Conn, measure bool) {
@@ -261,16 +300,20 @@ func run() error {
 							}
 							return
 						}
-						if !measure {
-							continue
-						}
 						var event struct {
 							Type string `json:"type"`
 							Data struct {
 								OperationID string `json:"operation_id"`
 							}
 						}
-						if json.Unmarshal(data, &event) == nil && event.Type == "message.created" {
+						if json.Unmarshal(data, &event) != nil {
+							websocketErrors.Add(1)
+							continue
+						}
+						if event.Type == "error" {
+							websocketErrors.Add(1)
+						}
+						if measure && event.Type == "message.created" {
 							delivered.Add(1)
 							if stamp, ok := started.Load(event.Data.OperationID); ok {
 								metricMu.Lock()
@@ -439,7 +482,13 @@ func run() error {
 	result["response_mode"] = *responseMode
 	result["backpressure_reasons"] = backpressureReasons
 	result["idle_seconds"] = idle.Seconds()
+	result["idle_subscriptions"] = *idleSubscriptions
+	result["subscription_commands_sent"] = subscribed.Load()
+	if *idleSubscriptions {
+		result["empty_subscribed_chats"] = *users/2 - 1
+	}
 	result["unexpected_disconnects"] = unexpectedDisconnects.Load()
+	result["websocket_errors"] = websocketErrors.Load()
 	result["accept_p99_ms"] = percentile(latencies, .99)
 	result["delivery_p99_ms"] = percentile(deliveryLatencies, .99)
 	result["steady_accept_p99_ms"] = percentile(steadyLatency, .99)
@@ -457,7 +506,7 @@ func run() error {
 		}
 	}
 	fmt.Println(string(data))
-	if historyCount != int(accepted.Load()) || delivered.Load() != expectedDeliveries || failed.Load() > 0 || unexpectedDisconnects.Load() > 0 {
+	if historyCount != int(accepted.Load()) || delivered.Load() != expectedDeliveries || failed.Load() > 0 || unexpectedDisconnects.Load() > 0 || websocketErrors.Load() > 0 || socketFailures.Load() > 0 {
 		return fmt.Errorf("load acceptance integrity failed")
 	}
 	return nil

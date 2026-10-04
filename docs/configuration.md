@@ -7,11 +7,12 @@
 | `server` | `listen`, TLS certificate/key paths, `allow_insecure_loopback`, `trusted_proxy`, allowed browser `origins` |
 | `storage` | SQLite `path` and encrypted chunk directory `files`; container paths should be beneath `/data` |
 | `security` | JWT `issuer`/`audience`; references `token_public_key_env`, `management_secret_env`, `master_key_env`, `hpke_key_env`; bounded retired-key reference lists `previous_master_key_envs`, `previous_hpke_key_envs` |
-| `features` | Boolean `groups`, `files`, `e2ee`, `calls`, `delete`, `edit`, `reply`, `forward`, `reactions`, `openai`, `anthropic`, `mcp`, `http_tools` |
+| `features` | Boolean `groups`, `files`, `e2ee`, `calls`, `delete`, `edit`, `reply`, `forward`, `reactions`, `openai`, `anthropic`, `mcp`, `http_tools`, experimental `redis` |
 | `capacity` | `expected_concurrent_users`; optional explicit `max_connections`, `queue_depth`, `workers` |
 | `policy` | `history` since_join/all; `delete_mode` global/author_only; reaction type dictionary; event/dedup/upload retention; message/batch/file/chunk/storage limits |
 | `ai` | `openai_url`, `anthropic_url`, `openai_key_env`, `anthropic_key_env`, `model`, `max_steps`, `max_context_turns`, `max_context_bytes`, `timeout_seconds`, `max_response_bytes`, `tools` |
 | `calls` | TURN URLs, shared-secret env reference, credential TTL |
+| `redis` | Optional embedded broker: `binary` (default `redis-server`), `max_memory_mb` (64; allowed 8..1024), `queue_depth` (256; allowed 1..4096) |
 
 The authoritative field definitions/defaults are in `internal/config/config.go`; examples are in `configs/`. Secret references must be environment variable identifiers, never credentials. Calls require external TURN settings. Tools require an enabled AI provider, and each configured connector must have its feature compiled.
 
@@ -34,3 +35,5 @@ Changing build features requires rebuilding. A TOML with missing/extra features 
 Stop the container. Run `qgramm -config ... -backup /data/backup.db` using the same build/config/environment; the command must run against a stopped instance and writes a consistent SQLite backup. Back up the file directory and all relevant keys separately with the service stopped. Restore database, files and matching keys together before starting **one** instance. Do not restore old AI MLS state and resume sending without a fresh cryptographic identity/epoch: counter rollback can invalidate security.
 
 The initial schema is version 1, tracked by `schema_versions`. Future schema upgrades must preserve transaction boundaries and use explicit versioned migrations; old messenger data is not imported.
+
+The experimental [same-container Redis profile](redis.md) requires `Dockerfile.redis` and `features.redis=true`. It carries advisory wake notifications; SQLite remains durable and polls once per second. The standard image has no Redis process or compiled Redis client.

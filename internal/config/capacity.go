@@ -100,5 +100,10 @@ func EstimateResources(c Config) Estimate {
 		cpus = 1
 	}
 	memory := (128 << 20) + int64(c.Capacity.MaxConnections)*((128<<10)+int64(c.Capacity.QueueDepth)*int64(c.Policy.MaxMessageBytes)) + int64(c.Capacity.Workers)*int64(c.Policy.MaxMessageBytes)*int64(c.Policy.MaxBatch)
-	return Estimate{CPUs: cpus, MemoryBytes: memory, Assumptions: []string{"Uncalibrated planning heuristic; load testing is required before production sizing.", "One connection per expected user; 20% connection headroom when unset.", "128 MiB process baseline, 128 KiB connection state, queues at maximum message size.", "CPU estimate assumes 2000 mostly idle connections per core; active fanout, AI and uploads need additional budget."}}
+	estimate := Estimate{CPUs: cpus, MemoryBytes: memory, Assumptions: []string{"Uncalibrated planning heuristic; load testing is required before production sizing.", "One connection per expected user; 20% connection headroom when unset.", "128 MiB process baseline, 128 KiB connection state, queues at maximum message size.", "CPU estimate assumes 2000 mostly idle connections per core; active fanout, AI and uploads need additional budget."}}
+	if c.Features.Redis {
+		estimate.MemoryBytes += int64(c.Redis.MaxMemoryMB+32+16) << 20
+		estimate.Assumptions = append(estimate.Assumptions, "Embedded Redis heuristic: configured maxmemory + 32 MiB Pub/Sub/buffer budget + 16 MiB process baseline; load-test actual combined RSS and CPU.")
+	}
+	return estimate
 }

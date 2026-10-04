@@ -26,6 +26,9 @@ func (e *APIError) Error() string { return e.Message }
 func statusError(w http.ResponseWriter, err error) {
 	var api *APIError
 	if errors.As(err, &api) {
+		if api.Status == http.StatusServiceUnavailable || api.Status == http.StatusTooManyRequests {
+			w.Header().Set("Retry-After", "1")
+		}
 		Error(w, api.Status, api.Message)
 		return
 	}
@@ -47,7 +50,7 @@ func (c *Core) sendMessage(ctx context.Context, id Identity, chat string, in Mes
 	hash := hex.EncodeToString(digest[:])
 	var previousHash string
 	var previous []byte
-	err := c.reader().QueryRowContext(ctx, `SELECT hash,result FROM operations WHERE device_id=? AND operation_id=?`, id.DeviceID, in.OperationID).Scan(&previousHash, &previous)
+	err := c.readQueryRow(ctx, `SELECT hash,result FROM operations WHERE device_id=? AND operation_id=?`, id.DeviceID, in.OperationID).Scan(&previousHash, &previous)
 	if err == nil {
 		if previousHash != hash {
 			return Message{}, &APIError{409, "operation_id reused with different content"}
@@ -68,7 +71,7 @@ func (c *Core) sendMessage(ctx context.Context, id Identity, chat string, in Mes
 	var mode string
 	var epoch int64
 	var pending bool
-	if err = c.reader().QueryRowContext(ctx, `SELECT mode,epoch,pending FROM chats WHERE id=?`, chat).Scan(&mode, &epoch, &pending); err != nil {
+	if err = c.readQueryRow(ctx, `SELECT mode,epoch,pending FROM chats WHERE id=?`, chat).Scan(&mode, &epoch, &pending); err != nil {
 		return Message{}, err
 	}
 	if pending {
@@ -104,61 +107,89 @@ func (c *Core) sendMessage(ctx context.Context, id Identity, chat string, in Mes
 		return Message{}, err
 	}
 	metadata, _ := json.Marshal(map[string]any{"attachments": in.Attachments, "reply_to": in.ReplyTo, "forward_from": in.ForwardFrom})
-	tx, err := c.DB.BeginTx(ctx, nil)
+	write := func(writeCtx context.Context) (Message, bool, error) {
+		return c.persistMessage(writeCtx, id, chat, in, mode, epoch, hash, messageID, stored, metadata)
+	}
+	var message Message
+	var repeated bool
+	if c.writer == nil {
+		message, repeated, err = write(ctx)
+	} else {
+		message, repeated, err = c.writer.submit(ctx, write)
+	}
 	if err != nil {
 		return Message{}, err
+	}
+	if !repeated {
+		c.Wake(chat)
+	}
+	return c.sendResult(ctx, id, message, minimal, repeated)
+}
+
+// persistMessage runs on the bounded writer worker. Every accepted message still
+// has its own FULL-synchronous transaction and repeats ACL/epoch checks inside it.
+func (c *Core) persistMessage(ctx context.Context, id Identity, chat string, in MessageInput, mode string, epoch int64, hash, messageID string, stored, metadata []byte) (Message, bool, error) {
+	var previousHash string
+	var previous []byte
+	tx, err := c.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return Message{}, false, err
 	}
 	defer tx.Rollback()
 	var active, allowed bool
 	var currentEpoch int64
 	var currentPending bool
-	err = tx.QueryRowContext(ctx, `SELECT m.active AND d.revoked=0 AND u.disabled=0,m.can_send,c.epoch,c.pending FROM members m JOIN chats c ON c.id=m.chat_id JOIN devices d ON d.user_id=m.user_id JOIN users u ON u.id=m.user_id WHERE m.chat_id=? AND m.user_id=? AND d.id=?`, chat, id.UserID, id.DeviceID).Scan(&active, &allowed, &currentEpoch, &currentPending)
+	err = c.txQueryRow(ctx, tx, `SELECT m.active AND d.revoked=0 AND u.disabled=0,m.can_send,c.epoch,c.pending FROM members m JOIN chats c ON c.id=m.chat_id JOIN devices d ON d.user_id=m.user_id JOIN users u ON u.id=m.user_id WHERE m.chat_id=? AND m.user_id=? AND d.id=?`, chat, id.UserID, id.DeviceID).Scan(&active, &allowed, &currentEpoch, &currentPending)
 	if err != nil || !active || !allowed {
-		return Message{}, &APIError{403, "send permission revoked"}
+		return Message{}, false, &APIError{403, "send permission revoked"}
 	}
 	if currentPending || epoch != currentEpoch {
-		return Message{}, &APIError{409, "epoch changed"}
+		return Message{}, false, &APIError{409, "epoch changed"}
 	}
 	// Check deduplication again under the serialized SQLite transaction.
-	err = tx.QueryRowContext(ctx, `SELECT hash,result FROM operations WHERE device_id=? AND operation_id=?`, id.DeviceID, in.OperationID).Scan(&previousHash, &previous)
+	err = c.txQueryRow(ctx, tx, `SELECT hash,result FROM operations WHERE device_id=? AND operation_id=?`, id.DeviceID, in.OperationID).Scan(&previousHash, &previous)
 	if err == nil {
 		if previousHash != hash {
-			return Message{}, &APIError{409, "operation conflict"}
+			return Message{}, false, &APIError{409, "operation conflict"}
 		}
 		_ = tx.Rollback()
 		var saved Message
 		if err = json.Unmarshal(previous, &saved); err != nil {
-			return Message{}, err
+			return Message{}, false, err
 		}
-		return c.sendResult(ctx, id, saved, minimal, true)
+		return saved, true, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
-		return Message{}, err
+		return Message{}, false, err
 	}
 	seq, err := c.Append(ctx, tx, chat, "message.created", messageID, nil)
 	if err != nil {
-		return Message{}, err
+		return Message{}, false, err
 	}
 	message := Message{ID: messageID, ChatID: chat, Sender: id.UserID, DeviceID: id.DeviceID, OperationID: in.OperationID, Seq: seq, Revision: 1, Mode: mode, Epoch: epoch, CreatedAt: time.Now().Unix(), Attachments: in.Attachments, ReplyTo: in.ReplyTo, ForwardFrom: in.ForwardFrom}
-	_, err = tx.ExecContext(ctx, `INSERT INTO messages(id,chat_id,sender,device_id,operation_id,seq,payload,metadata,epoch,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, messageID, chat, id.UserID, id.DeviceID, in.OperationID, seq, stored, metadata, epoch, message.CreatedAt)
+	_, err = c.txExec(ctx, tx, `INSERT INTO messages(id,chat_id,sender,device_id,operation_id,seq,payload,metadata,epoch,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, messageID, chat, id.UserID, id.DeviceID, in.OperationID, seq, stored, metadata, epoch, message.CreatedAt)
 	if err != nil {
-		return Message{}, err
+		return Message{}, false, err
 	}
 	result, _ := json.Marshal(message)
-	_, err = tx.ExecContext(ctx, `INSERT INTO operations VALUES(?,?,?,?,?)`, id.DeviceID, in.OperationID, hash, result, time.Now().Unix())
+	_, err = c.txExec(ctx, tx, `INSERT INTO operations VALUES(?,?,?,?,?)`, id.DeviceID, in.OperationID, hash, result, time.Now().Unix())
 	if err != nil {
-		return Message{}, err
+		return Message{}, false, err
 	}
 	for _, hook := range c.InTransaction {
 		if err = hook(ctx, tx, id, chat, message); err != nil {
-			return Message{}, err
+			return Message{}, false, err
 		}
 	}
-	if err = tx.Commit(); err != nil {
-		return Message{}, err
+	commitStart := time.Now()
+	err = tx.Commit()
+	if c.writer != nil {
+		c.writer.recordCommit(time.Since(commitStart), err == nil)
 	}
-	c.Wake(chat)
-	return c.sendResult(ctx, id, message, minimal, false)
+	if err != nil {
+		return Message{}, false, err
+	}
+	return message, false, nil
 }
 
 func (c *Core) sendResult(ctx context.Context, id Identity, saved Message, minimal, repeated bool) (Message, error) {
@@ -168,7 +199,7 @@ func (c *Core) sendResult(ctx context.Context, id Identity, saved Message, minim
 	if repeated {
 		// A stored idempotency result must not bypass revoked membership/device access.
 		var accessible bool
-		err := c.reader().QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM messages msg JOIN members m ON m.chat_id=msg.chat_id JOIN devices d ON d.user_id=m.user_id JOIN users u ON u.id=m.user_id WHERE msg.id=? AND m.user_id=? AND m.active=1 AND msg.seq>=m.joined_seq AND d.id=? AND d.revoked=0 AND u.disabled=0)`, saved.ID, id.UserID, id.DeviceID).Scan(&accessible)
+		err := c.readQueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM messages msg JOIN members m ON m.chat_id=msg.chat_id JOIN devices d ON d.user_id=m.user_id JOIN users u ON u.id=m.user_id WHERE msg.id=? AND m.user_id=? AND m.active=1 AND msg.seq>=m.joined_seq AND d.id=? AND d.revoked=0 AND u.disabled=0)`, saved.ID, id.UserID, id.DeviceID).Scan(&accessible)
 		if err != nil {
 			return Message{}, err
 		}
@@ -223,7 +254,7 @@ func (c *Core) viewMessages(ctx context.Context, id Identity, ids []string) (map
 			placeholders = append(placeholders, "?")
 		}
 	}
-	rows, err := c.reader().QueryContext(ctx, `SELECT msg.id,msg.chat_id,msg.sender,msg.device_id,msg.operation_id,msg.seq,msg.revision,msg.deleted,msg.payload,msg.metadata,msg.epoch,msg.created_at,c.mode FROM messages msg JOIN chats c ON c.id=msg.chat_id JOIN members member ON member.chat_id=msg.chat_id WHERE member.user_id=? AND member.active=1 AND msg.seq>=member.joined_seq AND msg.id IN (`+strings.Join(placeholders, ",")+`)`, args...)
+	rows, err := c.readQuery(ctx, `SELECT msg.id,msg.chat_id,msg.sender,msg.device_id,msg.operation_id,msg.seq,msg.revision,msg.deleted,msg.payload,msg.metadata,msg.epoch,msg.created_at,c.mode FROM messages msg JOIN chats c ON c.id=msg.chat_id JOIN members member ON member.chat_id=msg.chat_id WHERE member.user_id=? AND member.active=1 AND msg.seq>=member.joined_seq AND msg.id IN (`+strings.Join(placeholders, ",")+`)`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +305,7 @@ func (c *Core) viewMessages(ctx context.Context, id Identity, ids []string) (map
 		if m.Mode == "basic" {
 			if publicKey == nil {
 				var encoded string
-				if err = c.reader().QueryRowContext(ctx, `SELECT public_key FROM devices WHERE id=? AND user_id=? AND revoked=0`, id.DeviceID, id.UserID).Scan(&encoded); err != nil {
+				if err = c.readQueryRow(ctx, `SELECT public_key FROM devices WHERE id=? AND user_id=? AND revoked=0`, id.DeviceID, id.UserID).Scan(&encoded); err != nil {
 					return nil, err
 				}
 				publicKey, err = base64.StdEncoding.DecodeString(encoded)
@@ -360,7 +391,7 @@ func (c *Core) history(w http.ResponseWriter, r *http.Request, id Identity) {
 	if v, e := strconv.Atoi(r.URL.Query().Get("limit")); e == nil && v > 0 && v <= 200 {
 		limit = v
 	}
-	rows, err := c.reader().QueryContext(r.Context(), `SELECT id FROM messages WHERE chat_id=? AND seq>? ORDER BY seq LIMIT ?`, chat, after, limit)
+	rows, err := c.readQuery(r.Context(), `SELECT id FROM messages WHERE chat_id=? AND seq>? ORDER BY seq LIMIT ?`, chat, after, limit)
 	if err != nil {
 		statusError(w, err)
 		return
@@ -398,7 +429,7 @@ func (c *Core) Events(ctx context.Context, id Identity, chat string, after int64
 	}
 	var current, joined int64
 	var minimum sql.NullInt64
-	err := c.reader().QueryRowContext(ctx, `SELECT c.seq,m.joined_seq,(SELECT MIN(seq) FROM events WHERE chat_id=c.id) FROM chats c JOIN members m ON m.chat_id=c.id WHERE c.id=? AND m.user_id=? AND m.active=1`, chat, id.UserID).Scan(&current, &joined, &minimum)
+	err := c.readQueryRow(ctx, `SELECT c.seq,m.joined_seq,(SELECT MIN(seq) FROM events WHERE chat_id=c.id) FROM chats c JOIN members m ON m.chat_id=c.id WHERE c.id=? AND m.user_id=? AND m.active=1`, chat, id.UserID).Scan(&current, &joined, &minimum)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, &APIError{403, "membership required"}
 	}
@@ -414,7 +445,7 @@ func (c *Core) Events(ctx context.Context, id Identity, chat string, after int64
 	if after > current {
 		return nil, &APIError{400, "cursor ahead of chat"}
 	}
-	rows, err := c.reader().QueryContext(ctx, `SELECT seq,kind,message_id,data FROM events WHERE chat_id=? AND seq>? ORDER BY seq LIMIT ?`, chat, after, limit)
+	rows, err := c.readQuery(ctx, `SELECT seq,kind,message_id,data FROM events WHERE chat_id=? AND seq>? ORDER BY seq LIMIT ?`, chat, after, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -490,7 +521,7 @@ func (c *Core) receipt(w http.ResponseWriter, r *http.Request, id Identity) {
 		return
 	}
 	var current int64
-	_ = c.reader().QueryRowContext(r.Context(), `SELECT seq FROM chats WHERE id=?`, chat).Scan(&current)
+	_ = c.readQueryRow(r.Context(), `SELECT seq FROM chats WHERE id=?`, chat).Scan(&current)
 	if in.Read < 0 || in.Delivered < in.Read || in.Delivered > current {
 		Error(w, 400, "invalid receipt range")
 		return

@@ -34,6 +34,8 @@ Two repetitions on Apple M5 Pro / Docker Desktop Linux arm64, 4 CPU / 8 GiB limi
 
 ¹ 100% means one CPU. QGramm steady RAM fell 52–54% and CPU about 27%. Full-response burst runs returned 83/20 managed 503 rejections; compact receipts had none. All accepted messages were delivered and stored. Whole-run delivery p99 was 29–71 ms for full responses and 7.6–25.4 ms for compact receipts. Baselines omit per-send HPKE/device/chat ACL and chat transactions; Centrifugo history is volatile. This is neither maximum throughput nor an equivalent-feature ranking. [Method, per-run p95/p99, profiles and raw evidence](docs/performance-dynamics.md). [Earlier baseline](docs/comparison-benchmark.en.md).
 
+Latest iteration: with all 10,000 sockets subscribed, the first three further changes reduced steady CPU 77% and RAM 34%; whole-run delivery p99 was6.5–7.4 ms. Same-container Redis showed no repeatable gain and stays optional. [Two-repeat comparison, limits and raw data](docs/performance-iteration.md).
+
 ## Small integration example
 
 ```sh
@@ -71,13 +73,13 @@ Compose binds the host port to loopback. Supply your own HTTPS reverse proxy and
 - Optional 1:1 WebRTC signaling and external TURN credentials. Clients supply media and peer verification.
 - Optional OpenAI/Anthropic participants and explicitly permitted remote MCP/HTTP tools. AI recipients decrypt inside the container; providers receive plaintext.
 
-Features are selected in `qgramm.toml` **at build time**. Disabled implementations are excluded by Go build tags; changing the feature set requires a rebuild. Runtime rejects a TOML that disagrees with the binary manifest. A full profile is provided in `configs/full.toml`.
+Features are selected in `qgramm.toml` **at build time**. Disabled implementations are excluded by Go build tags; changing the feature set requires a rebuild. Runtime rejects a TOML that disagrees with the binary manifest. A full standard profile is provided in `configs/full.toml`. An experimental [same-container Redis notification broker](docs/redis.md) is available as a separate image and build feature.
 
 ## Verification and release status
 
 ```sh
 go test -race ./...
-sh scripts/build-matrix.sh
+sh scripts/test-redis.sh sh scripts/build-matrix.sh
 ```
 
 This is a pre-release. Race/build matrix, independent OpenMLS for the documented profile, Pion direct/TURN, live DeepSeek and a 10,000-connection load run passed. Linux Chromium decoded audio/video and TURN, plus live DeepSeek with independent MLS and restart/replay, also passed. Dedicated Linux/SSD qualification and independent audit are deferred; other scope limits are documented. See [verification](docs/verification.md) and [benchmarks](docs/benchmark.md) for exact scopes; no audited-cryptography or full production-release claim.
