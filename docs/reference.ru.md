@@ -11,11 +11,12 @@
 | `server` | `listen`: адрес; `tls_cert`, `tls_key`: пути TLS; `allow_insecure_loopback`: только разработка на loopback; `trusted_proxy`: доверять HTTPS-заголовку из изолированного ingress; `origins`: разрешенные browser origins |
 | `storage` | `path`: SQLite; `files`: каталог зашифрованных частей файлов |
 | `security` | `issuer`, `audience`: JWT authority; `token_public_key_env`: base64 Ed25519 32-byte verification key; `management_secret_env`: отдельный bearer минимум 32 символа; `master_key_env`: AES-256 32-byte key; `hpke_key_env`: X25519 32-byte private key; `previous_master_key_envs`, `previous_hpke_key_envs`: до четырех старых ключей каждого вида |
-| `features` | Независимые boolean: `groups`, `files`, `e2ee`, `calls`, `delete`, `edit`, `reply`, `forward`, `reactions`, `openai`, `anthropic`, `mcp`, `http_tools` |
+| `features` | Независимые boolean: `groups`, `files`, `e2ee`, `calls`, `delete`, `edit`, `reply`, `forward`, `reactions`, `openai`, `anthropic`, `mcp`, `http_tools`, экспериментальный `redis` |
 | `capacity` | `expected_concurrent_users`: одновременно подключенные люди; `max_connections`, `queue_depth`, `workers`: явные пределы, 0 — расчет |
 | `policy` | `history`: `since_join` либо `all` с явным grant внешнего backend; `delete_mode`: `global` либо `author_only`; `reaction_types`: словарь числовых типов с 0; `event_retention_hours`, `dedup_retention_hours`, `upload_ttl_hours`: сроки; `max_message_bytes`, `max_batch`, `max_file_bytes`, `max_chunk_bytes`, `max_storage_bytes`: размеры и квоты |
 | `ai` | `openai_url`, `anthropic_url`: provider base URL; `openai_key_env`, `anthropic_key_env`: имена секретов; `model`: модель; `max_steps`: предел вызовов инструментов; `max_context_turns`, `max_context_bytes`: контекст; `timeout_seconds`, `max_response_bytes`: сетевые пределы; `tools`: массив разрешенных коннекторов |
 | `calls` | `turn_urls`: внешний TURN; `turn_secret_env`: имя shared secret; `credential_ttl_seconds`: срок credentials |
+| `redis` | `binary`: executable (default `redis-server`); `max_memory_mb`: 64, допустимо 8..1024; `queue_depth`: 256, допустимо 1..4096 |
 
 Каждый `[[ai.tools]]` задает `name`, `kind` (`http`/`mcp`), `url`, `methods`, `secret_env`, `allow_private`, `schema`, `timeout_seconds`, `max_response_bytes`. Последние два поля при 0 наследуют AI-пределы, положительные значения только сужают их. Defaults AI: 20 turns, 262144 context bytes, 45 секунд, 1048576 response bytes; увеличивать сверх этих safety ceilings нельзя. Точный допустимый поднабор JSON Schema описан в [AI reference](ai.md): неизвестные ограничения не игнорируются. Инструменты требуют AI-provider, соответствующий connector — включенной build-фичи; звонки требуют TURN-настроек. Значения и ограничения проверяет `internal/config/config.go`.
 
@@ -57,3 +58,5 @@ AI — явный отдельный участник личного чата. �
 Остановите сервис, выполните `qgramm -config ... -backup /data/backup.db` в одноразовом контейнере с теми же config/env/volume. Скопируйте files и нужные ключи отдельно. Restore — согласованный database+files+keys, затем один экземпляр. Не восстанавливайте старый MLS AI snapshot для продолжения отправки без новой identity/epoch: rollback счетчиков опасен.
 
 Скачанные получателями копии невозможно гарантированно удалить. WAL, SSD и backups не обеспечивают физическое стирание; retention и encrypted volumes — ответственность оператора. Независимый криптоаудит не подтвержден. Реальные provider API, браузеры, TURN и benchmark следует отличать от unit/mocks; текущий статус — [verification](verification.md).
+
+Экспериментальный [Redis в том же контейнере](redis.ru.md) включается через `features.redis=true` и `Dockerfile.redis`. Это транспорт уведомлений; устойчивое хранение и ежесекундный replay остаются в SQLite. Обычный образ не содержит процесса Redis и его Go-клиента.

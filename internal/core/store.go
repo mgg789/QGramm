@@ -144,11 +144,7 @@ func Open(cfg config.Config, compiled []string) (*Core, error) {
 	c.routes()
 	for _, name := range cfg.Features.Enabled() {
 		if err = registry[name](c); err != nil {
-			cancel()
-			if c.readDB != nil {
-				c.readDB.Close()
-			}
-			db.Close()
+			c.Close()
 			return nil, fmt.Errorf("module %s: %w", name, err)
 		}
 	}
@@ -206,6 +202,9 @@ func (c *Core) Close() error {
 	c.cancel()
 	if c.writer != nil {
 		c.writer.close()
+	}
+	for i := len(c.shutdown) - 1; i >= 0; i-- {
+		c.shutdown[i]()
 	}
 	c.readStatements.close()
 	c.writeStatements.close()

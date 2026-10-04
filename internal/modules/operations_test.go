@@ -62,6 +62,8 @@ func newModuleHarness(t *testing.T, deleteMode string) *moduleHarness {
 			cfg.Features.MCP = true
 		case "http_tools":
 			cfg.Features.HTTPTools = true
+		case "redis":
+			cfg.Features.Redis = true
 		}
 	}
 	cfg.AI.Tools = nil
@@ -78,6 +80,9 @@ func newModuleHarness(t *testing.T, deleteMode string) *moduleHarness {
 	}
 	for _, env := range []string{cfg.Calls.TURNSecretEnv, cfg.AI.OpenAIKeyEnv, cfg.AI.AnthropicKeyEnv} {
 		t.Setenv(env, "non-secret-test-fixture")
+	}
+	if cfg.Features.Redis {
+		cfg.Redis.Binary = testRedisBinary(t)
 	}
 	c, err := core.Open(cfg, cfg.Features.Enabled())
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -26,6 +27,17 @@ func TestMatrixRuntimeSelection(t *testing.T) {
 	cfg, e := config.Load(path)
 	if e != nil {
 		t.Fatal(e)
+	}
+	if cfg.Features.Redis {
+		binary := os.Getenv("QGRAMM_REDIS_TEST_BINARY")
+		if binary == "" {
+			binary = "redis-server"
+		}
+		path, err := exec.LookPath(binary)
+		if err != nil {
+			t.Fatal("real Redis required: sh scripts/test-redis.sh sh scripts/build-matrix.sh")
+		}
+		cfg.Redis.Binary = path
 	}
 	expected := cfg.Features.Enabled()
 	registered := core.Registered()

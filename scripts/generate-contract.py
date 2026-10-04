@@ -81,7 +81,7 @@ C["AIJob"] = obj({"id": S, "message_id": S, "status": enum("queued", "running", 
 ROUTES = {
 "GET /healthz": (None, obj({"status": {"const": "ok"}}), [200]),
 "GET /readyz": (None, obj({"status": {"const": "ready"}}), [200]),
-"GET /v1/capabilities": (None, obj({"protocol_version": {"const": 1}, "features": arr(S), "server_key": BASE64, "server_key_id": HASH, "hpke_suite": {"const": "X25519-HKDF-SHA256-AES128GCM"}, "delivery": {"const": "at-least-once"}, "event_retention_hours": I, "dedup_retention_hours": I, "history": enum("all", "since_join"), "delete_mode": enum("global", "author_only"), "reaction_types": arr(S), "max_batch": I, "ai_trust_boundary": S}), [200]),
+"GET /v1/capabilities": (None, obj({"protocol_version": {"const": 1}, "features": arr(S), "server_key": BASE64, "server_key_id": HASH, "hpke_suite": {"const": "X25519-HKDF-SHA256-AES128GCM"}, "delivery": {"const": "at-least-once"}, "event_retention_hours": I, "dedup_retention_hours": I, "history": enum("all", "since_join"), "delete_mode": enum("global", "author_only"), "reaction_types": arr(S), "max_batch": I, "ai_trust_boundary": S, "redis": obj({"status": enum("ready", "degraded_local_fallback"), "durable": {"const": False}})}, required=["protocol_version", "features", "server_key", "server_key_id", "hpke_suite", "delivery", "event_retention_hours", "dedup_retention_hours", "history", "delete_mode", "reaction_types", "max_batch", "ai_trust_boundary"]), [200]),
 "POST /v1/ws-tickets": (None, obj({"ticket": S, "expires_in": {"const": 30}}), [201]),
 "GET /v1/ws": (None, None, [101]),
 "GET /v1/chats": (None, arr(ref("Chat")), [200]),

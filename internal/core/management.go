@@ -33,7 +33,11 @@ func (c *Core) routes() {
 	c.AddManagementRoute("PUT /management/v1/chats/{chat}/members/{user}", c.putMember)
 }
 func (c *Core) capabilities(w http.ResponseWriter, r *http.Request, id Identity) {
-	JSON(w, 200, map[string]any{"protocol_version": 1, "features": c.Config.Features.Enabled(), "server_key": c.Engine.PublicKey(), "server_key_id": c.Engine.KeyID(), "hpke_suite": "X25519-HKDF-SHA256-AES128GCM", "delivery": "at-least-once", "event_retention_hours": c.Config.Policy.EventRetentionHours, "dedup_retention_hours": c.Config.Policy.DedupRetentionHours, "history": c.Config.Policy.History, "delete_mode": c.Config.Policy.DeleteMode, "reaction_types": c.Config.Policy.ReactionTypes, "max_batch": c.Config.Policy.MaxBatch, "ai_trust_boundary": "container recipient; provider receives plaintext"})
+	caps := map[string]any{"protocol_version": 1, "features": c.Config.Features.Enabled(), "server_key": c.Engine.PublicKey(), "server_key_id": c.Engine.KeyID(), "hpke_suite": "X25519-HKDF-SHA256-AES128GCM", "delivery": "at-least-once", "event_retention_hours": c.Config.Policy.EventRetentionHours, "dedup_retention_hours": c.Config.Policy.DedupRetentionHours, "history": c.Config.Policy.History, "delete_mode": c.Config.Policy.DeleteMode, "reaction_types": c.Config.Policy.ReactionTypes, "max_batch": c.Config.Policy.MaxBatch, "ai_trust_boundary": "container recipient; provider receives plaintext"}
+	for _, extend := range c.ExtendCapabilities {
+		extend(caps)
+	}
+	JSON(w, 200, caps)
 }
 func (c *Core) putUser(w http.ResponseWriter, r *http.Request) {
 	var in struct {

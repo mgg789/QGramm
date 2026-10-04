@@ -1,0 +1,35 @@
+# Experimental same-container Redis profile. The default Dockerfile has no Redis.
+FROM alpine:3.22 AS redis-build
+RUN apk add --no-cache build-base linux-headers curl ca-certificates
+WORKDIR /src
+# Official Redis hashes: https://github.com/redis/redis-hashes/blob/master/README
+RUN curl -fsSL https://download.redis.io/releases/redis-7.2.14.tar.gz -o redis.tar.gz && \
+    echo '21326da3f66c0aead4c8204c0ac52ff905337a77cadd169f75ac22835ea30025  redis.tar.gz' | sha256sum -c - && \
+    tar -xzf redis.tar.gz && cd redis-7.2.14 && \
+    make -j2 MALLOC=libc BUILD_TLS=no redis-server && \
+    mkdir -p /out/licenses && cp src/redis-server /out/redis-server && \
+    cp COPYING /out/licenses/Redis-COPYING && \
+    cp deps/hiredis/COPYING /out/licenses/hiredis-COPYING && \
+    cp deps/linenoise/linenoise.c /out/licenses/linenoise-source-with-license.c && \
+    cp deps/lua/COPYRIGHT /out/licenses/lua-COPYRIGHT
+
+FROM golang:1.26-alpine AS build
+WORKDIR /src
+COPY . .
+ARG CONFIG=configs/redis.toml
+RUN CGO_ENABLED=0 go run ./cmd/qgramm-build build -config "$CONFIG" -out /out/qgramm && cp "$CONFIG" /out/qgramm.toml
+
+FROM alpine:3.22
+RUN apk add --no-cache ca-certificates && addgroup -g 10001 qgramm && adduser -D -u 10001 -G qgramm qgramm && mkdir /data && chown qgramm:qgramm /data
+WORKDIR /app
+COPY --from=build /out/qgramm /app/qgramm
+COPY --from=build /out/qgramm.toml /app/qgramm.toml
+COPY --from=redis-build /out/redis-server /usr/local/bin/redis-server
+COPY --from=redis-build /out/licenses /app/redis-licenses/
+COPY LICENSE NOTICE THIRD_PARTY_LICENSES.txt /app/
+USER 10001:10001
+VOLUME ["/data"]
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD /app/qgramm -healthcheck http://127.0.0.1:8080/readyz
+ENTRYPOINT ["/app/qgramm"]
+CMD ["-config", "/app/qgramm.toml"]
