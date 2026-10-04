@@ -100,3 +100,5 @@ python3 tools/benchmark.py --image qgramm:sqlgc --out work/subscribed.json \
 Сравниваемые images собирайте из отдельных checkout выбранных ревизий, фиксируйте source/image/binary hashes и один generator. Два повтора запускайте последовательно с cooldown≥60с; не смешивайте profiler с latency-прогонами. Исторические JSON содержат точные fingerprints зафиксированного runner; текущая команда воспроизводит нагрузку, не обещает побитовую идентичность будущего build/toolchain.
 
 Для повторения диагностических checkpoints приватный wrapper изменял только условие sampler на `args.profile_dir and phase in ("idle", "steady", "burst") and phase != last_phase`; финальный SIGUSR1 выполнялся после load. Проверено ровно4 runtime snapshot. SHA wrapper указан в JSON. Текущий runner без этого выбора может дополнительно снимать setup/history, поэтому такие профили не эквивалентны этой серии.
+
+[Следующая серия replay/WAL](performance-tail.ru.md).

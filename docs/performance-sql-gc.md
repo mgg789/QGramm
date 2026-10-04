@@ -100,3 +100,5 @@ python3 tools/benchmark.py --image qgramm:sqlgc --out work/subscribed.json \
 Build compared images in separate checkouts, record source/image/binary hashes and use one generator. Run two repeats sequentially with at least60s cooldown; keep profiler runs separate. Historical JSON records the frozen runner fingerprints; current commands reproduce the workload, without promising bit-identical future builds/toolchains.
 
 For diagnostic checkpoint reproduction, the private wrapper changed only the sampler predicate to `args.profile_dir and phase in ("idle", "steady", "burst") and phase != last_phase`; the final SIGUSR1 followed load completion. Exactly4 runtime snapshots were checked. Wrapper SHA is recorded in JSON. The current runner without that selection can capture additional setup/history checkpoints, so those profiles are not equivalent to this campaign.
+
+[Next replay/WAL campaign](performance-tail.md).

@@ -1,0 +1,540 @@
+{
+  "before_source_commit": "b131b63",
+  "after_source_commit": "0257fd2",
+  "accepted_equals_delivered_equals_history_total": 95873,
+  "primary_attempts": 14,
+  "included_primary_runs": 12,
+  "method": "Threevariants, standard/subscribed,tworepeats each;10kWS100/s30s+1000/s5s;10sidle;60scooldown; unchangedfrozengenerator/primaryrunner;first2baselineattemptsexcludedandrepeatedafterchecks",
+  "aggregation": "Arithmeticmeanofper-runpercentilesandDockerphaseCPUmeans/RAMsamplemaxima,notpooledpercentiles; positivechange meanshighercost/latency;two repeats notconfidenceintervals",
+  "runs": [
+    {
+      "file": "tail-before-standard-1.json",
+      "variant": "before",
+      "profile": "standard",
+      "repeat": 1,
+      "accepted": 7986,
+      "steady_accept_p95_ms": 4.359,
+      "steady_accept_p99_ms": 6.257,
+      "steady_delivery_p95_ms": 4.363,
+      "steady_delivery_p99_ms": 6.289,
+      "combined_delivery_p99_ms": 5.756,
+      "steady_cpu_mean_percent_one_core": 13.56,
+      "steady_memory_sample_max_mib": 280.0,
+      "actual_attempt_index": 13
+    },
+    {
+      "file": "tail-before-standard-2.json",
+      "variant": "before",
+      "profile": "standard",
+      "repeat": 2,
+      "accepted": 7994,
+      "steady_accept_p95_ms": 5.275,
+      "steady_accept_p99_ms": 7.868,
+      "steady_delivery_p95_ms": 5.319,
+      "steady_delivery_p99_ms": 7.821,
+      "combined_delivery_p99_ms": 7.408,
+      "steady_cpu_mean_percent_one_core": 13.900666666666666,
+      "steady_memory_sample_max_mib": 279.5,
+      "actual_attempt_index": 9
+    },
+    {
+      "file": "tail-sql-standard-1.json",
+      "variant": "sql",
+      "profile": "standard",
+      "repeat": 1,
+      "accepted": 7986,
+      "steady_accept_p95_ms": 5.019,
+      "steady_accept_p99_ms": 7.833,
+      "steady_delivery_p95_ms": 5.149,
+      "steady_delivery_p99_ms": 8.196,
+      "combined_delivery_p99_ms": 7.26,
+      "steady_cpu_mean_percent_one_core": 13.813333333333333,
+      "steady_memory_sample_max_mib": 270.5,
+      "actual_attempt_index": 3
+    },
+    {
+      "file": "tail-sql-standard-2.json",
+      "variant": "sql",
+      "profile": "standard",
+      "repeat": 2,
+      "accepted": 7990,
+      "steady_accept_p95_ms": 5.167,
+      "steady_accept_p99_ms": 7.599,
+      "steady_delivery_p95_ms": 5.316,
+      "steady_delivery_p99_ms": 7.923,
+      "combined_delivery_p99_ms": 6.924,
+      "steady_cpu_mean_percent_one_core": 14.816666666666666,
+      "steady_memory_sample_max_mib": 272.5,
+      "actual_attempt_index": 8
+    },
+    {
+      "file": "tail-checkpoint-standard-1.json",
+      "variant": "checkpoint",
+      "profile": "standard",
+      "repeat": 1,
+      "accepted": 7996,
+      "steady_accept_p95_ms": 5.028,
+      "steady_accept_p99_ms": 6.904,
+      "steady_delivery_p95_ms": 5.242,
+      "steady_delivery_p99_ms": 7.132,
+      "combined_delivery_p99_ms": 6.535,
+      "steady_cpu_mean_percent_one_core": 14.718666666666666,
+      "steady_memory_sample_max_mib": 272.4,
+      "actual_attempt_index": 4
+    },
+    {
+      "file": "tail-checkpoint-standard-2.json",
+      "variant": "checkpoint",
+      "profile": "standard",
+      "repeat": 2,
+      "accepted": 7989,
+      "steady_accept_p95_ms": 5.067,
+      "steady_accept_p99_ms": 7.411,
+      "steady_delivery_p95_ms": 5.358,
+      "steady_delivery_p99_ms": 7.872,
+      "combined_delivery_p99_ms": 6.96,
+      "steady_cpu_mean_percent_one_core": 13.938,
+      "steady_memory_sample_max_mib": 274.4,
+      "actual_attempt_index": 7
+    },
+    {
+      "file": "tail-before-subscribed-1.json",
+      "variant": "before",
+      "profile": "subscribed",
+      "repeat": 1,
+      "accepted": 7989,
+      "steady_accept_p95_ms": 4.961,
+      "steady_accept_p99_ms": 6.576,
+      "steady_delivery_p95_ms": 4.927,
+      "steady_delivery_p99_ms": 6.427,
+      "combined_delivery_p99_ms": 6.576,
+      "steady_cpu_mean_percent_one_core": 16.36466666666667,
+      "steady_memory_sample_max_mib": 324.0,
+      "actual_attempt_index": 14
+    },
+    {
+      "file": "tail-before-subscribed-2.json",
+      "variant": "before",
+      "profile": "subscribed",
+      "repeat": 2,
+      "accepted": 7992,
+      "steady_accept_p95_ms": 4.495,
+      "steady_accept_p99_ms": 6.096,
+      "steady_delivery_p95_ms": 4.45,
+      "steady_delivery_p99_ms": 6.071,
+      "combined_delivery_p99_ms": 6.263,
+      "steady_cpu_mean_percent_one_core": 15.074666666666667,
+      "steady_memory_sample_max_mib": 337.8,
+      "actual_attempt_index": 12
+    },
+    {
+      "file": "tail-sql-subscribed-1.json",
+      "variant": "sql",
+      "profile": "subscribed",
+      "repeat": 1,
+      "accepted": 7984,
+      "steady_accept_p95_ms": 4.978,
+      "steady_accept_p99_ms": 7.135,
+      "steady_delivery_p95_ms": 5.169,
+      "steady_delivery_p99_ms": 7.363,
+      "combined_delivery_p99_ms": 6.881,
+      "steady_cpu_mean_percent_one_core": 19.049333333333333,
+      "steady_memory_sample_max_mib": 337.8,
+      "actual_attempt_index": 5
+    },
+    {
+      "file": "tail-sql-subscribed-2.json",
+      "variant": "sql",
+      "profile": "subscribed",
+      "repeat": 2,
+      "accepted": 7984,
+      "steady_accept_p95_ms": 4.521,
+      "steady_accept_p99_ms": 5.804,
+      "steady_delivery_p95_ms": 4.668,
+      "steady_delivery_p99_ms": 6.109,
+      "combined_delivery_p99_ms": 7.119,
+      "steady_cpu_mean_percent_one_core": 16.232,
+      "steady_memory_sample_max_mib": 342.9,
+      "actual_attempt_index": 11
+    },
+    {
+      "file": "tail-checkpoint-subscribed-1.json",
+      "variant": "checkpoint",
+      "profile": "subscribed",
+      "repeat": 1,
+      "accepted": 7991,
+      "steady_accept_p95_ms": 4.853,
+      "steady_accept_p99_ms": 7.781,
+      "steady_delivery_p95_ms": 5.113,
+      "steady_delivery_p99_ms": 7.839,
+      "combined_delivery_p99_ms": 7.634,
+      "steady_cpu_mean_percent_one_core": 17.503333333333334,
+      "steady_memory_sample_max_mib": 345.0,
+      "actual_attempt_index": 6
+    },
+    {
+      "file": "tail-checkpoint-subscribed-2.json",
+      "variant": "checkpoint",
+      "profile": "subscribed",
+      "repeat": 2,
+      "accepted": 7992,
+      "steady_accept_p95_ms": 4.415,
+      "steady_accept_p99_ms": 6.173,
+      "steady_delivery_p95_ms": 4.559,
+      "steady_delivery_p99_ms": 6.147,
+      "combined_delivery_p99_ms": 6.159,
+      "steady_cpu_mean_percent_one_core": 18.444666666666667,
+      "steady_memory_sample_max_mib": 345.5,
+      "actual_attempt_index": 10
+    }
+  ],
+  "comparison": {
+    "standard": {
+      "steady_accept_p95_ms": {
+        "per_run": {
+          "before": [
+            4.359,
+            5.275
+          ],
+          "sql": [
+            5.019,
+            5.167
+          ],
+          "checkpoint": [
+            5.028,
+            5.067
+          ]
+        },
+        "per_run_mean": {
+          "before": 4.817,
+          "sql": 5.093,
+          "checkpoint": 5.047499999999999
+        },
+        "sql_change_vs_before_percent": 5.729707286692953,
+        "checkpoint_change_vs_sql_percent": -0.8933830748085736,
+        "checkpoint_change_vs_before_percent": 4.785135976748989
+      },
+      "steady_accept_p99_ms": {
+        "per_run": {
+          "before": [
+            6.257,
+            7.868
+          ],
+          "sql": [
+            7.833,
+            7.599
+          ],
+          "checkpoint": [
+            6.904,
+            7.411
+          ]
+        },
+        "per_run_mean": {
+          "before": 7.0625,
+          "sql": 7.716,
+          "checkpoint": 7.1575
+        },
+        "sql_change_vs_before_percent": 9.253097345132755,
+        "checkpoint_change_vs_sql_percent": -7.23820632452048,
+        "checkpoint_change_vs_before_percent": 1.3451327433628313
+      },
+      "steady_delivery_p95_ms": {
+        "per_run": {
+          "before": [
+            4.363,
+            5.319
+          ],
+          "sql": [
+            5.149,
+            5.316
+          ],
+          "checkpoint": [
+            5.242,
+            5.358
+          ]
+        },
+        "per_run_mean": {
+          "before": 4.841,
+          "sql": 5.2325,
+          "checkpoint": 5.3
+        },
+        "sql_change_vs_before_percent": 8.087172071885963,
+        "checkpoint_change_vs_sql_percent": 1.290014333492584,
+        "checkpoint_change_vs_before_percent": 9.481512084280098
+      },
+      "steady_delivery_p99_ms": {
+        "per_run": {
+          "before": [
+            6.289,
+            7.821
+          ],
+          "sql": [
+            8.196,
+            7.923
+          ],
+          "checkpoint": [
+            7.132,
+            7.872
+          ]
+        },
+        "per_run_mean": {
+          "before": 7.055,
+          "sql": 8.0595,
+          "checkpoint": 7.502
+        },
+        "sql_change_vs_before_percent": 14.238128986534381,
+        "checkpoint_change_vs_sql_percent": -6.917302562193683,
+        "checkpoint_change_vs_before_percent": 6.3359319631467015
+      },
+      "combined_delivery_p99_ms": {
+        "per_run": {
+          "before": [
+            5.756,
+            7.408
+          ],
+          "sql": [
+            7.26,
+            6.924
+          ],
+          "checkpoint": [
+            6.535,
+            6.96
+          ]
+        },
+        "per_run_mean": {
+          "before": 6.582000000000001,
+          "sql": 7.0920000000000005,
+          "checkpoint": 6.7475000000000005
+        },
+        "sql_change_vs_before_percent": 7.748404740200532,
+        "checkpoint_change_vs_sql_percent": -4.857586012408344,
+        "checkpoint_change_vs_before_percent": 2.5144333029474275
+      },
+      "steady_cpu_mean_percent_one_core": {
+        "per_run": {
+          "before": [
+            13.56,
+            13.900666666666666
+          ],
+          "sql": [
+            13.813333333333333,
+            14.816666666666666
+          ],
+          "checkpoint": [
+            14.718666666666666,
+            13.938
+          ]
+        },
+        "per_run_mean": {
+          "before": 13.730333333333334,
+          "sql": 14.315,
+          "checkpoint": 14.328333333333333
+        },
+        "sql_change_vs_before_percent": 4.258211745284157,
+        "checkpoint_change_vs_sql_percent": 0.09314239143090042,
+        "checkpoint_change_vs_before_percent": 4.355320336966795
+      },
+      "steady_memory_sample_max_mib": {
+        "per_run": {
+          "before": [
+            280.0,
+            279.5
+          ],
+          "sql": [
+            270.5,
+            272.5
+          ],
+          "checkpoint": [
+            272.4,
+            274.4
+          ]
+        },
+        "per_run_mean": {
+          "before": 279.75,
+          "sql": 271.5,
+          "checkpoint": 273.4
+        },
+        "sql_change_vs_before_percent": -2.9490616621983934,
+        "checkpoint_change_vs_sql_percent": 0.6998158379373676,
+        "checkpoint_change_vs_before_percent": -2.2698838248436215
+      }
+    },
+    "subscribed": {
+      "steady_accept_p95_ms": {
+        "per_run": {
+          "before": [
+            4.961,
+            4.495
+          ],
+          "sql": [
+            4.978,
+            4.521
+          ],
+          "checkpoint": [
+            4.853,
+            4.415
+          ]
+        },
+        "per_run_mean": {
+          "before": 4.728,
+          "sql": 4.749499999999999,
+          "checkpoint": 4.634
+        },
+        "sql_change_vs_before_percent": 0.4547377326564961,
+        "checkpoint_change_vs_sql_percent": -2.4318349299926156,
+        "checkpoint_change_vs_before_percent": -1.9881556683587043
+      },
+      "steady_accept_p99_ms": {
+        "per_run": {
+          "before": [
+            6.576,
+            6.096
+          ],
+          "sql": [
+            7.135,
+            5.804
+          ],
+          "checkpoint": [
+            7.781,
+            6.173
+          ]
+        },
+        "per_run_mean": {
+          "before": 6.336,
+          "sql": 6.4695,
+          "checkpoint": 6.977
+        },
+        "sql_change_vs_before_percent": 2.107007575757569,
+        "checkpoint_change_vs_sql_percent": 7.844501120643033,
+        "checkpoint_change_vs_before_percent": 10.116792929292927
+      },
+      "steady_delivery_p95_ms": {
+        "per_run": {
+          "before": [
+            4.927,
+            4.45
+          ],
+          "sql": [
+            5.169,
+            4.668
+          ],
+          "checkpoint": [
+            5.113,
+            4.559
+          ]
+        },
+        "per_run_mean": {
+          "before": 4.6884999999999994,
+          "sql": 4.9185,
+          "checkpoint": 4.836
+        },
+        "sql_change_vs_before_percent": 4.905620134371347,
+        "checkpoint_change_vs_sql_percent": -1.677340652637993,
+        "checkpoint_change_vs_before_percent": 3.145995520955558
+      },
+      "steady_delivery_p99_ms": {
+        "per_run": {
+          "before": [
+            6.427,
+            6.071
+          ],
+          "sql": [
+            7.363,
+            6.109
+          ],
+          "checkpoint": [
+            7.839,
+            6.147
+          ]
+        },
+        "per_run_mean": {
+          "before": 6.249,
+          "sql": 6.736000000000001,
+          "checkpoint": 6.993
+        },
+        "sql_change_vs_before_percent": 7.793246919507135,
+        "checkpoint_change_vs_sql_percent": 3.8153206650831217,
+        "checkpoint_change_vs_before_percent": 11.905904944791178
+      },
+      "combined_delivery_p99_ms": {
+        "per_run": {
+          "before": [
+            6.576,
+            6.263
+          ],
+          "sql": [
+            6.881,
+            7.119
+          ],
+          "checkpoint": [
+            7.634,
+            6.159
+          ]
+        },
+        "per_run_mean": {
+          "before": 6.419499999999999,
+          "sql": 7.0,
+          "checkpoint": 6.8965
+        },
+        "sql_change_vs_before_percent": 9.042760339590327,
+        "checkpoint_change_vs_sql_percent": -1.478571428571429,
+        "checkpoint_change_vs_before_percent": 7.430485240283513
+      },
+      "steady_cpu_mean_percent_one_core": {
+        "per_run": {
+          "before": [
+            16.36466666666667,
+            15.074666666666667
+          ],
+          "sql": [
+            19.049333333333333,
+            16.232
+          ],
+          "checkpoint": [
+            17.503333333333334,
+            18.444666666666667
+          ]
+        },
+        "per_run_mean": {
+          "before": 15.719666666666669,
+          "sql": 17.640666666666668,
+          "checkpoint": 17.974
+        },
+        "sql_change_vs_before_percent": 12.220360906719808,
+        "checkpoint_change_vs_sql_percent": 1.8895733343410992,
+        "checkpoint_change_vs_before_percent": 14.340846922114526
+      },
+      "steady_memory_sample_max_mib": {
+        "per_run": {
+          "before": [
+            324.0,
+            337.8
+          ],
+          "sql": [
+            337.8,
+            342.9
+          ],
+          "checkpoint": [
+            345.0,
+            345.5
+          ]
+        },
+        "per_run_mean": {
+          "before": 330.9,
+          "sql": 340.35,
+          "checkpoint": 345.25
+        },
+        "sql_change_vs_before_percent": 2.855847688123303,
+        "checkpoint_change_vs_sql_percent": 1.4396944322021321,
+        "checkpoint_change_vs_before_percent": 4.33665760048354
+      }
+    }
+  },
+  "limitations": [
+    "SharedmacOS M5Pro/DockerLinuxVM,4CPU8GiBquotas,SSDunqualified;no dedicatedLinuxqualification",
+    "Singleactivechat/synthetic17byteHPKE/fullresponses/noTLS;no addedwriter-saturationload",
+    "Accepted/event/historycountchecksnotexactreceivedIDs/decryption/persistentreceipts",
+    "Resourcephaseboundariesapproximately2s;samplemeanCPU100percentonecore;RAMsamplemaxnotRSSpeak",
+    "Checkpointdefaultdisabled,FULL/autoretained;primarythreevariants do notisolateeachSQL/keyparsechange"
+  ]
+}

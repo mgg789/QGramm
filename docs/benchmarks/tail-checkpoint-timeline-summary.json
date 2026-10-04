@@ -1,0 +1,223 @@
+{
+  "result_file": "tail-checkpoint-timeline.json",
+  "timeline_sha256": "cc828ef475dd387ee24a217d12165144628364009571e73ccdc3fa2847b83936",
+  "method": "100ms instrumented snapshots; no forced GC or sampling profilers; interval first idle-to-first history observed phase; approximate phase boundaries; no request IDs",
+  "source": {
+    "server_source_commit": "0257fd2dcc9cdd785f3c3913e55b48b96f702053",
+    "server_source_snapshot_sha256": "f5b4aba97ee32de2f33ae86349e8786ea29b27e16f68adc74732f53b4501e4a0",
+    "server_binary_sha256": "193a4bef3f125072adf572b4a5d172478ea359ac863ab88f59988cb61f019e71",
+    "image_id": "sha256:f935cd1532fd7945dac18fe021dd94242c7837886095e2a2e687b21e0de493f0",
+    "server_go": "go1.26.8",
+    "generator_binary_sha256": "e8ca092a5aef9306c8886db5c1ae243b0a80d1275232d223ebc75af5aa005178",
+    "host_os": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "host_cpu": "Apple M5 Pro",
+    "server_kernel": "Linux a3d939a058d1 6.12.76-linuxkit #1 SMP Thu Jun 11 15:44:51 UTC 2026 aarch64 Linux",
+    "cpu_limit": 4,
+    "ram_limit_gib": 8
+  },
+  "clock_alignment": {
+    "before": {
+      "host_start_unix_ns": 1791151656206795000,
+      "host_end_unix_ns": 1791151656227244000,
+      "container_unix_ns": 1791151656222661341,
+      "offset_host_minus_container_ns": -5641841,
+      "uncertainty_ns": 10224500,
+      "signal_sequence": 3
+    },
+    "after": {
+      "host_start_unix_ns": 1791151716569455000,
+      "host_end_unix_ns": 1791151716592180000,
+      "container_unix_ns": 1791151716587547050,
+      "offset_host_minus_container_ns": -6729550,
+      "uncertainty_ns": 11362500,
+      "signal_sequence": 11
+    },
+    "observed_offset_drift_ns": -1087709,
+    "uncertainty_and_drift_tolerance_ns": 100000000
+  },
+  "accepted": 7991,
+  "delivered": 7991,
+  "history_messages": 7991,
+  "interval_seconds": 44.998120382,
+  "writer_interval": {
+    "committed_messages": 7991,
+    "commit_count": 7787,
+    "commit_errors": 0,
+    "queue_wait_ns": 497648817,
+    "service_ns": 5119489902,
+    "commit_ns": 4502039878
+  },
+  "sql_read_helper_calls": 62814,
+  "allocated_bytes": 715759192,
+  "allocations": 11762297,
+  "gc_cycles": 10,
+  "gc_pause_total_ms": 6.180877,
+  "gc_pause_max_recorded_ms": 1.50075,
+  "wal_sampled_max_bytes": 4684472,
+  "slow_ring_overwritten_between_samples": 0,
+  "stages": {
+    "queue_wait": {
+      "record_count": 0,
+      "max_recorded_ms": 0,
+      "mean_recorded_ms": 0,
+      "overlaps_gc_pause": 0,
+      "failed_records": 0
+    },
+    "writer_service": {
+      "record_count": 0,
+      "max_recorded_ms": 0,
+      "mean_recorded_ms": 0,
+      "overlaps_gc_pause": 0,
+      "failed_records": 0
+    },
+    "commit": {
+      "record_count": 0,
+      "max_recorded_ms": 0,
+      "mean_recorded_ms": 0,
+      "overlaps_gc_pause": 0,
+      "failed_records": 0
+    },
+    "transaction_body": {
+      "record_count": 0,
+      "max_recorded_ms": 0,
+      "mean_recorded_ms": 0,
+      "overlaps_gc_pause": 0,
+      "failed_records": 0
+    },
+    "query_lifetime": {
+      "record_count": 1,
+      "max_recorded_ms": 12.902875,
+      "mean_recorded_ms": 12.902875,
+      "overlaps_gc_pause": 0,
+      "failed_records": 0
+    },
+    "projection": {
+      "record_count": 4,
+      "max_recorded_ms": 9.372417,
+      "mean_recorded_ms": 9.089271,
+      "overlaps_gc_pause": 0,
+      "failed_records": 0
+    },
+    "ws_write": {
+      "record_count": 0,
+      "max_recorded_ms": 0,
+      "mean_recorded_ms": 0,
+      "overlaps_gc_pause": 0,
+      "failed_records": 0
+    },
+    "checkpoint": {
+      "record_count": 351,
+      "max_recorded_ms": 4.615916,
+      "mean_recorded_ms": 2.2043304814814815,
+      "overlaps_gc_pause": 0,
+      "failed_records": 0
+    }
+  },
+  "histogram_interval": {
+    "queue_wait_jobs": [
+      7219,
+      181,
+      295,
+      176,
+      97,
+      23,
+      0,
+      0,
+      0,
+      0
+    ],
+    "writer_service_transactions": [
+      1,
+      183,
+      3478,
+      3177,
+      818,
+      126,
+      4,
+      0,
+      0,
+      0
+    ],
+    "transaction_body_calls": [
+      7132,
+      423,
+      145,
+      74,
+      10,
+      3,
+      0,
+      0,
+      0,
+      0
+    ],
+    "commit_transactions": [
+      119,
+      529,
+      3697,
+      2717,
+      629,
+      93,
+      3,
+      0,
+      0,
+      0
+    ],
+    "query_lifetime_calls": [
+      48751,
+      5589,
+      4329,
+      2825,
+      959,
+      293,
+      67,
+      1,
+      0,
+      0
+    ],
+    "projection_calls": [
+      21391,
+      674,
+      89,
+      9,
+      9,
+      0,
+      0,
+      4,
+      0,
+      0
+    ],
+    "ws_write_calls": [
+      15961,
+      15,
+      5,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "checkpoint_calls": [
+      1,
+      1,
+      2,
+      11,
+      123,
+      211,
+      2,
+      0,
+      0,
+      0
+    ]
+  },
+  "limits": [
+    "Stage intervals overlap and are not additive.",
+    "Query lifetime includes pool/preparation/execution/consumption, not isolated SQL CPU.",
+    "GC temporal overlap does not establish causation; GC assist and scheduler stalls are not directly measured.",
+    "Automatic checkpoint timing is inside commit and not separately identified.",
+    "Slow records >=8ms only; checkpoints record every attempt; ring capacity64.",
+    "Counter interval follows sampled boundaries; its committed-message count can differ from whole-run accepted.",
+    "Instrumented timings do not belong in primary comparisons."
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "method": "Private identical test fixture in separate source copies; one basic HPKE message;100 warmup Events,10000 measured Events per run,three repeats; no network/commit in measured loop; elapsed and natural runtime counters; no forced GC",
+  "environment": "Go1.26.4 darwin/arm64 Apple M5 Pro; separate from Docker primary runs",
+  "source": {
+    "before": "27cc7e5 with diagnostic wrappers disabled",
+    "ranked": "0257fd2 exact archive",
+    "fast": "bc73c00 exact archive"
+  },
+  "fixture_sha256": "059709d2da3bd3b46f91187bcaaf897f886df0c40e8055af26fffe6f2af27f9e",
+  "variants": {
+    "before": {
+      "runs": [
+        {
+          "ns_per_op": 60459.78,
+          "bytes_per_op": 16416.98,
+          "allocations_per_op": 255.05
+        },
+        {
+          "ns_per_op": 58162.57,
+          "bytes_per_op": 16415.37,
+          "allocations_per_op": 255.05
+        },
+        {
+          "ns_per_op": 58014.45,
+          "bytes_per_op": 16416.35,
+          "allocations_per_op": 255.06
+        }
+      ],
+      "mean": {
+        "ns_per_op": 58878.933333333334,
+        "bytes_per_op": 16416.233333333334,
+        "allocations_per_op": 255.05333333333334
+      }
+    },
+    "ranked": {
+      "runs": [
+        {
+          "ns_per_op": 108352.42,
+          "bytes_per_op": 15647.06,
+          "allocations_per_op": 235.05
+        },
+        {
+          "ns_per_op": 103498.72,
+          "bytes_per_op": 15646.19,
+          "allocations_per_op": 235.05
+        },
+        {
+          "ns_per_op": 113011.36,
+          "bytes_per_op": 15646.94,
+          "allocations_per_op": 235.05
+        }
+      ],
+      "mean": {
+        "ns_per_op": 108287.5,
+        "bytes_per_op": 15646.73,
+        "allocations_per_op": 235.05
+      }
+    },
+    "fast": {
+      "runs": [
+        {
+          "ns_per_op": 57394.14,
+          "bytes_per_op": 15647.34,
+          "allocations_per_op": 235.06
+        },
+        {
+          "ns_per_op": 52249.33,
+          "bytes_per_op": 15647.11,
+          "allocations_per_op": 235.05
+        },
+        {
+          "ns_per_op": 52662.34,
+          "bytes_per_op": 15645.98,
+          "allocations_per_op": 235.05
+        }
+      ],
+      "mean": {
+        "ns_per_op": 54101.93666666667,
+        "bytes_per_op": 15646.81,
+        "allocations_per_op": 235.05333333333334
+      }
+    }
+  },
+  "limitations": [
+    "Private fixture is not an API latency or throughput benchmark",
+    "Native Go1.26.4 differs from Docker Go1.26.8",
+    "No independent fixture split isolates SQLite window vs each join; evaluates entire replay call"
+  ]
+}

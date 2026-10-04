@@ -36,7 +36,9 @@ Two repetitions on Apple M5 Pro / Docker Desktop Linux arm64, 4 CPU / 8 GiB limi
 
 Previous iteration: with all 10,000 sockets subscribed, the first three further changes reduced steady CPU 77% and RAM 34%; whole-run delivery p99 was6.5–7.4 ms. Same-container Redis showed no repeatable gain and has been removed. [Two-repeat comparison, limits and raw data](docs/performance-iteration.md).
 
-Current commit/GC/SQL iteration: Redis removed. Diagnostic read-helper calls/accepted fell27.5% and allocations/accepted3%; primary CPU fell2–4%, but p95 rose slightly and one subscribed burst tail worsened. [Before/after results and limits](docs/performance-sql-gc.md).
+Previous commit/GC/SQL iteration: Redis removed. Diagnostic read-helper calls/accepted fell27.5% and allocations/accepted3%; primary CPU fell2–4%, but p95 rose slightly and one subscribed burst tail worsened. [Before/after results and limits](docs/performance-sql-gc.md).
+
+Experimental replay/WAL work on dev adds one-query history, bounded single-event replay and a request-scoped parsed HPKE key. PASSIVE checkpoint is opt-in; FULL and automatic checkpoint remain. Local replay improved8.1%, but final steady p99 rose8.9%/18.4%; the candidate remains on dev. Initial SQL regression, correction and natural-GC diagnostics are published separately. [Measurements and limitations](docs/performance-tail.md).
 
 ## Small integration example
 
