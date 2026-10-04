@@ -12,6 +12,7 @@ import (
 	"github.com/mgg789/QGramm/internal/cryptoenc"
 	_ "modernc.org/sqlite"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -95,7 +96,11 @@ func Open(cfg config.Config, compiled []string) (*Core, error) {
 	if err = os.MkdirAll(filepath.Dir(cfg.Storage.Path), 0700); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", cfg.Storage.Path)
+	dsn, err := sqliteDSN(cfg.Storage.Path, false)
+	if err != nil {
+		return nil, err
+	}
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -116,17 +121,74 @@ func Open(cfg config.Config, compiled []string) (*Core, error) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &Core{httpSlots: make(chan struct{}, cfg.Capacity.Workers*4), DB: db, Config: cfg, Engine: engine, Mux: http.NewServeMux(), Context: ctx, cancel: cancel, verifyKey: key, managementSecret: management, connections: map[string]map[*connection]struct{}{}}
+	if cfg.Storage.Path != ":memory:" {
+		readDSN, e := sqliteDSN(cfg.Storage.Path, true)
+		if e == nil {
+			c.readDB, e = sql.Open("sqlite", readDSN)
+		}
+		if e == nil {
+			readers := min(8, max(1, cfg.Capacity.Workers))
+			c.readDB.SetMaxOpenConns(readers)
+			c.readDB.SetMaxIdleConns(readers)
+			e = c.readDB.PingContext(ctx)
+		}
+		if e != nil {
+			cancel()
+			if c.readDB != nil {
+				c.readDB.Close()
+			}
+			db.Close()
+			return nil, e
+		}
+	}
 	c.routes()
 	for _, name := range cfg.Features.Enabled() {
 		if err = registry[name](c); err != nil {
 			cancel()
+			if c.readDB != nil {
+				c.readDB.Close()
+			}
 			db.Close()
 			return nil, fmt.Errorf("module %s: %w", name, err)
 		}
 	}
 	go c.cleanupLoop()
+	go c.connectionAuthLoop()
 	return c, nil
 }
+
+// Every physical connection receives its own safety PRAGMAs. A separate
+// read-only pool uses WAL snapshots while the single writer serializes commits.
+func sqliteDSN(path string, readOnly bool) (string, error) {
+	if path == ":memory:" {
+		return path, nil
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	u := url.URL{Scheme: "file", Path: filepath.ToSlash(abs)}
+	q := url.Values{}
+	for _, pragma := range []string{"foreign_keys(1)", "busy_timeout(5000)", "synchronous(FULL)", "secure_delete(1)"} {
+		q.Add("_pragma", pragma)
+	}
+	if readOnly {
+		q.Set("mode", "ro")
+		q.Add("_pragma", "query_only(1)")
+	}
+	u.RawQuery = q.Encode()
+	return u.String(), nil
+}
+
+func (c *Core) reader() *sql.DB {
+	if c.readDB != nil {
+		return c.readDB
+	}
+	return c.DB
+}
+
+// ReadStats exposes pool wait counters to in-process diagnostic tooling.
+func (c *Core) ReadStats() sql.DBStats { return c.reader().Stats() }
 func secretKey(name string, n int) ([]byte, error) {
 	v, err := base64.StdEncoding.DecodeString(os.Getenv(name))
 	if err != nil || len(v) != n {
@@ -143,13 +205,17 @@ func (c *Core) Close() error {
 		}
 	}
 	c.mu.Unlock()
-	return c.DB.Close()
+	var readErr error
+	if c.readDB != nil {
+		readErr = c.readDB.Close()
+	}
+	return errors.Join(readErr, c.DB.Close())
 }
 func (c *Core) Member(ctx context.Context, user, chat string) (string, bool, int64, error) {
 	var role string
 	var send bool
 	var joined int64
-	err := c.DB.QueryRowContext(ctx, `SELECT role,can_send,joined_seq FROM members WHERE chat_id=? AND user_id=? AND active=1`, chat, user).Scan(&role, &send, &joined)
+	err := c.reader().QueryRowContext(ctx, `SELECT role,can_send,joined_seq FROM members WHERE chat_id=? AND user_id=? AND active=1`, chat, user).Scan(&role, &send, &joined)
 	return role, send, joined, err
 }
 func (c *Core) Publish(ctx context.Context, chat, kind, message string, data any) (int64, error) {

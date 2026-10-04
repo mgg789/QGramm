@@ -1,0 +1,127 @@
+{
+  "source_commit": "31d31b2",
+  "server_go": "go1.26.4",
+  "instrumented": true,
+  "profile_scope": "whole lifetime, includes setup; forced GC snapshots interrupt workload; timing excluded from comparative results",
+  "idle_snapshot": {
+    "at": "20261004T183600.698389131Z",
+    "frees": 4141970,
+    "gc_cycles": 77,
+    "goroutines": 20026,
+    "heap_alloc_bytes": 70423016,
+    "heap_inuse_bytes": 89006080,
+    "heap_sys_bytes": 110002176,
+    "mallocs": 4719929,
+    "reader_db": {
+      "MaxOpenConnections": 8,
+      "OpenConnections": 8,
+      "InUse": 0,
+      "Idle": 8,
+      "WaitCount": 8,
+      "WaitDuration": 4617419,
+      "MaxIdleClosed": 0,
+      "MaxIdleTimeClosed": 0,
+      "MaxLifetimeClosed": 0
+    },
+    "stack_inuse_bytes": 82935808,
+    "sys_bytes": 207931704,
+    "writer_db": {
+      "MaxOpenConnections": 1,
+      "OpenConnections": 1,
+      "InUse": 0,
+      "Idle": 1,
+      "WaitCount": 39983,
+      "WaitDuration": 181263477526,
+      "MaxIdleClosed": 0,
+      "MaxIdleTimeClosed": 0,
+      "MaxLifetimeClosed": 0
+    }
+  },
+  "steady_start_snapshot": {
+    "at": "20261004T183614.996291888Z",
+    "frees": 4563697,
+    "gc_cycles": 78,
+    "goroutines": 20026,
+    "heap_alloc_bytes": 71029184,
+    "heap_inuse_bytes": 90120192,
+    "heap_sys_bytes": 109379584,
+    "mallocs": 5148435,
+    "reader_db": {
+      "MaxOpenConnections": 8,
+      "OpenConnections": 8,
+      "InUse": 0,
+      "Idle": 8,
+      "WaitCount": 8,
+      "WaitDuration": 4617419,
+      "MaxIdleClosed": 0,
+      "MaxIdleTimeClosed": 0,
+      "MaxLifetimeClosed": 0
+    },
+    "stack_inuse_bytes": 83558400,
+    "sys_bytes": 207931704,
+    "writer_db": {
+      "MaxOpenConnections": 1,
+      "OpenConnections": 1,
+      "InUse": 0,
+      "Idle": 1,
+      "WaitCount": 39983,
+      "WaitDuration": 181263477526,
+      "MaxIdleClosed": 0,
+      "MaxIdleTimeClosed": 0,
+      "MaxLifetimeClosed": 0
+    }
+  },
+  "late_load_snapshot": {
+    "at": "20261004T183649.578925876Z",
+    "frees": 14546780,
+    "gc_cycles": 86,
+    "goroutines": 20043,
+    "heap_alloc_bytes": 85639920,
+    "heap_inuse_bytes": 103981056,
+    "heap_sys_bytes": 151027712,
+    "mallocs": 15289134,
+    "reader_db": {
+      "MaxOpenConnections": 8,
+      "OpenConnections": 8,
+      "InUse": 0,
+      "Idle": 8,
+      "WaitCount": 8,
+      "WaitDuration": 4617419,
+      "MaxIdleClosed": 0,
+      "MaxIdleTimeClosed": 0,
+      "MaxLifetimeClosed": 0
+    },
+    "stack_inuse_bytes": 83853312,
+    "sys_bytes": 252225864,
+    "writer_db": {
+      "MaxOpenConnections": 1,
+      "OpenConnections": 1,
+      "InUse": 0,
+      "Idle": 1,
+      "WaitCount": 42217,
+      "WaitDuration": 187931844226,
+      "MaxIdleClosed": 0,
+      "MaxIdleTimeClosed": 0,
+      "MaxLifetimeClosed": 0
+    }
+  },
+  "cpu_duration_seconds": 64.63,
+  "cpu_samples_seconds": 14.93,
+  "cpu_top_flat": {
+    "internal/runtime/syscall/linux.Syscall6": 27.53,
+    "encoding/binary.littleEndian.PutUint64": 4.09,
+    "circl/fp25519.red64": 2.75,
+    "circl/fp25519.mulGeneric": 2.34,
+    "runtime.nanotime": 1.14
+  },
+  "heap_top_inuse_mib_sampled": {
+    "runtime.mallocgc": 13.1,
+    "bufio.NewReaderSize": 12.51,
+    "core.websocket": 6.01,
+    "core.runWebsocket": 3.5,
+    "gorilla/websocket.newConn": 3.5,
+    "time.newTimer": 3.5,
+    "database/sql.DB.conn": 2.5
+  },
+  "method": "go tool pprof -top -nodecount=14 cpu.pprof; go tool pprof -top -nodecount=12 idle-heap.pprof; heap pprof allocation sampling differs from exact runtime.ReadMemStats values"
+}

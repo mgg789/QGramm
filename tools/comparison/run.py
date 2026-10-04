@@ -18,6 +18,7 @@ def main():
     p.add_argument('--duration',default='30s');p.add_argument('--rate',type=int,default=100)
     p.add_argument('--burst',default='5s');p.add_argument('--burst-rate',type=int,default=1000)
     p.add_argument('--nats-sync',choices=['default','always'],default='default')
+    p.add_argument('--idle',default='10s')
     args=p.parse_args()
     if args.timeout <= 0: p.error('--timeout must be positive')
     name='qgramm-comparison-'+uuid.uuid4().hex[:12]; image=args.image or IMAGES[args.service]
@@ -25,7 +26,7 @@ def main():
     try:
         if not args.image: cmd('docker','pull',image)
         with tempfile.TemporaryDirectory(prefix=name) as directory:
-            temp=pathlib.Path(directory); binary=temp/'generator';result=temp/'result.json';config=temp/'config'
+            temp=pathlib.Path(directory); binary=temp/'generator';result=temp/'result.json';config=temp/'config'; phase_file=temp/'phase'
             cmd('go','build','-mod=readonly','-o',str(binary),'.',cwd=HERE)
             secret=secrets.token_hex(32)
             if args.service=='nats':
@@ -42,12 +43,13 @@ def main():
                 while not stop.is_set():
                     try:
                         r=json.loads(cmd('docker','stats','--no-stream','--format','{{json .}}',name))
-                        samples.append({'elapsed_seconds':round(time.monotonic()-start,2),'cpu':r['CPUPerc'],'memory':r['MemUsage']})
+                        phase=phase_file.read_text() if phase_file.exists() else 'starting'
+                        samples.append({'elapsed_seconds':round(time.monotonic()-start,2),'phase':phase,'cpu':r['CPUPerc'],'memory':r['MemUsage']})
                     except Exception: break
                     stop.wait(1)
             thread=threading.Thread(target=sample,daemon=True);thread.start();time.sleep(3)
             env=dict(os.environ,BENCH_SECRET=secret)
-            command=[str(binary),'-service',args.service,'-url',scheme+address+suffix,'-users',str(args.users),'-duration',args.duration,'-rate',str(args.rate),'-burst',args.burst,'-burst-rate',str(args.burst_rate),'-out',str(result)]
+            command=[str(binary),'-service',args.service,'-url',scheme+address+suffix,'-users',str(args.users),'-duration',args.duration,'-rate',str(args.rate),'-burst',args.burst,'-burst-rate',str(args.burst_rate),'-idle',args.idle,'-phase-file',str(phase_file),'-out',str(result)]
             run = subprocess.run(command,cwd=HERE,env=env,check=False,timeout=args.timeout)
             if not result.exists(): run.check_returncode()
             stop.set();thread.join(10)

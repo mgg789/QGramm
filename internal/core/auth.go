@@ -42,7 +42,7 @@ func Decode(w http.ResponseWriter, r *http.Request, v any, max int64) bool {
 }
 func (c *Core) deviceActive(r *http.Request, id Identity) bool {
 	var active bool
-	err := c.DB.QueryRowContext(r.Context(), `SELECT d.revoked=0 AND u.disabled=0 FROM devices d JOIN users u ON u.id=d.user_id WHERE d.id=? AND d.user_id=?`, id.DeviceID, id.UserID).Scan(&active)
+	err := c.reader().QueryRowContext(r.Context(), `SELECT d.revoked=0 AND u.disabled=0 FROM devices d JOIN users u ON u.id=d.user_id WHERE d.id=? AND d.user_id=?`, id.DeviceID, id.UserID).Scan(&active)
 	return err == nil && active
 }
 func (c *Core) authenticate(r *http.Request) (Identity, error) {
@@ -121,7 +121,8 @@ func (c *Core) Handler() http.Handler {
 			}
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
-			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Chunk-SHA256")
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Chunk-SHA256, Prefer")
+			w.Header().Set("Access-Control-Expose-Headers", "Preference-Applied")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(204)

@@ -1,0 +1,94 @@
+{
+  "source_commit": "658346e",
+  "instrumented": true,
+  "profile_scope": "whole lifetime, includes setup; forced GC snapshots interrupt workload; timing excluded from comparative results",
+  "idle_snapshot": {
+    "at": "20261004T182028.231730963Z",
+    "frees": 3812433,
+    "gc_cycles": 68,
+    "goroutines": 20024,
+    "heap_alloc_bytes": 199373184,
+    "heap_inuse_bytes": 224894976,
+    "heap_sys_bytes": 230031360,
+    "mallocs": 4848539,
+    "stack_inuse_bytes": 206176256,
+    "sys_bytes": 455055736,
+    "writer_db": {
+      "MaxOpenConnections": 1,
+      "OpenConnections": 1,
+      "InUse": 0,
+      "Idle": 1,
+      "WaitCount": 59958,
+      "WaitDuration": 177486445171,
+      "MaxIdleClosed": 0,
+      "MaxIdleTimeClosed": 0,
+      "MaxLifetimeClosed": 0
+    }
+  },
+  "steady_start_snapshot": {
+    "at": "20261004T182042.503453095Z",
+    "frees": 4312952,
+    "gc_cycles": 69,
+    "goroutines": 20024,
+    "heap_alloc_bytes": 200080760,
+    "heap_inuse_bytes": 225607680,
+    "heap_sys_bytes": 233668608,
+    "mallocs": 5359288,
+    "stack_inuse_bytes": 206733312,
+    "sys_bytes": 459512184,
+    "writer_db": {
+      "MaxOpenConnections": 1,
+      "OpenConnections": 1,
+      "InUse": 0,
+      "Idle": 1,
+      "WaitCount": 60245,
+      "WaitDuration": 177507771706,
+      "MaxIdleClosed": 0,
+      "MaxIdleTimeClosed": 0,
+      "MaxLifetimeClosed": 0
+    }
+  },
+  "cpu_duration_seconds": 66.37,
+  "cpu_samples_seconds": 18.31,
+  "cpu_top_flat": {
+    "internal/runtime/syscall/linux.Syscall6": 23.48,
+    "runtime.nanotime": 3.55,
+    "encoding/binary.littleEndian.PutUint64": 2.89,
+    "runtime.futex": 2.51,
+    "circl/fp25519.mulGeneric": 2.46
+  },
+  "heap_top_inuse_mib_sampled": {
+    "bufio.NewReaderSize": 47.15,
+    "bufio.NewWriterSize": 37.14,
+    "runtime.mallocgc": 10.61,
+    "gorilla/websocket.newConn": 9.51,
+    "core.websocket": 9.01,
+    "database/sql.DB.conn": 6.5,
+    "time.NewTicker": 2.5
+  },
+  "method": "go tool pprof -top -nodecount=18 cpu.pprof; go tool pprof -top -nodecount=12 idle-heap.pprof; heap pprof allocation sampling differs from exact runtime.ReadMemStats values",
+  "late_load_snapshot": {
+    "at": "20261004T182117.131315750Z",
+    "frees": 13092660,
+    "gc_cycles": 72,
+    "goroutines": 20044,
+    "heap_alloc_bytes": 200408360,
+    "heap_inuse_bytes": 226746368,
+    "heap_sys_bytes": 417890304,
+    "mallocs": 14132586,
+    "stack_inuse_bytes": 207060992,
+    "sys_bytes": 651006376,
+    "writer_db": {
+      "MaxOpenConnections": 1,
+      "OpenConnections": 1,
+      "InUse": 0,
+      "Idle": 1,
+      "WaitCount": 112795,
+      "WaitDuration": 228452590578,
+      "MaxIdleClosed": 0,
+      "MaxIdleTimeClosed": 0,
+      "MaxLifetimeClosed": 0
+    }
+  },
+  "server_go": "go1.26.4"
+}

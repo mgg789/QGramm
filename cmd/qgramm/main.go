@@ -22,6 +22,10 @@ import (
 
 var compiledFeatures string
 
+// Development builds may attach private, in-process profiling. Production
+// builds leave this hook empty and expose no diagnostic routes.
+var profileCoreHook = func(*core.Core) {}
+
 func main() {
 	if err := run(); err != nil {
 		log.Printf("qgramm: %s", err)
@@ -58,6 +62,7 @@ func run() error {
 		return err
 	}
 	defer c.Close()
+	profileCoreHook(c)
 	if cfg.Server.AllowInsecureLoopback {
 		host, _, err := net.SplitHostPort(cfg.Server.Listen)
 		if err != nil {

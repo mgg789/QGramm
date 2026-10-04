@@ -11,12 +11,38 @@ import (
 )
 
 type connection struct {
-	socket *websocket.Conn
-	id     Identity
-	wake   chan string
-	done   chan struct{}
-	once   sync.Once
+	socket    *websocket.Conn
+	id        Identity
+	wake      chan struct{}
+	pendingMu sync.Mutex
+	pending   map[string]struct{}
+	done      chan struct{}
+	once      sync.Once
 }
+
+// Notifications carry no message payload: the journal is the durable queue.
+// At most one notification per subscribed chat is retained between flushes.
+func (conn *connection) notify(chat string) {
+	conn.pendingMu.Lock()
+	if conn.pending == nil {
+		conn.pending = make(map[string]struct{})
+	}
+	conn.pending[chat] = struct{}{}
+	conn.pendingMu.Unlock()
+	select {
+	case conn.wake <- struct{}{}:
+	default:
+	}
+}
+func (conn *connection) takePending() map[string]struct{} {
+	conn.pendingMu.Lock()
+	pending := conn.pending
+	conn.pending = nil
+	conn.pendingMu.Unlock()
+	return pending
+}
+
+var websocketWriteBuffers sync.Pool
 
 func (conn *connection) close() { conn.once.Do(func() { close(conn.done); _ = conn.socket.Close() }) }
 func (c *Core) DisconnectUser(user string) {
@@ -41,14 +67,11 @@ func (c *Core) Wake(chat string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for conn := range c.subscribers[chat] {
-		select {
-		case conn.wake <- chat:
-		default:
-		}
+		conn.notify(chat)
 	}
 }
 
-// Only subscribed connections are woken. Overflow is recovered by journal polling.
+// Only subscribed connections are woken. Journal polling also recovers missed notifications.
 func (c *Core) subscribe(conn *connection, chat string, enabled bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -62,6 +85,9 @@ func (c *Core) subscribe(conn *connection, chat string, enabled bool) {
 		c.subscribers[chat][conn] = struct{}{}
 	} else {
 		delete(c.subscribers[chat], conn)
+		conn.pendingMu.Lock()
+		delete(conn.pending, chat)
+		conn.pendingMu.Unlock()
 		if len(c.subscribers[chat]) == 0 {
 			delete(c.subscribers, chat)
 		}
@@ -101,7 +127,7 @@ func (c *Core) websocket(w http.ResponseWriter, r *http.Request) {
 	}
 	c.active++
 	c.mu.Unlock()
-	upgrader := websocket.Upgrader{ReadBufferSize: 1024, WriteBufferSize: 1024, CheckOrigin: func(*http.Request) bool { return true }, HandshakeTimeout: 5 * time.Second}
+	upgrader := websocket.Upgrader{ReadBufferSize: 1024, WriteBufferSize: 1024, WriteBufferPool: &websocketWriteBuffers, CheckOrigin: func(*http.Request) bool { return true }, HandshakeTimeout: 5 * time.Second}
 	socket, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		c.mu.Lock()
@@ -109,13 +135,20 @@ func (c *Core) websocket(w http.ResponseWriter, r *http.Request) {
 		c.mu.Unlock()
 		return
 	}
-	conn := &connection{socket: socket, id: id, wake: make(chan string, c.Config.Capacity.QueueDepth), done: make(chan struct{})}
+	conn := &connection{socket: socket, id: id, wake: make(chan struct{}, 1), done: make(chan struct{})}
 	c.mu.Lock()
 	if c.connections[id.DeviceID] == nil {
 		c.connections[id.DeviceID] = map[*connection]struct{}{}
 	}
 	c.connections[id.DeviceID][conn] = struct{}{}
 	c.mu.Unlock()
+	// Release the HTTP handler/request stack after hijacking. The connection
+	// lifetime belongs to Core, not the canceled HTTP request context.
+	go c.runWebsocket(conn)
+}
+
+func (c *Core) runWebsocket(conn *connection) {
+	socket, id := conn.socket, conn.id
 	defer func() {
 		conn.close()
 		c.mu.Lock()
@@ -156,12 +189,30 @@ func (c *Core) websocket(w http.ResponseWriter, r *http.Request) {
 			c.subscribe(conn, chat, false)
 		}
 	}()
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
+	// Idle sockets need maintenance only at ping deadlines. Replay polling
+	// is enabled separately only for sockets with subscriptions.
+	var replay *time.Ticker
+	var replayC <-chan time.Time
+	defer func() {
+		if replay != nil {
+			replay.Stop()
+		}
+	}()
+	updateReplay := func() {
+		if len(subscriptions) > 0 && replay == nil {
+			replay = time.NewTicker(time.Second)
+			replayC = replay.C
+		} else if len(subscriptions) == 0 && replay != nil {
+			replay.Stop()
+			replay = nil
+			replayC = nil
+		}
+	}
+	maintenance := time.NewTimer(25 * time.Second)
+	defer maintenance.Stop()
 	expires := time.NewTimer(15 * time.Minute)
 	defer expires.Stop()
 	lastPing := time.Now()
-	lastAuth := time.Now()
 	write := func(v any) error {
 		_ = socket.SetWriteDeadline(time.Now().Add(10 * time.Second))
 		return socket.WriteJSON(v)
@@ -173,18 +224,28 @@ func (c *Core) websocket(w http.ResponseWriter, r *http.Request) {
 		}
 		ctx, cancel := context.WithTimeout(c.Context, 10*time.Second)
 		defer cancel()
-		events, e := c.Events(ctx, id, chat, cursor, 100)
-		if e != nil {
-			c.subscribe(conn, chat, false)
-			delete(subscriptions, chat)
-			return write(map[string]any{"type": "sync.error", "chat_id": chat, "error": e.Error()}) == nil
-		}
-		for _, event := range events {
-			if write(event) != nil {
-				return false
+		// Bound each turn for fairness, but catch up several pages immediately.
+		// A remaining backlog reschedules itself without waiting for the poll.
+		for page := 0; page < 10; page++ {
+			events, e := c.Events(ctx, id, chat, cursor, 100)
+			if e != nil {
+				c.subscribe(conn, chat, false)
+				delete(subscriptions, chat)
+				updateReplay()
+				return write(map[string]any{"type": "sync.error", "chat_id": chat, "error": e.Error()}) == nil
 			}
-			subscriptions[chat] = event.Seq
+			for _, event := range events {
+				if write(event) != nil {
+					return false
+				}
+				subscriptions[chat] = event.Seq
+				cursor = event.Seq
+			}
+			if len(events) < 100 {
+				return true
+			}
 		}
+		conn.notify(chat)
 		return true
 	}
 	for {
@@ -199,6 +260,7 @@ func (c *Core) websocket(w http.ResponseWriter, r *http.Request) {
 			if cmd.Type == "unsubscribe" {
 				c.subscribe(conn, cmd.ChatID, false)
 				delete(subscriptions, cmd.ChatID)
+				updateReplay()
 				continue
 			}
 			if cmd.Type != "subscribe" || cmd.After < 0 || len(subscriptions) >= 128 {
@@ -207,7 +269,7 @@ func (c *Core) websocket(w http.ResponseWriter, r *http.Request) {
 				}
 				continue
 			}
-			if _, _, _, e := c.Member(r.Context(), id.UserID, cmd.ChatID); e != nil {
+			if _, _, _, e := c.Member(c.Context, id.UserID, cmd.ChatID); e != nil {
 				if write(map[string]string{"type": "error", "error": "membership required"}) != nil {
 					return
 				}
@@ -215,32 +277,35 @@ func (c *Core) websocket(w http.ResponseWriter, r *http.Request) {
 			}
 			subscriptions[cmd.ChatID] = cmd.After
 			c.subscribe(conn, cmd.ChatID, true)
+			updateReplay()
 			if !flush(cmd.ChatID) {
 				return
 			}
-		case chat := <-conn.wake:
-			if !flush(chat) {
-				return
-			}
-		case <-ticker.C:
-			if time.Since(lastAuth) > 30*time.Second {
-				if !c.deviceActive(r, id) {
+		case <-conn.wake:
+			for chat := range conn.takePending() {
+				if !flush(chat) {
 					return
 				}
-				lastAuth = time.Now()
 			}
+		case <-replayC:
 			for chat := range subscriptions {
 				if !flush(chat) {
 					return
 				}
 			}
-			if time.Since(lastPing) > 25*time.Second {
+		case <-maintenance.C:
+			if time.Since(lastPing) >= 25*time.Second {
 				_ = socket.SetWriteDeadline(time.Now().Add(10 * time.Second))
 				if socket.WriteMessage(websocket.PingMessage, nil) != nil {
 					return
 				}
 				lastPing = time.Now()
 			}
+			next := time.Until(lastPing.Add(25 * time.Second))
+			if next < time.Millisecond {
+				next = time.Millisecond
+			}
+			maintenance.Reset(next)
 		}
 	}
 }

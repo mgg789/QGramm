@@ -403,6 +403,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "Prefer",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "return=minimal"
+            }
           }
         ],
         "responses": {
@@ -418,15 +427,24 @@
           },
           "201": {
             "description": "Successful response",
+            "headers": {
+              "Preference-Applied": {
+                "description": "Present when the compact receipt was requested.",
+                "schema": {
+                  "const": "return=minimal"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Message"
+                  "$ref": "#/components/schemas/SendResult"
                 }
               }
             }
           }
         },
+        "description": "Default returns the current full message. Prefer: return=minimal returns a stable acceptance receipt without re-encrypting content for the sender; delivery remains a separate device receipt. Exact retries retain the operation result and check current access.",
         "security": [
           {
             "deviceJWT": []
@@ -457,6 +475,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "Prefer",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "return=minimal"
+            }
           }
         ],
         "responses": {
@@ -472,6 +499,14 @@
           },
           "207": {
             "description": "Successful response",
+            "headers": {
+              "Preference-Applied": {
+                "description": "Present when the compact receipt was requested.",
+                "schema": {
+                  "const": "return=minimal"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -505,6 +540,26 @@
                             "type": "string"
                           },
                           "status": {
+                            "const": 201
+                          },
+                          "receipt": {
+                            "$ref": "#/components/schemas/AcceptanceReceipt"
+                          }
+                        },
+                        "required": [
+                          "operation_id",
+                          "status",
+                          "receipt"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "operation_id": {
+                            "type": "string"
+                          },
+                          "status": {
                             "type": "integer",
                             "format": "int64"
                           },
@@ -526,6 +581,7 @@
             }
           }
         },
+        "description": "Default returns the current full message. Prefer: return=minimal returns a stable acceptance receipt without re-encrypting content for the sender; delivery remains a separate device receipt. Exact retries retain the operation result and check current access.",
         "security": [
           {
             "deviceJWT": []
@@ -3065,6 +3121,68 @@
           "user_id"
         ],
         "additionalProperties": false
+      },
+      "AcceptanceReceipt": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string"
+          },
+          "chat_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "seq": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "message_id",
+          "chat_id",
+          "operation_id",
+          "seq"
+        ],
+        "additionalProperties": false
+      },
+      "SendResult": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "accepted"
+              },
+              "message": {
+                "$ref": "#/components/schemas/Message"
+              }
+            },
+            "required": [
+              "status",
+              "message"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "status": {
+                "const": "accepted"
+              },
+              "receipt": {
+                "$ref": "#/components/schemas/AcceptanceReceipt"
+              }
+            },
+            "required": [
+              "status",
+              "receipt"
+            ],
+            "additionalProperties": false
+          }
+        ]
       },
       "Chat": {
         "type": "object",

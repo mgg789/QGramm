@@ -13,6 +13,7 @@ import (
 	"github.com/mgg789/QGramm/internal/cryptoenc"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -32,6 +33,12 @@ func statusError(w http.ResponseWriter, err error) {
 	Error(w, 503, "storage unavailable")
 }
 func (c *Core) Send(ctx context.Context, id Identity, chat string, in MessageInput) (Message, error) {
+	return c.sendMessage(ctx, id, chat, in, false)
+}
+
+// sendMessage keeps the default projection compatible, while receipt-only callers
+// avoid reading and re-encrypting content after a durable commit.
+func (c *Core) sendMessage(ctx context.Context, id Identity, chat string, in MessageInput, minimal bool) (Message, error) {
 	if !validID(in.OperationID) {
 		return Message{}, &APIError{400, "operation_id required (1..128 safe characters)"}
 	}
@@ -40,7 +47,7 @@ func (c *Core) Send(ctx context.Context, id Identity, chat string, in MessageInp
 	hash := hex.EncodeToString(digest[:])
 	var previousHash string
 	var previous []byte
-	err := c.DB.QueryRowContext(ctx, `SELECT hash,result FROM operations WHERE device_id=? AND operation_id=?`, id.DeviceID, in.OperationID).Scan(&previousHash, &previous)
+	err := c.reader().QueryRowContext(ctx, `SELECT hash,result FROM operations WHERE device_id=? AND operation_id=?`, id.DeviceID, in.OperationID).Scan(&previousHash, &previous)
 	if err == nil {
 		if previousHash != hash {
 			return Message{}, &APIError{409, "operation_id reused with different content"}
@@ -49,7 +56,7 @@ func (c *Core) Send(ctx context.Context, id Identity, chat string, in MessageInp
 		if err = json.Unmarshal(previous, &saved); err != nil {
 			return Message{}, err
 		}
-		return c.ViewMessage(ctx, id, saved.ID)
+		return c.sendResult(ctx, id, saved, minimal, true)
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return Message{}, err
@@ -61,7 +68,7 @@ func (c *Core) Send(ctx context.Context, id Identity, chat string, in MessageInp
 	var mode string
 	var epoch int64
 	var pending bool
-	if err = c.DB.QueryRowContext(ctx, `SELECT mode,epoch,pending FROM chats WHERE id=?`, chat).Scan(&mode, &epoch, &pending); err != nil {
+	if err = c.reader().QueryRowContext(ctx, `SELECT mode,epoch,pending FROM chats WHERE id=?`, chat).Scan(&mode, &epoch, &pending); err != nil {
 		return Message{}, err
 	}
 	if pending {
@@ -120,8 +127,10 @@ func (c *Core) Send(ctx context.Context, id Identity, chat string, in MessageInp
 		}
 		_ = tx.Rollback()
 		var saved Message
-		_ = json.Unmarshal(previous, &saved)
-		return c.ViewMessage(ctx, id, saved.ID)
+		if err = json.Unmarshal(previous, &saved); err != nil {
+			return Message{}, err
+		}
+		return c.sendResult(ctx, id, saved, minimal, true)
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return Message{}, err
@@ -149,66 +158,156 @@ func (c *Core) Send(ctx context.Context, id Identity, chat string, in MessageInp
 		return Message{}, err
 	}
 	c.Wake(chat)
-	return c.ViewMessage(ctx, id, messageID)
+	return c.sendResult(ctx, id, message, minimal, false)
+}
+
+func (c *Core) sendResult(ctx context.Context, id Identity, saved Message, minimal, repeated bool) (Message, error) {
+	if !minimal {
+		return c.ViewMessage(ctx, id, saved.ID)
+	}
+	if repeated {
+		// A stored idempotency result must not bypass revoked membership/device access.
+		var accessible bool
+		err := c.reader().QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM messages msg JOIN members m ON m.chat_id=msg.chat_id JOIN devices d ON d.user_id=m.user_id JOIN users u ON u.id=m.user_id WHERE msg.id=? AND m.user_id=? AND m.active=1 AND msg.seq>=m.joined_seq AND d.id=? AND d.revoked=0 AND u.disabled=0)`, saved.ID, id.UserID, id.DeviceID).Scan(&accessible)
+		if err != nil {
+			return Message{}, err
+		}
+		if !accessible {
+			return Message{}, &APIError{404, "message not accessible"}
+		}
+	}
+	return saved, nil
+}
+
+func minimalPreference(r *http.Request) bool {
+	for _, value := range r.Header.Values("Prefer") {
+		for _, preference := range strings.Split(value, ",") {
+			if strings.EqualFold(strings.TrimSpace(strings.SplitN(preference, ";", 2)[0]), "return=minimal") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func acceptanceReceipt(m Message) map[string]any {
+	return map[string]any{"message_id": m.ID, "chat_id": m.ChatID, "operation_id": m.OperationID, "seq": m.Seq}
 }
 func (c *Core) ViewMessage(ctx context.Context, id Identity, messageID string) (Message, error) {
-	var m Message
-	var payload, metadata []byte
-	err := c.DB.QueryRowContext(ctx, `SELECT msg.id,msg.chat_id,msg.sender,msg.device_id,msg.operation_id,msg.seq,msg.revision,msg.deleted,msg.payload,msg.metadata,msg.epoch,msg.created_at,c.mode FROM messages msg JOIN chats c ON c.id=msg.chat_id JOIN members member ON member.chat_id=msg.chat_id WHERE msg.id=? AND member.user_id=? AND member.active=1 AND msg.seq>=member.joined_seq`, messageID, id.UserID).Scan(&m.ID, &m.ChatID, &m.Sender, &m.DeviceID, &m.OperationID, &m.Seq, &m.Revision, &m.Deleted, &payload, &metadata, &m.Epoch, &m.CreatedAt, &m.Mode)
+	messages, err := c.viewMessages(ctx, id, []string{messageID})
 	if err != nil {
-		return m, &APIError{404, "message not accessible"}
+		return Message{}, err
 	}
-	var meta struct {
-		Attachments []string `json:"attachments"`
-		ReplyTo     string   `json:"reply_to"`
-		ForwardFrom string   `json:"forward_from"`
+	return messages[messageID], nil
+}
+
+// viewMessages fetches current accessible state in one bounded query and resolves
+// the recipient key once. Projection hooks run after rows close, so optional
+// modules can query storage even with a single-connection pool.
+func (c *Core) viewMessages(ctx context.Context, id Identity, ids []string) (map[string]Message, error) {
+	out := make(map[string]Message, len(ids))
+	if len(ids) == 0 {
+		return out, nil
 	}
-	_ = json.Unmarshal(metadata, &meta)
-	m.Attachments = meta.Attachments
-	m.ReplyTo = meta.ReplyTo
-	m.ForwardFrom = meta.ForwardFrom
-	for _, hook := range c.Project {
-		if err = hook(ctx, id, &m); err != nil {
-			return m, err
+	type storedMessage struct {
+		message           Message
+		payload, metadata []byte
+	}
+	unique := make(map[string]bool, len(ids))
+	args := []any{id.UserID}
+	placeholders := []string{}
+	for _, messageID := range ids {
+		if !unique[messageID] {
+			unique[messageID] = true
+			args = append(args, messageID)
+			placeholders = append(placeholders, "?")
 		}
 	}
-	if m.Deleted {
-		m.Attachments = nil
-		m.ReplyTo = ""
-		m.ForwardFrom = ""
-		return m, nil
-	}
-	plain, err := c.Engine.Open(payload, []byte("message/"+m.ID))
+	rows, err := c.reader().QueryContext(ctx, `SELECT msg.id,msg.chat_id,msg.sender,msg.device_id,msg.operation_id,msg.seq,msg.revision,msg.deleted,msg.payload,msg.metadata,msg.epoch,msg.created_at,c.mode FROM messages msg JOIN chats c ON c.id=msg.chat_id JOIN members member ON member.chat_id=msg.chat_id WHERE member.user_id=? AND member.active=1 AND msg.seq>=member.joined_seq AND msg.id IN (`+strings.Join(placeholders, ",")+`)`, args...)
 	if err != nil {
-		return m, err
+		return nil, err
 	}
-	if m.Mode == "basic" {
-		var encoded string
-		if err = c.DB.QueryRowContext(ctx, `SELECT public_key FROM devices WHERE id=? AND user_id=? AND revoked=0`, id.DeviceID, id.UserID).Scan(&encoded); err != nil {
-			return m, err
+	stored := make([]storedMessage, 0, len(unique))
+	for rows.Next() {
+		var item storedMessage
+		m := &item.message
+		if err = rows.Scan(&m.ID, &m.ChatID, &m.Sender, &m.DeviceID, &m.OperationID, &m.Seq, &m.Revision, &m.Deleted, &item.payload, &item.metadata, &m.Epoch, &m.CreatedAt, &m.Mode); err != nil {
+			rows.Close()
+			return nil, err
 		}
-		pub, err := base64.StdEncoding.DecodeString(encoded)
-		if err != nil {
-			return m, err
-		}
-		envelope, err := cryptoenc.SealEnvelope(pub, plain, cryptoenc.Binding(m.ChatID, id.UserID, id.DeviceID, m.ID))
-		if err != nil {
-			return m, err
-		}
-		m.Envelope = &envelope
-	} else {
-		m.MLS = base64.StdEncoding.EncodeToString(plain)
+		stored = append(stored, item)
 	}
-	return m, nil
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	if len(stored) != len(unique) {
+		return nil, &APIError{404, "message not accessible"}
+	}
+	var publicKey []byte
+	for _, item := range stored {
+		m := item.message
+		var meta struct {
+			Attachments []string `json:"attachments"`
+			ReplyTo     string   `json:"reply_to"`
+			ForwardFrom string   `json:"forward_from"`
+		}
+		if err = json.Unmarshal(item.metadata, &meta); err != nil {
+			return nil, err
+		}
+		m.Attachments, m.ReplyTo, m.ForwardFrom = meta.Attachments, meta.ReplyTo, meta.ForwardFrom
+		for _, hook := range c.Project {
+			if err = hook(ctx, id, &m); err != nil {
+				return nil, err
+			}
+		}
+		if m.Deleted {
+			m.Attachments, m.ReplyTo, m.ForwardFrom = nil, "", ""
+			out[m.ID] = m
+			continue
+		}
+		plain, err := c.Engine.Open(item.payload, []byte("message/"+m.ID))
+		if err != nil {
+			return nil, err
+		}
+		if m.Mode == "basic" {
+			if publicKey == nil {
+				var encoded string
+				if err = c.reader().QueryRowContext(ctx, `SELECT public_key FROM devices WHERE id=? AND user_id=? AND revoked=0`, id.DeviceID, id.UserID).Scan(&encoded); err != nil {
+					return nil, err
+				}
+				publicKey, err = base64.StdEncoding.DecodeString(encoded)
+				if err != nil {
+					return nil, err
+				}
+			}
+			envelope, err := cryptoenc.SealEnvelope(publicKey, plain, cryptoenc.Binding(m.ChatID, id.UserID, id.DeviceID, m.ID))
+			if err != nil {
+				return nil, err
+			}
+			m.Envelope = &envelope
+		} else {
+			m.MLS = base64.StdEncoding.EncodeToString(plain)
+		}
+		out[m.ID] = m
+	}
+	return out, nil
 }
 func (c *Core) send(w http.ResponseWriter, r *http.Request, id Identity) {
 	var in MessageInput
 	if !Decode(w, r, &in, int64(c.Config.Policy.MaxMessageBytes*2+16384)) {
 		return
 	}
-	msg, err := c.Send(r.Context(), id, r.PathValue("chat"), in)
+	minimal := minimalPreference(r)
+	msg, err := c.sendMessage(r.Context(), id, r.PathValue("chat"), in, minimal)
 	if err != nil {
 		statusError(w, err)
+		return
+	}
+	if minimal {
+		w.Header().Set("Preference-Applied", "return=minimal")
+		JSON(w, 201, map[string]any{"status": "accepted", "receipt": acceptanceReceipt(msg)})
 		return
 	}
 	JSON(w, 201, map[string]any{"status": "accepted", "message": msg})
@@ -225,8 +324,12 @@ func (c *Core) batch(w http.ResponseWriter, r *http.Request, id Identity) {
 		return
 	}
 	out := []map[string]any{}
+	minimal := minimalPreference(r)
+	if minimal {
+		w.Header().Set("Preference-Applied", "return=minimal")
+	}
 	for _, item := range in.Messages {
-		msg, err := c.Send(r.Context(), id, r.PathValue("chat"), item)
+		msg, err := c.sendMessage(r.Context(), id, r.PathValue("chat"), item, minimal)
 		if err != nil {
 			code := 503
 			var api *APIError
@@ -234,6 +337,8 @@ func (c *Core) batch(w http.ResponseWriter, r *http.Request, id Identity) {
 				code = api.Status
 			}
 			out = append(out, map[string]any{"operation_id": item.OperationID, "status": code, "error": err.Error()})
+		} else if minimal {
+			out = append(out, map[string]any{"operation_id": item.OperationID, "status": 201, "receipt": acceptanceReceipt(msg)})
 		} else {
 			out = append(out, map[string]any{"operation_id": item.OperationID, "status": 201, "message": msg})
 		}
@@ -255,7 +360,7 @@ func (c *Core) history(w http.ResponseWriter, r *http.Request, id Identity) {
 	if v, e := strconv.Atoi(r.URL.Query().Get("limit")); e == nil && v > 0 && v <= 200 {
 		limit = v
 	}
-	rows, err := c.DB.QueryContext(r.Context(), `SELECT id FROM messages WHERE chat_id=? AND seq>? ORDER BY seq LIMIT ?`, chat, after, limit)
+	rows, err := c.reader().QueryContext(r.Context(), `SELECT id FROM messages WHERE chat_id=? AND seq>? ORDER BY seq LIMIT ?`, chat, after, limit)
 	if err != nil {
 		statusError(w, err)
 		return
@@ -270,33 +375,38 @@ func (c *Core) history(w http.ResponseWriter, r *http.Request, id Identity) {
 		}
 		ids = append(ids, mid)
 	}
+	err = rows.Err()
 	rows.Close()
-	out := []Message{}
+	if err != nil {
+		statusError(w, err)
+		return
+	}
+	messages, err := c.viewMessages(r.Context(), id, ids)
+	if err != nil {
+		statusError(w, err)
+		return
+	}
+	out := make([]Message, 0, len(ids))
 	for _, mid := range ids {
-		m, e := c.ViewMessage(r.Context(), id, mid)
-		if e != nil {
-			statusError(w, e)
-			return
-		}
-		out = append(out, m)
+		out = append(out, messages[mid])
 	}
 	JSON(w, 200, out)
 }
 func (c *Core) Events(ctx context.Context, id Identity, chat string, after int64, limit int) ([]Event, error) {
-	_, _, joined, err := c.Member(ctx, id.UserID, chat)
-	if err != nil {
+	if limit < 1 || limit > 200 {
+		return nil, &APIError{400, "event limit must be 1..200"}
+	}
+	var current, joined int64
+	var minimum sql.NullInt64
+	err := c.reader().QueryRowContext(ctx, `SELECT c.seq,m.joined_seq,(SELECT MIN(seq) FROM events WHERE chat_id=c.id) FROM chats c JOIN members m ON m.chat_id=c.id WHERE c.id=? AND m.user_id=? AND m.active=1`, chat, id.UserID).Scan(&current, &joined, &minimum)
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, &APIError{403, "membership required"}
+	}
+	if err != nil {
+		return nil, err
 	}
 	if after < joined-1 {
 		after = joined - 1
-	}
-	var current int64
-	var minimum sql.NullInt64
-	if err = c.DB.QueryRowContext(ctx, `SELECT seq FROM chats WHERE id=?`, chat).Scan(&current); err != nil {
-		return nil, err
-	}
-	if err = c.DB.QueryRowContext(ctx, `SELECT MIN(seq) FROM events WHERE chat_id=?`, chat).Scan(&minimum); err != nil {
-		return nil, err
 	}
 	if after < current && (!minimum.Valid || after+1 < minimum.Int64) {
 		return nil, &APIError{410, "cursor expired; sync history and current state"}
@@ -304,7 +414,7 @@ func (c *Core) Events(ctx context.Context, id Identity, chat string, after int64
 	if after > current {
 		return nil, &APIError{400, "cursor ahead of chat"}
 	}
-	rows, err := c.DB.QueryContext(ctx, `SELECT seq,kind,message_id,data FROM events WHERE chat_id=? AND seq>? ORDER BY seq LIMIT ?`, chat, after, limit)
+	rows, err := c.reader().QueryContext(ctx, `SELECT seq,kind,message_id,data FROM events WHERE chat_id=? AND seq>? ORDER BY seq LIMIT ?`, chat, after, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -321,15 +431,25 @@ func (c *Core) Events(ctx context.Context, id Identity, chat string, after int64
 		}
 		items = append(items, it)
 	}
+	err = rows.Err()
 	rows.Close()
-	out := []Event{}
+	if err != nil {
+		return nil, err
+	}
+	messageIDs := make([]string, 0, len(items))
 	for _, it := range items {
 		if it.event.MessageID != "" {
-			m, e := c.ViewMessage(ctx, id, it.event.MessageID)
-			if e != nil {
-				return nil, e
-			}
-			it.event.Data = m
+			messageIDs = append(messageIDs, it.event.MessageID)
+		}
+	}
+	messages, err := c.viewMessages(ctx, id, messageIDs)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Event, 0, len(items))
+	for _, it := range items {
+		if it.event.MessageID != "" {
+			it.event.Data = messages[it.event.MessageID]
 		} else if len(it.data) > 0 {
 			data, e := c.Engine.Open(it.data, []byte(fmt.Sprintf("event/%s/%d", chat, it.event.Seq)))
 			if e != nil {
@@ -370,7 +490,7 @@ func (c *Core) receipt(w http.ResponseWriter, r *http.Request, id Identity) {
 		return
 	}
 	var current int64
-	_ = c.DB.QueryRowContext(r.Context(), `SELECT seq FROM chats WHERE id=?`, chat).Scan(&current)
+	_ = c.reader().QueryRowContext(r.Context(), `SELECT seq FROM chats WHERE id=?`, chat).Scan(&current)
 	if in.Read < 0 || in.Delivered < in.Read || in.Delivered > current {
 		Error(w, 400, "invalid receipt range")
 		return

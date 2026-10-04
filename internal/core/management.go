@@ -105,7 +105,7 @@ func (c *Core) putDevice(w http.ResponseWriter, r *http.Request) {
 	n, _ := result.RowsAffected()
 	if n == 0 {
 		var existing, owner, sign string
-		_ = c.DB.QueryRowContext(r.Context(), `SELECT public_key,user_id,signing_key FROM devices WHERE id=?`, device).Scan(&existing, &owner, &sign)
+		_ = c.reader().QueryRowContext(r.Context(), `SELECT public_key,user_id,signing_key FROM devices WHERE id=?`, device).Scan(&existing, &owner, &sign)
 		if existing != in.PublicKey || owner != user || sign != in.SigningKey {
 			Error(w, 409, "device keys immutable; register new device")
 			return
@@ -265,7 +265,7 @@ func (c *Core) putMember(w http.ResponseWriter, r *http.Request) {
 	JSON(w, 200, map[string]bool{"updated": true})
 }
 func (c *Core) listChats(w http.ResponseWriter, r *http.Request, id Identity) {
-	rows, err := c.DB.QueryContext(r.Context(), `SELECT c.id,c.kind,c.mode,c.seq,c.epoch,c.pending,m.role,m.can_send FROM chats c JOIN members m ON m.chat_id=c.id WHERE m.user_id=? AND m.active=1 ORDER BY c.created_at,c.id`, id.UserID)
+	rows, err := c.reader().QueryContext(r.Context(), `SELECT c.id,c.kind,c.mode,c.seq,c.epoch,c.pending,m.role,m.can_send FROM chats c JOIN members m ON m.chat_id=c.id WHERE m.user_id=? AND m.active=1 ORDER BY c.created_at,c.id`, id.UserID)
 	if err != nil {
 		Error(w, 503, "storage unavailable")
 		return
@@ -281,6 +281,10 @@ func (c *Core) listChats(w http.ResponseWriter, r *http.Request, id Identity) {
 			return
 		}
 		out = append(out, map[string]any{"id": chat, "kind": kind, "mode": mode, "seq": seq, "epoch": epoch, "pending_rekey": pending, "role": role, "can_send": send})
+	}
+	if rows.Err() != nil {
+		Error(w, 503, "storage unavailable")
+		return
 	}
 	JSON(w, 200, out)
 }
