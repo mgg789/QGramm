@@ -84,7 +84,6 @@ type Core struct {
 	writeStatements  statementCache
 	replayMu         sync.Mutex
 	replayHeads      map[string]int64
-	replayPlan       replayPollPlan
 	DB               *sql.DB
 	readDB           *sql.DB
 	Config           config.Config
@@ -99,10 +98,6 @@ type Core struct {
 	subscribers      map[string]map[*connection]struct{}
 	active           int
 	Prepare          []func(context.Context, Identity, string, *MessageInput) error
-
-	// Protected by mu; changes only with the subscribed chat set.
-	subscriptionGeneration uint64
-
 	// Transaction hooks may write SQL only: no external effects or transaction
 	// control. A failed message hook is rolled back to its writer savepoint.
 	InTransaction []func(context.Context, *sql.Tx, Identity, string, Message) error

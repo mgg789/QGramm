@@ -81,7 +81,6 @@ func (c *Core) subscribe(conn *connection, chat string, enabled bool) {
 	if enabled {
 		if c.subscribers[chat] == nil {
 			c.subscribers[chat] = map[*connection]struct{}{}
-			c.subscriptionGeneration++
 		}
 		c.subscribers[chat][conn] = struct{}{}
 	} else {
@@ -89,9 +88,8 @@ func (c *Core) subscribe(conn *connection, chat string, enabled bool) {
 		conn.pendingMu.Lock()
 		delete(conn.pending, chat)
 		conn.pendingMu.Unlock()
-		if members, exists := c.subscribers[chat]; exists && len(members) == 0 {
+		if len(c.subscribers[chat]) == 0 {
 			delete(c.subscribers, chat)
-			c.subscriptionGeneration++
 		}
 	}
 }
