@@ -8,3 +8,13 @@ build/
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 *.xcodeproj/project.xcworkspace/xcuserdata/
+
+.env
+.env.*
+!.env.example
+bin/
+data/
+*.db
+*.db-wal
+*.db-shm
+compose.yaml

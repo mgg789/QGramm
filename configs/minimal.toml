@@ -1,0 +1,6 @@
+[server]
+listen = "127.0.0.1:8080"
+allow_insecure_loopback = true
+[capacity]
+expected_concurrent_users = 100
+# All optional features default to false.

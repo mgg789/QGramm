@@ -1,0 +1,17 @@
+.git
+.env
+.env.*
+*.pem
+*.key
+secrets
+credentials
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+data
+bin
+work
+outputs
+compose.yaml
+coverage.out
