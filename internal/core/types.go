@@ -73,6 +73,7 @@ func Registered() []string {
 }
 
 type Core struct {
+	diagnostics      diagnosticState
 	OnDelete         []func(context.Context, *sql.Tx, string) error
 	httpSlots        chan struct{}
 	httpPending      chan struct{}
@@ -96,9 +97,11 @@ type Core struct {
 	subscribers      map[string]map[*connection]struct{}
 	active           int
 	Prepare          []func(context.Context, Identity, string, *MessageInput) error
-	InTransaction    []func(context.Context, *sql.Tx, Identity, string, Message) error
-	Project          []func(context.Context, Identity, *Message) error
-	Cleanup          []func(context.Context) error
+	// Transaction hooks may write SQL only: no external effects or transaction
+	// control. A failed message hook is rolled back to its writer savepoint.
+	InTransaction []func(context.Context, *sql.Tx, Identity, string, Message) error
+	Project       []func(context.Context, Identity, *Message) error
+	Cleanup       []func(context.Context) error
 }
 
 func (c *Core) AddRoute(pattern string, h Handler) { c.Mux.HandleFunc(pattern, c.authorize(h)) }

@@ -65,11 +65,12 @@ func init() {
 			}
 			var m runtime.MemStats
 			runtime.ReadMemStats(&m)
-			row := map[string]any{"at": stamp, "goroutines": runtime.NumGoroutine(), "heap_alloc_bytes": m.HeapAlloc, "heap_inuse_bytes": m.HeapInuse, "heap_sys_bytes": m.HeapSys, "stack_inuse_bytes": m.StackInuse, "sys_bytes": m.Sys, "mallocs": m.Mallocs, "frees": m.Frees, "gc_cycles": m.NumGC}
+			row := map[string]any{"at": stamp, "goroutines": runtime.NumGoroutine(), "heap_alloc_bytes": m.HeapAlloc, "heap_inuse_bytes": m.HeapInuse, "heap_sys_bytes": m.HeapSys, "stack_inuse_bytes": m.StackInuse, "sys_bytes": m.Sys, "mallocs": m.Mallocs, "frees": m.Frees, "gc_cycles": m.NumGC, "total_alloc_bytes": m.TotalAlloc, "gc_pause_total_ns": m.PauseTotalNs, "gc_cpu_fraction": m.GCCPUFraction}
 			if c := attached.Load(); c != nil {
 				row["writer_db"] = c.DB.Stats()
 				row["message_writer"] = c.WriterStats()
 				row["http_admission"] = c.AdmissionStats()
+				row["diagnostics"] = c.DiagnosticStats()
 				if reader, ok := any(c).(interface{ ReadStats() sql.DBStats }); ok {
 					row["reader_db"] = reader.ReadStats()
 				}

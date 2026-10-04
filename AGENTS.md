@@ -13,3 +13,5 @@
 - Call an independent inspector before commits and after substantial security changes.
 - `go run -race ./examples/basic` checks the disposable HTTP/WebSocket integration example. `python3 scripts/check-docs.py` checks local documentation links, UTF-8 and JSON evidence.
 - Performance evidence distinguishes ACK durability, image provenance and successful-request percentiles. Never mix Docker VM measurements with dedicated Linux/SSD qualification or reconstruct p99 from p95-only artifacts.
+
+- Message jobs already queued may share a FULL commit (max16 jobs/8MiB, no delay timer). Each job uses a savepoint; ACK/wake happen only after commit. InTransaction hooks must be SQL-only and must not manage transactions or savepoints.

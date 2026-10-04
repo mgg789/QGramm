@@ -39,12 +39,14 @@ func (s *statementCache) close() {
 	}
 }
 func (c *Core) readQueryRow(ctx context.Context, query string, args ...any) *sql.Row {
+	c.observeRead()
 	if stmt := c.readStatements.get(ctx, c.reader(), query, true); stmt != nil {
 		return stmt.QueryRowContext(ctx, args...)
 	}
 	return c.reader().QueryRowContext(ctx, query, args...)
 }
 func (c *Core) readQuery(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	c.observeRead()
 	if stmt := c.readStatements.get(ctx, c.reader(), query, true); stmt != nil {
 		return stmt.QueryContext(ctx, args...)
 	}

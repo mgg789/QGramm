@@ -11,6 +11,7 @@ This is a pre-release core. Implementation, mocks, independent peers and live pr
 | Build/runtime matrix | Current command: `sh scripts/build-matrix.sh` (13 features, 28 profiles and 7 invalid configurations); previous 30-profile result included the now-removed Redis experiment. Registry/routes/tables/files/dependency graphs checked in that recorded run. |
 | Protocol/security integration | JWT issuer/audience, device revocation, ACL, recipient HPKE, durable dedup/restart, replay/cursors, receipts and one-use WS tickets |
 | Fault paths | SQLite `SQLITE_FULL` rollback/recovery, exact batch retry after lost response, reconnect, expired replay, bounded capacity, corrupt/missing file chunks, quotas; AI late-reply invalidation after deletion |
+| Durable grouped writer | Opportunistic groups up to16 queued jobs/8MiB with SQLite FULL, per-job savepoints and no wait timer. Tests cover no ACK/fan-out before commit, failed commit, real SQLITE_FULL rollback/retry, hook failure, cancellation, dedup and sequence order; minimal/full race suites pass. |
 | Fuzzing | Five-second runs: `FuzzStrictJSON`, `FuzzEncryptedFrames`, `FuzzMLSKeyPackage`, two workers; no crashes. Short smoke fuzz, not exhaustive fuzzing |
 | HPKE | CFRG RFC9180 suite32/1/1 vector, 257 generations; retired keys, wrong AAD and key removal tests |
 | MLS independent interop | Pinned mls-go RFC-vector package tests; OpenMLS suite1 Welcome/application/public commit matrix. [Raw evidence](../internal/cryptoenc/testdata/interop-evidence.json) |
