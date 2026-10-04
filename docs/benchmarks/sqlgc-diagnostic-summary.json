@@ -1,0 +1,310 @@
+{
+  "instrumented": true,
+  "users": 2000,
+  "profile": "all sockets send subscription commands to paired direct chats; one active conversation; full response",
+  "checkpoint_labels": [
+    "idle",
+    "steady",
+    "burst",
+    "final"
+  ],
+  "interval": "final minus idle; includes remaining idle, steady, burst, history, background and profiling work",
+  "normalization": "divide interval counter differences by accepted messages; not isolated per-message cost",
+  "limitations": [
+    "Exactly four requested forced-GC checkpoints per run; automatic GC cycles also counted; instrumented results are not primary timing results",
+    "Read helper invocations count SQL read calls through prepared helper functions, excluding writes and driver internal statements",
+    "Timing histograms have coarse upper bounds and +Inf overflow; frequencies and cumulative counts are published, no exact p95/p99 derived",
+    "Commit timing covers sql.Tx.Commit and is not isolated fsync timing or physical power-loss qualification",
+    "GCCPUFraction is cumulative since process start; final fractions include setup and forced GC; heap snapshots follow GC and profile serialization",
+    "Only one diagnostic run per version; shared host/DockerVM remains unqualified for LinuxSSD acceptance"
+  ],
+  "metrics": {
+    "before": {
+      "accepted": 7998,
+      "checkpoint_count": 4,
+      "total_alloc_bytes_delta": 814208056,
+      "alloc_bytes_per_accepted_with_history_background": 101801.45736434108,
+      "mallocs_delta": 12975755,
+      "mallocs_per_accepted_with_history_background": 1622.3749687421855,
+      "read_helper_calls_delta": 107057,
+      "read_helper_calls_per_accepted_with_history_background": 13.38547136784196,
+      "gc_pause_total_ns_delta": 28921621,
+      "gc_cycles_delta_including_forced": 48,
+      "gc_cpu_fraction_final_cumulative": 0.0017959313166732705,
+      "commit_transactions_delta": 7998,
+      "accepted_per_commit_transaction": 1.0,
+      "committed_messages_delta_if_available": null,
+      "writer_service_ns_delta": 6217726692,
+      "writer_commit_ns_delta": 5417560505,
+      "writer_queue_wait_ns_delta": 8799533604,
+      "reader_db_wait_ns_delta": 4354290,
+      "heap_alloc_bytes_idle_snapshot": 21552776,
+      "heap_alloc_bytes_final_snapshot": 8581304,
+      "histogram_bucket_upper_ms": [
+        "0.125",
+        "0.25",
+        "0.5",
+        "1",
+        "2",
+        "4",
+        "8",
+        "16",
+        "32",
+        "+Inf"
+      ],
+      "histograms": {
+        "queue_wait_jobs": {
+          "interval_bucket_counts": [
+            6070,
+            96,
+            231,
+            240,
+            482,
+            338,
+            264,
+            101,
+            156,
+            20
+          ],
+          "interval_cumulative_counts": [
+            6070,
+            6166,
+            6397,
+            6637,
+            7119,
+            7457,
+            7721,
+            7822,
+            7978,
+            7998
+          ],
+          "total": 7998
+        },
+        "writer_service_transactions": {
+          "interval_bucket_counts": [
+            2,
+            478,
+            2430,
+            3462,
+            1328,
+            277,
+            20,
+            1,
+            0,
+            0
+          ],
+          "interval_cumulative_counts": [
+            2,
+            480,
+            2910,
+            6372,
+            7700,
+            7977,
+            7997,
+            7998,
+            7998,
+            7998
+          ],
+          "total": 7998
+        },
+        "commit_transactions": {
+          "interval_bucket_counts": [
+            252,
+            488,
+            2788,
+            3456,
+            744,
+            254,
+            16,
+            0,
+            0,
+            0
+          ],
+          "interval_cumulative_counts": [
+            252,
+            740,
+            3528,
+            6984,
+            7728,
+            7982,
+            7998,
+            7998,
+            7998,
+            7998
+          ],
+          "total": 7998
+        }
+      },
+      "interval_seconds": 45.17025566101074,
+      "read_helper_calls_per_interval_second": 2370.0773536335673,
+      "total_alloc_bytes_per_interval_second": 18025314.315473173
+    },
+    "after": {
+      "accepted": 7989,
+      "checkpoint_count": 4,
+      "total_alloc_bytes_delta": 788717472,
+      "alloc_bytes_per_accepted_with_history_background": 98725.43146826887,
+      "mallocs_delta": 12230403,
+      "mallocs_per_accepted_with_history_background": 1530.9053698835899,
+      "read_helper_calls_delta": 77502,
+      "read_helper_calls_per_accepted_with_history_background": 9.701088997371386,
+      "gc_pause_total_ns_delta": 25998461,
+      "gc_cycles_delta_including_forced": 48,
+      "gc_cpu_fraction_final_cumulative": 0.00173758927978256,
+      "commit_transactions_delta": 7824,
+      "accepted_per_commit_transaction": 1.0210889570552146,
+      "committed_messages_delta_if_available": 7989,
+      "writer_service_ns_delta": 5528312907,
+      "writer_commit_ns_delta": 4754409091,
+      "writer_queue_wait_ns_delta": 551030348,
+      "reader_db_wait_ns_delta": 624583,
+      "heap_alloc_bytes_idle_snapshot": 21281616,
+      "heap_alloc_bytes_final_snapshot": 8444080,
+      "histogram_bucket_upper_ms": [
+        "0.125",
+        "0.25",
+        "0.5",
+        "1",
+        "2",
+        "4",
+        "8",
+        "16",
+        "32",
+        "+Inf"
+      ],
+      "histograms": {
+        "queue_wait_jobs": {
+          "interval_bucket_counts": [
+            7270,
+            154,
+            218,
+            199,
+            125,
+            21,
+            2,
+            0,
+            0,
+            0
+          ],
+          "interval_cumulative_counts": [
+            7270,
+            7424,
+            7642,
+            7841,
+            7966,
+            7987,
+            7989,
+            7989,
+            7989,
+            7989
+          ],
+          "total": 7989
+        },
+        "writer_service_transactions": {
+          "interval_bucket_counts": [
+            0,
+            174,
+            3112,
+            3247,
+            1151,
+            131,
+            9,
+            0,
+            0,
+            0
+          ],
+          "interval_cumulative_counts": [
+            0,
+            174,
+            3286,
+            6533,
+            7684,
+            7815,
+            7824,
+            7824,
+            7824,
+            7824
+          ],
+          "total": 7824
+        },
+        "commit_transactions": {
+          "interval_bucket_counts": [
+            79,
+            341,
+            3623,
+            3025,
+            654,
+            95,
+            7,
+            0,
+            0,
+            0
+          ],
+          "interval_cumulative_counts": [
+            79,
+            420,
+            4043,
+            7068,
+            7722,
+            7817,
+            7824,
+            7824,
+            7824,
+            7824
+          ],
+          "total": 7824
+        }
+      },
+      "interval_seconds": 43.49540829658508,
+      "read_helper_calls_per_interval_second": 1781.8432573740167,
+      "total_alloc_bytes_per_interval_second": 18133350.229107376
+    }
+  },
+  "comparison": {
+    "total_alloc_bytes_delta": {
+      "before": 814208056,
+      "after": 788717472,
+      "reduction_percent": 3.1307211728202304
+    },
+    "alloc_bytes_per_accepted_with_history_background": {
+      "before": 101801.45736434108,
+      "after": 98725.43146826887,
+      "reduction_percent": 3.02159318315386
+    },
+    "mallocs_per_accepted_with_history_background": {
+      "before": 1622.3749687421855,
+      "after": 1530.9053698835899,
+      "reduction_percent": 5.638006047979851
+    },
+    "read_helper_calls_per_accepted_with_history_background": {
+      "before": 13.38547136784196,
+      "after": 9.701088997371386,
+      "reduction_percent": 27.525234406926828
+    },
+    "gc_pause_total_ns_delta": {
+      "before": 28921621,
+      "after": 25998461,
+      "reduction_percent": 10.107178985576223
+    },
+    "commit_transactions_delta": {
+      "before": 7998,
+      "after": 7824,
+      "reduction_percent": 2.175543885971493
+    },
+    "writer_service_ns_delta": {
+      "before": 6217726692,
+      "after": 5528312907,
+      "reduction_percent": 11.087875346580127
+    },
+    "writer_commit_ns_delta": {
+      "before": 5417560505,
+      "after": 4754409091,
+      "reduction_percent": 12.240775407823525
+    },
+    "writer_queue_wait_ns_delta": {
+      "before": 8799533604,
+      "after": 551030348,
+      "reduction_percent": 93.73795961470596
+    }
+  }
+}

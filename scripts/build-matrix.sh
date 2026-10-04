@@ -1,19 +1,13 @@
 #!/bin/sh
 # Explicit acceptance matrix. Temporary configs/binaries stay outside the tree.
 set -eu
-if [ -n "${QGRAMM_REDIS_TEST_BINARY:-}" ]; then
-  test -x "$QGRAMM_REDIS_TEST_BINARY" || { echo "QGRAMM_REDIS_TEST_BINARY must be executable" >&2; exit 2; }
-elif ! command -v redis-server >/dev/null 2>&1; then
-  echo "Redis runtime matrix requires a real fixture: sh scripts/test-redis.sh sh scripts/build-matrix.sh" >&2
-  exit 2
-fi
 scratch=$(mktemp -d)
 trap 'rm -rf "$scratch"' EXIT HUP INT TERM
 go build -o "$scratch/qgramm-build" ./cmd/qgramm-build
 python3 - "$scratch" <<'PY'
 import pathlib, sys
 root=pathlib.Path(sys.argv[1])
-features='groups files e2ee calls delete edit reply forward reactions openai anthropic mcp http_tools redis'.split()
+features='groups files e2ee calls delete edit reply forward reactions openai anthropic mcp http_tools'.split()
 profiles={'minimal':set(), 'full':set(features)}
 for feature in features:
     profiles['without-'+feature]=set(features)-{feature}
@@ -59,15 +53,15 @@ while IFS='|' read -r profile tags; do
 import os,pathlib
 root=pathlib.Path(os.environ['SCRATCH']);profile=os.environ['PROFILE'];tags=set(os.environ['TAGS'].split(','))
 files=set((root/(profile+'-files')).read_text().splitlines())
-names={'groups':'groups','files':'files','calls':'calls','delete':'delete','edit':'edit','reply':'reply','forward':'forward','reactions':'reactions','openai':'ai_openai','anthropic':'ai_anthropic','mcp':'ai_mcp','http_tools':'ai_http_tools','e2ee':'e2ee','redis':'redis'}
+names={'groups':'groups','files':'files','calls':'calls','delete':'delete','edit':'edit','reply':'reply','forward':'forward','reactions':'reactions','openai':'ai_openai','anthropic':'ai_anthropic','mcp':'ai_mcp','http_tools':'ai_http_tools','e2ee':'e2ee'}
 for feature,filename in names.items():
     assert ((filename+'.go') in files)==(('qg_'+feature) in tags), (profile,feature,'compiled file selection mismatch')
 deps=(root/(profile+'-deps')).read_text()
-assert ('github.com/redis/go-redis/v9' in deps)==('qg_redis' in tags), (profile,'Redis dependency selection mismatch')
+assert 'github.com/redis/go-redis/v9' not in deps, (profile,'removed Redis dependency present')
 assert ('github.com/thomas-vilte/mls-go' in deps)==('qg_e2ee' in tags), (profile,'MLS dependency selection mismatch')
 PY
 done < "$scratch/profiles"
 QGRAMM_MATRIX_INVALID_DIR="$scratch/invalid" go test ./cmd/qgramm-build -run '^TestMatrixInvalidConfigurations$' -count=1
 go test ./internal/config ./cmd/qgramm-build
-go test -tags qg_groups,qg_files,qg_e2ee,qg_calls,qg_delete,qg_edit,qg_reply,qg_forward,qg_reactions,qg_openai,qg_anthropic,qg_mcp,qg_http_tools,qg_redis ./...
-echo '30 build/runtime selections and 7 invalid configurations passed; no calibrated capacity claim'
+go test -tags qg_groups,qg_files,qg_e2ee,qg_calls,qg_delete,qg_edit,qg_reply,qg_forward,qg_reactions,qg_openai,qg_anthropic,qg_mcp,qg_http_tools ./...
+echo '28 build/runtime selections and 7 invalid configurations passed; no calibrated capacity claim'

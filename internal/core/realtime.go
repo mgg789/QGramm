@@ -64,17 +64,6 @@ func (c *Core) DisconnectDevice(device string) {
 	}
 }
 func (c *Core) Wake(chat string) {
-	if len(c.OnWake) == 0 {
-		c.WakeLocal(chat)
-		return
-	}
-	for _, hook := range c.OnWake {
-		hook(chat)
-	}
-}
-
-// WakeLocal consumes advisory broker notifications; it never republishes them.
-func (c *Core) WakeLocal(chat string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for conn := range c.subscribers[chat] {

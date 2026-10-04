@@ -24,7 +24,6 @@ type Config struct {
 	Policy   Policy   `toml:"policy"`
 	AI       AI       `toml:"ai"`
 	Calls    Calls    `toml:"calls"`
-	Redis    Redis    `toml:"redis"`
 }
 type Server struct {
 	Listen                string   `toml:"listen"`
@@ -62,11 +61,10 @@ type Features struct {
 	Anthropic bool `toml:"anthropic"`
 	MCP       bool `toml:"mcp"`
 	HTTPTools bool `toml:"http_tools"`
-	Redis     bool `toml:"redis"`
 }
 
 func (f Features) Enabled() []string {
-	names := map[string]bool{"groups": f.Groups, "files": f.Files, "e2ee": f.E2EE, "calls": f.Calls, "delete": f.Delete, "edit": f.Edit, "reply": f.Reply, "forward": f.Forward, "reactions": f.Reactions, "openai": f.OpenAI, "anthropic": f.Anthropic, "mcp": f.MCP, "http_tools": f.HTTPTools, "redis": f.Redis}
+	names := map[string]bool{"groups": f.Groups, "files": f.Files, "e2ee": f.E2EE, "calls": f.Calls, "delete": f.Delete, "edit": f.Edit, "reply": f.Reply, "forward": f.Forward, "reactions": f.Reactions, "openai": f.OpenAI, "anthropic": f.Anthropic, "mcp": f.MCP, "http_tools": f.HTTPTools}
 	out := []string{}
 	for name, enabled := range names {
 		if enabled {
@@ -126,14 +124,6 @@ type Calls struct {
 	CredentialTTLSeconds int      `toml:"credential_ttl_seconds"`
 }
 
-// Redis is an optional same-container transient notification broker. It never
-// stores message content, credentials or durable delivery state.
-type Redis struct {
-	Binary      string `toml:"binary"`
-	MaxMemoryMB int    `toml:"max_memory_mb"`
-	QueueDepth  int    `toml:"queue_depth"`
-}
-
 func Defaults() Config {
 	return Config{
 		Server: Server{Listen: "127.0.0.1:8080"}, Storage: Storage{Path: "data/qgramm.db", Files: "data/files"},
@@ -142,7 +132,6 @@ func Defaults() Config {
 		Policy:   Policy{History: "since_join", DeleteMode: "global", ReactionTypes: []string{"👍", "❤️", "👎"}, EventRetentionHours: 720, DedupRetentionHours: 24, MaxMessageBytes: 65536, MaxBatch: 100, MaxFileBytes: 67108864, MaxChunkBytes: 1048576, MaxStorageBytes: 10737418240, UploadTTLHours: 24},
 		AI:       AI{OpenAIURL: "https://api.openai.com/v1", AnthropicURL: "https://api.anthropic.com/v1", MaxSteps: 8, MaxContextTurns: 20, MaxContextBytes: 262144, TimeoutSeconds: 45, MaxResponseBytes: 1048576},
 		Calls:    Calls{CredentialTTLSeconds: 600},
-		Redis:    Redis{Binary: "redis-server", MaxMemoryMB: 64, QueueDepth: 256},
 	}
 }
 
@@ -189,9 +178,6 @@ func endpoint(name, raw string) error {
 	return nil
 }
 func (c Config) Validate() error {
-	if c.Features.Redis && (c.Redis.Binary == "" || c.Redis.MaxMemoryMB < 8 || c.Redis.MaxMemoryMB > 1024 || c.Redis.QueueDepth < 1 || c.Redis.QueueDepth > 4096) {
-		return fmt.Errorf("redis requires a binary, max_memory_mb 8..1024 and queue_depth 1..4096")
-	}
 	host, port, err := net.SplitHostPort(c.Server.Listen)
 	if err != nil || port == "" {
 		return fmt.Errorf("server.listen must be host:port")

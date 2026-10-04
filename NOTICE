@@ -10,10 +10,6 @@ gorilla/websocket: BSD-2-Clause
 modernc.org/sqlite and its embedded SQLite: BSD-3-Clause / SQLite public domain
 cloudflare/circl: BSD-3-Clause
 thomas-vilte/mls-go (E2EE builds only): MIT
-redis/go-redis/v9 (optional Redis builds): BSD-2-Clause
-
-The experimental Redis image also bundles Redis 7.2.14 (BSD-3-Clause) and
-upstream embedded-library notices in /app/redis-licenses.
 
 RFC9180 HPKE test vectors are taken from the CFRG HPKE repository.
 Distribution must retain relevant dependency copyright/license texts; the Go

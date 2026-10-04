@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mgg789/QGramm/internal/cryptoenc"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -45,9 +46,15 @@ func (c *Core) sendMessage(ctx context.Context, id Identity, chat string, in Mes
 	if !validID(in.OperationID) {
 		return Message{}, &APIError{400, "operation_id required (1..128 safe characters)"}
 	}
+	// Queue jobs own their attachment metadata even when an embedding caller
+	// reuses its input after admission. Preserve nil versus empty JSON arrays.
+	in.Attachments = slices.Clone(in.Attachments)
 	raw, _ := json.Marshal(in)
-	digest := sha256.Sum256(append([]byte(chat+"\x00"), raw...))
-	hash := hex.EncodeToString(digest[:])
+	digest := sha256.New()
+	_, _ = digest.Write([]byte(chat))
+	_, _ = digest.Write([]byte{0})
+	_, _ = digest.Write(raw)
+	hash := hex.EncodeToString(digest.Sum(nil))
 	var previousHash string
 	var previous []byte
 	err := c.readQueryRow(ctx, `SELECT hash,result FROM operations WHERE device_id=? AND operation_id=?`, id.DeviceID, in.OperationID).Scan(&previousHash, &previous)
@@ -64,15 +71,12 @@ func (c *Core) sendMessage(ctx context.Context, id Identity, chat string, in Mes
 	if !errors.Is(err, sql.ErrNoRows) {
 		return Message{}, err
 	}
-	_, canSend, _, err := c.Member(ctx, id.UserID, chat)
-	if err != nil || !canSend {
-		return Message{}, &APIError{403, "send permission denied"}
-	}
 	var mode string
 	var epoch int64
-	var pending bool
-	if err = c.readQueryRow(ctx, `SELECT mode,epoch,pending FROM chats WHERE id=?`, chat).Scan(&mode, &epoch, &pending); err != nil {
-		return Message{}, err
+	var pending, canSend bool
+	err = c.readQueryRow(ctx, `SELECT c.mode,c.epoch,c.pending,m.can_send FROM chats c JOIN members m ON m.chat_id=c.id JOIN devices d ON d.user_id=m.user_id JOIN users u ON u.id=m.user_id WHERE c.id=? AND m.user_id=? AND d.id=? AND m.active=1 AND d.revoked=0 AND u.disabled=0`, chat, id.UserID, id.DeviceID).Scan(&mode, &epoch, &pending, &canSend)
+	if err != nil || !canSend {
+		return Message{}, &APIError{403, "send permission denied"}
 	}
 	if pending {
 		return Message{}, &APIError{409, "MLS epoch transition pending"}
@@ -106,16 +110,28 @@ func (c *Core) sendMessage(ctx context.Context, id Identity, chat string, in Mes
 	if err != nil {
 		return Message{}, err
 	}
-	metadata, _ := json.Marshal(map[string]any{"attachments": in.Attachments, "reply_to": in.ReplyTo, "forward_from": in.ForwardFrom})
-	write := func(writeCtx context.Context) (Message, bool, error) {
-		return c.persistMessage(writeCtx, id, chat, in, mode, epoch, hash, messageID, stored, metadata)
+	metadata, _ := json.Marshal(messageMetadata{Attachments: in.Attachments, ReplyTo: in.ReplyTo, ForwardFrom: in.ForwardFrom})
+	// The queued closure retains ciphertext and metadata only, not plaintext or
+	// the original transport envelope. Do not mutate caller-owned byte slices.
+	in.Payload, in.Envelope, in.MLS = nil, nil, ""
+	write := func(writeCtx context.Context, tx *sql.Tx) (Message, bool, error) {
+		return c.persistMessageInTx(writeCtx, tx, id, chat, in, mode, epoch, hash, messageID, stored, metadata)
 	}
 	var message Message
 	var repeated bool
 	if c.writer == nil {
-		message, repeated, err = write(ctx)
+		var tx *sql.Tx
+		tx, err = c.DB.BeginTx(ctx, nil)
+		if err == nil {
+			message, repeated, err = write(ctx, tx)
+			if err == nil {
+				err = tx.Commit()
+			} else {
+				_ = tx.Rollback()
+			}
+		}
 	} else {
-		message, repeated, err = c.writer.submit(ctx, write)
+		message, repeated, err = c.writer.submitTx(ctx, len(stored)+len(metadata), write)
 	}
 	if err != nil {
 		return Message{}, err
@@ -126,16 +142,12 @@ func (c *Core) sendMessage(ctx context.Context, id Identity, chat string, in Mes
 	return c.sendResult(ctx, id, message, minimal, repeated)
 }
 
-// persistMessage runs on the bounded writer worker. Every accepted message still
-// has its own FULL-synchronous transaction and repeats ACL/epoch checks inside it.
-func (c *Core) persistMessage(ctx context.Context, id Identity, chat string, in MessageInput, mode string, epoch int64, hash, messageID string, stored, metadata []byte) (Message, bool, error) {
+// persistMessageInTx repeats ACL, epoch and dedup checks in the writer-owned
+// transaction. The caller acknowledges only after that transaction commits.
+func (c *Core) persistMessageInTx(ctx context.Context, tx *sql.Tx, id Identity, chat string, in MessageInput, mode string, epoch int64, hash, messageID string, stored, metadata []byte) (Message, bool, error) {
 	var previousHash string
 	var previous []byte
-	tx, err := c.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return Message{}, false, err
-	}
-	defer tx.Rollback()
+	var err error
 	var active, allowed bool
 	var currentEpoch int64
 	var currentPending bool
@@ -152,7 +164,6 @@ func (c *Core) persistMessage(ctx context.Context, id Identity, chat string, in 
 		if previousHash != hash {
 			return Message{}, false, &APIError{409, "operation conflict"}
 		}
-		_ = tx.Rollback()
 		var saved Message
 		if err = json.Unmarshal(previous, &saved); err != nil {
 			return Message{}, false, err
@@ -180,14 +191,6 @@ func (c *Core) persistMessage(ctx context.Context, id Identity, chat string, in 
 		if err = hook(ctx, tx, id, chat, message); err != nil {
 			return Message{}, false, err
 		}
-	}
-	commitStart := time.Now()
-	err = tx.Commit()
-	if c.writer != nil {
-		c.writer.recordCommit(time.Since(commitStart), err == nil)
-	}
-	if err != nil {
-		return Message{}, false, err
 	}
 	return message, false, nil
 }
@@ -224,45 +227,71 @@ func minimalPreference(r *http.Request) bool {
 func acceptanceReceipt(m Message) map[string]any {
 	return map[string]any{"message_id": m.ID, "chat_id": m.ChatID, "operation_id": m.OperationID, "seq": m.Seq}
 }
+
+type messageMetadata struct {
+	Attachments []string `json:"attachments"`
+	ForwardFrom string   `json:"forward_from"`
+	ReplyTo     string   `json:"reply_to"`
+}
+
 func (c *Core) ViewMessage(ctx context.Context, id Identity, messageID string) (Message, error) {
-	messages, err := c.viewMessages(ctx, id, []string{messageID})
+	messages, err := c.projectMessages(ctx, id, []string{messageID})
 	if err != nil {
 		return Message{}, err
 	}
-	return messages[messageID], nil
+	return messages[0], nil
 }
 
-// viewMessages fetches current accessible state in one bounded query and resolves
-// the recipient key once. Projection hooks run after rows close, so optional
-// modules can query storage even with a single-connection pool.
+// viewMessages retains the ID lookup needed by event/history batches. Single
+// projections use the slice helper directly and allocate no ID maps.
 func (c *Core) viewMessages(ctx context.Context, id Identity, ids []string) (map[string]Message, error) {
-	out := make(map[string]Message, len(ids))
+	messages, err := c.projectMessages(ctx, id, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]Message, len(messages))
+	for _, m := range messages {
+		out[m.ID] = m
+	}
+	return out, nil
+}
+
+// projectMessages fetches message ACL and the active recipient key together.
+// Nothing is cached across requests. Rows close before optional projection hooks.
+func (c *Core) projectMessages(ctx context.Context, id Identity, ids []string) ([]Message, error) {
 	if len(ids) == 0 {
-		return out, nil
+		return []Message{}, nil
 	}
 	type storedMessage struct {
 		message           Message
 		payload, metadata []byte
 	}
-	unique := make(map[string]bool, len(ids))
-	args := []any{id.UserID}
-	placeholders := []string{}
-	for _, messageID := range ids {
-		if !unique[messageID] {
-			unique[messageID] = true
-			args = append(args, messageID)
-			placeholders = append(placeholders, "?")
+	args := make([]any, 0, len(ids)+2)
+	args = append(args, id.UserID, id.DeviceID)
+	placeholders := make([]string, 0, len(ids))
+	if len(ids) == 1 {
+		args = append(args, ids[0])
+		placeholders = append(placeholders, "?")
+	} else {
+		unique := make(map[string]bool, len(ids))
+		for _, messageID := range ids {
+			if !unique[messageID] {
+				unique[messageID] = true
+				args = append(args, messageID)
+				placeholders = append(placeholders, "?")
+			}
 		}
 	}
-	rows, err := c.readQuery(ctx, `SELECT msg.id,msg.chat_id,msg.sender,msg.device_id,msg.operation_id,msg.seq,msg.revision,msg.deleted,msg.payload,msg.metadata,msg.epoch,msg.created_at,c.mode FROM messages msg JOIN chats c ON c.id=msg.chat_id JOIN members member ON member.chat_id=msg.chat_id WHERE member.user_id=? AND member.active=1 AND msg.seq>=member.joined_seq AND msg.id IN (`+strings.Join(placeholders, ",")+`)`, args...)
+	rows, err := c.readQuery(ctx, `SELECT msg.id,msg.chat_id,msg.sender,msg.device_id,msg.operation_id,msg.seq,msg.revision,msg.deleted,msg.payload,msg.metadata,msg.epoch,msg.created_at,c.mode,d.public_key FROM messages msg JOIN chats c ON c.id=msg.chat_id JOIN members member ON member.chat_id=msg.chat_id JOIN devices d ON d.user_id=member.user_id JOIN users u ON u.id=member.user_id WHERE member.user_id=? AND d.id=? AND member.active=1 AND d.revoked=0 AND u.disabled=0 AND msg.seq>=member.joined_seq AND msg.id IN (`+strings.Join(placeholders, ",")+`)`, args...)
 	if err != nil {
 		return nil, err
 	}
-	stored := make([]storedMessage, 0, len(unique))
+	stored := make([]storedMessage, 0, len(placeholders))
+	var encodedKey string
 	for rows.Next() {
 		var item storedMessage
 		m := &item.message
-		if err = rows.Scan(&m.ID, &m.ChatID, &m.Sender, &m.DeviceID, &m.OperationID, &m.Seq, &m.Revision, &m.Deleted, &item.payload, &item.metadata, &m.Epoch, &m.CreatedAt, &m.Mode); err != nil {
+		if err = rows.Scan(&m.ID, &m.ChatID, &m.Sender, &m.DeviceID, &m.OperationID, &m.Seq, &m.Revision, &m.Deleted, &item.payload, &item.metadata, &m.Epoch, &m.CreatedAt, &m.Mode, &encodedKey); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -273,17 +302,14 @@ func (c *Core) viewMessages(ctx context.Context, id Identity, ids []string) (map
 	if err != nil {
 		return nil, err
 	}
-	if len(stored) != len(unique) {
+	if len(stored) != len(placeholders) {
 		return nil, &APIError{404, "message not accessible"}
 	}
+	out := make([]Message, 0, len(stored))
 	var publicKey []byte
 	for _, item := range stored {
 		m := item.message
-		var meta struct {
-			Attachments []string `json:"attachments"`
-			ReplyTo     string   `json:"reply_to"`
-			ForwardFrom string   `json:"forward_from"`
-		}
+		var meta messageMetadata
 		if err = json.Unmarshal(item.metadata, &meta); err != nil {
 			return nil, err
 		}
@@ -295,7 +321,7 @@ func (c *Core) viewMessages(ctx context.Context, id Identity, ids []string) (map
 		}
 		if m.Deleted {
 			m.Attachments, m.ReplyTo, m.ForwardFrom = nil, "", ""
-			out[m.ID] = m
+			out = append(out, m)
 			continue
 		}
 		plain, err := c.Engine.Open(item.payload, []byte("message/"+m.ID))
@@ -304,11 +330,7 @@ func (c *Core) viewMessages(ctx context.Context, id Identity, ids []string) (map
 		}
 		if m.Mode == "basic" {
 			if publicKey == nil {
-				var encoded string
-				if err = c.readQueryRow(ctx, `SELECT public_key FROM devices WHERE id=? AND user_id=? AND revoked=0`, id.DeviceID, id.UserID).Scan(&encoded); err != nil {
-					return nil, err
-				}
-				publicKey, err = base64.StdEncoding.DecodeString(encoded)
+				publicKey, err = base64.StdEncoding.DecodeString(encodedKey)
 				if err != nil {
 					return nil, err
 				}
@@ -321,7 +343,7 @@ func (c *Core) viewMessages(ctx context.Context, id Identity, ids []string) (map
 		} else {
 			m.MLS = base64.StdEncoding.EncodeToString(plain)
 		}
-		out[m.ID] = m
+		out = append(out, m)
 	}
 	return out, nil
 }
@@ -429,7 +451,7 @@ func (c *Core) Events(ctx context.Context, id Identity, chat string, after int64
 	}
 	var current, joined int64
 	var minimum sql.NullInt64
-	err := c.readQueryRow(ctx, `SELECT c.seq,m.joined_seq,(SELECT MIN(seq) FROM events WHERE chat_id=c.id) FROM chats c JOIN members m ON m.chat_id=c.id WHERE c.id=? AND m.user_id=? AND m.active=1`, chat, id.UserID).Scan(&current, &joined, &minimum)
+	err := c.readQueryRow(ctx, `SELECT c.seq,m.joined_seq,CASE WHEN c.seq>? THEN (SELECT MIN(seq) FROM events WHERE chat_id=c.id) END FROM chats c JOIN members m ON m.chat_id=c.id JOIN devices d ON d.user_id=m.user_id JOIN users u ON u.id=m.user_id WHERE c.id=? AND m.user_id=? AND d.id=? AND m.active=1 AND d.revoked=0 AND u.disabled=0`, after, chat, id.UserID, id.DeviceID).Scan(&current, &joined, &minimum)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, &APIError{403, "membership required"}
 	}
@@ -444,6 +466,9 @@ func (c *Core) Events(ctx context.Context, id Identity, chat string, after int64
 	}
 	if after > current {
 		return nil, &APIError{400, "cursor ahead of chat"}
+	}
+	if after == current {
+		return []Event{}, nil
 	}
 	rows, err := c.readQuery(ctx, `SELECT seq,kind,message_id,data FROM events WHERE chat_id=? AND seq>? ORDER BY seq LIMIT ?`, chat, after, limit)
 	if err != nil {
