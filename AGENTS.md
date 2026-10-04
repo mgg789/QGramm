@@ -11,3 +11,5 @@
 - Store schema changes must use versioned migrations. Preserve durable operation/event transaction boundaries.
 - Do not claim runtime/provider/crypto interoperability or load acceptance without recorded results. Outstanding checks belong in `docs/verification.md`.
 - Call an independent inspector before commits and after substantial security changes.
+- `go run -race ./examples/basic` checks the disposable HTTP/WebSocket integration example. `python3 scripts/check-docs.py` checks local documentation links, UTF-8 and JSON evidence.
+- Performance evidence distinguishes ACK durability, image provenance and successful-request percentiles. Never mix Docker VM measurements with dedicated Linux/SSD qualification or reconstruct p99 from p95-only artifacts.

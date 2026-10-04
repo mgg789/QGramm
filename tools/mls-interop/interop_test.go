@@ -303,8 +303,21 @@ func httpJSON(t *testing.T, base, method, path, token string, body any, want int
 }
 func TestProductionAIHTTPWithIndependentOpenMLSAndDBRestart(t *testing.T) {
 	client := remote(t)
-	ctx := rpcContext(t)
-	providerURL, providerCalls := mockProvider(t)
+	// Explicit opt-in only: the normal isolated fixture never spends credits.
+	live := os.Getenv("QGRAMM_LIVE_MLS") == "1"
+	providerURL, model, keyEnv := "", "fixture-model", "QG_FIXTURE_PROVIDER_KEY"
+	var providerCalls *atomic.Int32
+	if live {
+		providerURL, model, keyEnv = "https://api.deepseek.com/v1", "deepseek-flash", "QGRAMM_LIVE_KEY"
+		if os.Getenv(keyEnv) == "" {
+			t.Fatal("live provider credential unavailable")
+		}
+	} else {
+		providerURL, providerCalls = mockProvider(t)
+		t.Setenv(keyEnv, "fixture-only-provider-token")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
 	tokenPub, tokenPrivate, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -319,9 +332,9 @@ func TestProductionAIHTTPWithIndependentOpenMLSAndDBRestart(t *testing.T) {
 	cfg.Capacity.QueueDepth = 32
 	cfg.Storage.Path = filepath.Join(t.TempDir(), "runtime.db")
 	cfg.Storage.Files = filepath.Join(t.TempDir(), "files")
-	cfg.AI.Model = "fixture-model"
+	cfg.AI.Model = model
 	cfg.AI.OpenAIURL = providerURL
-	cfg.AI.OpenAIKeyEnv = "QG_FIXTURE_PROVIDER_KEY"
+	cfg.AI.OpenAIKeyEnv = keyEnv
 	cfg.Security.TokenPublicKeyEnv = "QG_FIXTURE_TOKEN_PUB"
 	cfg.Security.MasterKeyEnv = "QG_FIXTURE_MASTER"
 	cfg.Security.HPKEKeyEnv = "QG_FIXTURE_HPKE"
@@ -329,7 +342,6 @@ func TestProductionAIHTTPWithIndependentOpenMLSAndDBRestart(t *testing.T) {
 	management := strings.Repeat("fixture-only-", 4)
 	t.Setenv(cfg.Security.ManagementSecretEnv, management)
 	t.Setenv(cfg.Security.TokenPublicKeyEnv, base64.StdEncoding.EncodeToString(tokenPub))
-	t.Setenv(cfg.AI.OpenAIKeyEnv, "fixture-only-provider-token")
 	for _, name := range []string{cfg.Security.MasterKeyEnv, cfg.Security.HPKEKeyEnv} {
 		key := make([]byte, 32)
 		if _, err = rand.Read(key); err != nil {
@@ -383,7 +395,11 @@ func TestProductionAIHTTPWithIndependentOpenMLSAndDBRestart(t *testing.T) {
 	for round := 1; round <= 2; round++ {
 		operation := "human-op-" + strconv.Itoa(round)
 		binding := cryptoenc.Binding(admitted.ChatID, "human", "human-phone", operation)
-		encrypted, err := client.Protect(ctx, &pb.ProtectRequest{StateId: human.StateId, AuthenticatedData: binding, Plaintext: []byte("fixture question " + strconv.Itoa(round))})
+		question := "fixture question " + strconv.Itoa(round)
+		if live {
+			question = "Reply only with the short literal QGRAMM_MLS_ACCEPTED_" + strconv.Itoa(round) + ". This is a synthetic integration test."
+		}
+		encrypted, err := client.Protect(ctx, &pb.ProtectRequest{StateId: human.StateId, AuthenticatedData: binding, Plaintext: []byte(question)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -396,7 +412,7 @@ func TestProductionAIHTTPWithIndependentOpenMLSAndDBRestart(t *testing.T) {
 		}
 		httpJSON(t, server.URL, "POST", "/v1/chats/"+admitted.ChatID+"/messages", token, map[string]any{"operation_id": operation, "epoch": admitted.Epoch, "mls": base64.StdEncoding.EncodeToString(encrypted.Ciphertext)}, 201, &accepted)
 		resultID := ""
-		deadline := time.Now().Add(30 * time.Second)
+		deadline := time.Now().Add(50 * time.Second)
 		for time.Now().Before(deadline) {
 			var jobs struct {
 				Jobs []struct {
@@ -409,7 +425,7 @@ func TestProductionAIHTTPWithIndependentOpenMLSAndDBRestart(t *testing.T) {
 			for _, job := range jobs.Jobs {
 				if job.MessageID == accepted.Message.ID {
 					if job.Status == "failed" || job.Status == "uncertain" {
-						t.Fatal("AI job did not complete successful provider fixture lifecycle")
+						t.Fatal("AI job did not complete successful provider lifecycle; details omitted")
 					}
 					if job.Status == "succeeded" {
 						resultID = job.ResultID
@@ -444,7 +460,11 @@ func TestProductionAIHTTPWithIndependentOpenMLSAndDBRestart(t *testing.T) {
 			t.Fatal("independent human could not decrypt actual AI response:", err)
 		}
 		expected := cryptoenc.Binding(admitted.ChatID, admitted.UserID, admitted.DeviceID, answer.OperationID)
-		if !bytes.Equal(opened.AuthenticatedData, expected) || string(opened.Plaintext) != "fixture reply "+strconv.Itoa(round) {
+		validPlaintext := string(opened.Plaintext) == "fixture reply "+strconv.Itoa(round)
+		if live {
+			validPlaintext = len(bytes.TrimSpace(opened.Plaintext)) > 0
+		}
+		if !bytes.Equal(opened.AuthenticatedData, expected) || !validPlaintext {
 			t.Fatal("AI response bound plaintext mismatch")
 		}
 		if round == 1 {
@@ -459,8 +479,15 @@ func TestProductionAIHTTPWithIndependentOpenMLSAndDBRestart(t *testing.T) {
 			server = httptest.NewServer(runtime.Mux)
 		}
 	}
-	if providerCalls.Load() != 2 {
+	if providerCalls != nil && providerCalls.Load() != 2 {
 		t.Fatal("unexpected provider request count")
+	}
+	var succeededJobs, succeededCalls int
+	if err = runtime.DB.QueryRow(`SELECT count(*) FROM ai_jobs WHERE chat_id=? AND status='succeeded'`, admitted.ChatID).Scan(&succeededJobs); err != nil {
+		t.Fatal("durable job count unavailable")
+	}
+	if err = runtime.DB.QueryRow(`SELECT count(*) FROM ai_audit a JOIN ai_jobs j ON j.id=a.job_id WHERE j.chat_id=? AND a.action='provider' AND a.outcome='succeeded'`, admitted.ChatID).Scan(&succeededCalls); err != nil || succeededJobs != 2 || succeededCalls != 2 {
+		t.Fatal("unexpected durable provider lifecycle count")
 	}
 	var stored []byte
 	if err = runtime.DB.QueryRow(`SELECT state FROM ai_chats WHERE chat_id=?`, admitted.ChatID).Scan(&stored); err != nil {
@@ -473,5 +500,9 @@ func TestProductionAIHTTPWithIndependentOpenMLSAndDBRestart(t *testing.T) {
 	if _, err = restored.Decrypt(firstWire, firstBinding); err == nil {
 		t.Fatal("actual durable AI snapshot lost replay ledger")
 	}
-	t.Log("PASS: actual AI management admission/HTTP send/jobs/history + independent OpenMLS human + SQLite Core restart; provider explicitly local HTTPS mock")
+	if live {
+		t.Log("PASS: live DeepSeek Chat Completions via Go HTTP + independent OpenMLS human + actual Core admission/send/jobs/history + SQLite Core restart + durable replay rejection; two synthetic successful provider calls; authenticated nonempty response plaintext omitted")
+	} else {
+		t.Log("PASS: actual AI management admission/HTTP send/jobs/history + independent OpenMLS human + SQLite Core restart; provider explicitly local HTTPS mock")
+	}
 }

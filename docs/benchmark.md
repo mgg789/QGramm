@@ -1,5 +1,39 @@
 # Load measurements
 
+[Measured alternative baselines](comparison-benchmark.md): NATS JetStream default/always fsync and Centrifugo memory history, with the same container quotas, connection count and nominal load. Their application semantics differ; the comparison records those differences.
+
+## Current p95 / p99 run
+
+[Machine-readable result](benchmarks/minimal-10000-p99.json), 2026-10-04, exit 0:
+
+| Phase | Accepted | Acceptance p95 / p99, ms | Recipient delivery p95 / p99, ms |
+|---|---:|---:|---:|
+| 100/s for 30 seconds | 3,000 | 4.364 / 6.657 | 4.676 / 6.898 |
+| Steady + 1,000/s for 5 seconds | 7,988 | 5.354 / 19.578 | 9.368 / 87.170 |
+
+10,000 distinct users/device sockets; one active two-member basic chat. Offered = accepted = delivered = history = 7,988, with no unexpected failures, backpressure, semaphore skips or observed connection drops. Idle connections are monitored as well as the recipient. The nominal schedule is 8,000; host ticker scheduling produced 7,988 submissions. Sampled Docker maxima across setup/load: 666.3 MiB, 61.05% of one CPU; these are not exact peaks. Percentiles cover successful requests, not rejected operations.
+
+Hardware: Apple M5 Pro, 18 host logical CPUs, macOS 26.6.2; Linux arm64 Docker Desktop VM, kernel 6.12.76-linuxkit. Server container quota: 4 CPUs / 8 GiB; Docker reports approximately 7.748 GiB effective memory. SQLite uses a named Docker volume, WAL and FULL synchronous commits. SSD/fsync performance was not independently qualified. The host also runs other workloads; limits are quotas, not dedicated reservations. The generator runs on macOS, Go 1.26.4. Image ID, generator dirty-tree digest and existing server-image provenance are recorded separately in JSON: the reused service image matches the earlier final run; this is not a fresh build of the current documentation commit.
+
+### Method and reproduction
+
+```sh
+python3 tools/benchmark.py --out work/minimal-10000-p99.json
+# Or reuse an existing matching minimal image, retaining it afterwards:
+python3 tools/benchmark.py --image qgramm:dev-final --image-source-commit 3147dc9 \
+  --out work/minimal-10000-p99.json
+```
+
+The first command builds the current service; the second was used for the published run after a Docker build encountered Go proxy download EOFs. An existing image must match the selected features. The runner generates private temporary credentials, provisions users/devices, opens all sockets before traffic, and samples container resources approximately every two seconds. It creates an owned loopback-only container and volume and removes them afterwards. It does not change host settings or restart other services. Failed runs produce diagnostic evidence and a nonzero exit status.
+
+Acceptance timing starts before client HPKE sealing and includes JWT generation, HTTP request, the SQLite commit and response. Delivery timing uses the same start and ends when the generator reads the recipient WebSocket event; it does not include recipient decryption/rendering. Both measurements use one generator clock, so cross-host clock synchronization is not needed for latency. The synthetic device JWT is issued five seconds in the past with a fourteen-minute future expiry to tolerate small host/VM clock differences without changing server validation. Setup/authentication attempts that failed during harness development are not included in this passing run.
+
+Percentiles use nearest rank: sort `n` samples and select `ceil(n*q)-1` for `q=0.95` and `0.99`. Steady deliveries are classified by their originating send phase, including arrivals after the phase boundary. Counts of acceptance/delivery samples are published. History is paginated and compared with accepted count; delivery count must equal accepted × recipient count. A failed integrity check fails the command. The generator's bounded semaphore skips and HTTP 429/503 responses are separate from successful latency samples.
+
+TLS cost, heterogeneous device keys, real message distributions, many simultaneously active chats, long soak and concurrent large-file loads are outside this run. Earlier artifacts retain their original p95 estimator `floor((n-1)*0.95)` and do not contain p99; no p99 was reconstructed from them. A dedicated Linux/SSD reference run is deferred until that host is available.
+
+## Earlier runs
+
 Final minimal-image rerun ([raw evidence](benchmarks/minimal-10000-final.json), image/source recorded): 10,000 sockets, 100/s for30 seconds plus1000/s for5 seconds; 7,987 accepted = delivered = stored, no errors/backpressure/skipped submissions. Steady p95 acceptance/delivery: 4.206/4.388 ms; aggregate4.570/7.181 ms. Twenty-eight Docker stats samples across setup/load reached657 MiB and94.31% of one CPU (out of four allowed); these are sampled maxima, not exact process peaks. Backup restore retained all7,987 messages, SQLite integrity_check=ok and readiness passed. The earlier run below retains evidence of explicit burst backpressure; variation between runs is not a sizing guarantee.
 
 [Raw minimal-profile evidence](benchmarks/minimal-10000.json), 2026-10-04:

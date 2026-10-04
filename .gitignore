@@ -18,3 +18,4 @@ data/
 *.db-wal
 *.db-shm
 compose.yaml
+__pycache__/

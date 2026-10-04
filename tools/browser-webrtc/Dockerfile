@@ -1,5 +1,5 @@
 FROM golang:1.26-alpine
-RUN apk add --no-cache nodejs npm chromium
+RUN apk add --no-cache nodejs npm chromium coturn
 WORKDIR /src/tools/browser-webrtc
 COPY tools/browser-webrtc/package.json tools/browser-webrtc/package-lock.json ./
 RUN npm ci --ignore-scripts

@@ -1,0 +1,237 @@
+{
+  "connection_or_receive_errors": 0,
+  "connections": 10000,
+  "generator_max_inflight": 64,
+  "payload_bytes": 17,
+  "percentile_method": "nearest rank ceil(p*n)-1",
+  "phases": [
+    {
+      "name": "steady",
+      "offered": 3000,
+      "accepted": 3000,
+      "delivered": 3000,
+      "duplicate": 0,
+      "publish_errors": 0,
+      "ack_ms": {
+        "max": 15.182,
+        "p50": 1.525208,
+        "p95": 3.945375,
+        "p99": 6.641
+      },
+      "delivery_ms": {
+        "max": 15.173208,
+        "p50": 1.5295,
+        "p95": 4.017917,
+        "p99": 6.621125
+      },
+      "elapsed_seconds": 29.992944,
+      "offered_rate": 100,
+      "actual_offered_per_second": 100.0235255332054
+    },
+    {
+      "name": "burst",
+      "offered": 5000,
+      "accepted": 5000,
+      "delivered": 5000,
+      "duplicate": 0,
+      "publish_errors": 0,
+      "ack_ms": {
+        "max": 16.114416,
+        "p50": 0.6125,
+        "p95": 2.633167,
+        "p99": 4.9195
+      },
+      "delivery_ms": {
+        "max": 18.130709,
+        "p50": 0.612167,
+        "p95": 2.998042,
+        "p99": 5.221084
+      },
+      "elapsed_seconds": 5.001000208,
+      "offered_rate": 1000,
+      "actual_offered_per_second": 999.7999984086384
+    }
+  ],
+  "service": "nats",
+  "setup_seconds": 10.58377475,
+  "container_state": {
+    "status": "running",
+    "oom_killed": false
+  },
+  "generator_exit_code": 0,
+  "environment": {
+    "date_utc": "2026-10-04T17:15:56Z",
+    "host_os": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "host_logical_cpus": 18,
+    "host_cpu": "Apple M5 Pro",
+    "generator_go": "go version go1.26.4 darwin/arm64",
+    "image_tag": "qgramm-comparison-nats:2.11.3",
+    "image_id": "sha256:e115c78aae7fc4268bdbc56c1a55509033a03d985565bd4cd524a62f01d17b18",
+    "repo_digests": [
+      "qgramm-comparison-nats@sha256:e115c78aae7fc4268bdbc56c1a55509033a03d985565bd4cd524a62f01d17b18"
+    ],
+    "cpu_limit": 4,
+    "ram_limit_gib": 8,
+    "server_kernel": "Linux cf8468cf48f3 6.12.76-linuxkit #1 SMP Thu Jun 11 15:44:51 UTC 2026 aarch64 Linux",
+    "storage": "Docker named volume, VM virtual disk",
+    "isolation": "shared Docker Desktop VM; generator on host; loopback only; sequential baseline runs",
+    "source_commit": "5ebc79864632f0291901efcff67dbced45dd0bc0",
+    "generator_sha256": "2f8d82b0145f087957aa618bdf1647744a61ee7701cb71bc342e9f76d5fba60f"
+  },
+  "resource_samples": [
+    {
+      "elapsed_seconds": 1.03,
+      "cpu": "0.09%",
+      "memory": "3.406MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 3.07,
+      "cpu": "0.02%",
+      "memory": "3.16MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 5.09,
+      "cpu": "19.30%",
+      "memory": "48.69MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 7.13,
+      "cpu": "21.86%",
+      "memory": "153.2MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 9.16,
+      "cpu": "23.50%",
+      "memory": "251.6MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 11.19,
+      "cpu": "22.85%",
+      "memory": "342.7MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 13.22,
+      "cpu": "17.80%",
+      "memory": "398.9MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 15.26,
+      "cpu": "10.77%",
+      "memory": "469.1MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 17.31,
+      "cpu": "4.40%",
+      "memory": "467.3MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 19.35,
+      "cpu": "3.41%",
+      "memory": "467.9MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 21.39,
+      "cpu": "3.57%",
+      "memory": "467.9MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 23.43,
+      "cpu": "4.89%",
+      "memory": "468.6MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 25.47,
+      "cpu": "3.96%",
+      "memory": "468.1MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 27.51,
+      "cpu": "3.69%",
+      "memory": "467.9MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 29.54,
+      "cpu": "3.19%",
+      "memory": "468.4MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 31.58,
+      "cpu": "4.23%",
+      "memory": "468.1MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 33.62,
+      "cpu": "4.69%",
+      "memory": "468.1MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 35.65,
+      "cpu": "4.39%",
+      "memory": "467.9MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 37.7,
+      "cpu": "3.56%",
+      "memory": "468.9MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 39.73,
+      "cpu": "3.57%",
+      "memory": "467.9MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 41.77,
+      "cpu": "4.36%",
+      "memory": "468.4MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 43.81,
+      "cpu": "3.87%",
+      "memory": "468.7MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 45.85,
+      "cpu": "4.55%",
+      "memory": "467.7MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 47.89,
+      "cpu": "2.34%",
+      "memory": "467.5MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 49.93,
+      "cpu": "0.17%",
+      "memory": "467.5MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 51.95,
+      "cpu": "10.54%",
+      "memory": "469.1MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 53.98,
+      "cpu": "11.03%",
+      "memory": "469.3MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 56.02,
+      "cpu": "5.66%",
+      "memory": "467.9MiB / 7.748GiB"
+    },
+    {
+      "elapsed_seconds": 58.07,
+      "cpu": "0.20%",
+      "memory": "467.9MiB / 7.748GiB"
+    }
+  ],
+  "resource_sampling": "docker stats no-stream + 1s wait (~2s), sampled maxima; startup/idle/connections/load included",
+  "contract": {
+    "nats_sync_interval": "always",
+    "auth": "shared NATS token",
+    "durability": "JetStream file stream replicas=1 sync_interval=always",
+    "application_crypto": "none; plaintext transport/application data in isolated loopback fixture",
+    "active_participants": 2,
+    "idle_connections": 9998
+  }
+}

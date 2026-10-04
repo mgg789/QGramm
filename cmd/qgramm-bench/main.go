@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/mgg789/QGramm/internal/cryptoenc"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"sort"
@@ -38,7 +39,7 @@ type client struct {
 
 func (c *client) token(user string) string {
 	now := time.Now()
-	token, _ := jwt.NewWithClaims(jwt.SigningMethodEdDSA, jwt.MapClaims{"iss": "qgramm", "aud": "qgramm", "sub": user, "device_id": user, "iat": now.Unix(), "exp": now.Add(15 * time.Minute).Unix()}).SignedString(c.private)
+	token, _ := jwt.NewWithClaims(jwt.SigningMethodEdDSA, jwt.MapClaims{"iss": "qgramm", "aud": "qgramm", "sub": user, "device_id": user, "iat": now.Add(-5 * time.Second).Unix(), "exp": now.Add(14 * time.Minute).Unix()}).SignedString(c.private)
 	return token
 }
 func (c *client) request(method, path, user string, body any) ([]byte, int, error) {
@@ -185,6 +186,8 @@ func run() error {
 	connections := make([]*websocket.Conn, *users)
 	var connected atomic.Int64
 	var socketFailures atomic.Int64
+	var unexpectedDisconnects atomic.Int64
+	var closing atomic.Bool
 	var delivered atomic.Int64
 	var started sync.Map
 	var metricMu sync.Mutex
@@ -192,6 +195,11 @@ func run() error {
 	var sendDiagnostic sync.Once
 	latencies := []float64{}
 	deliveryLatencies := []float64{}
+	steadyDeliveryLatencies := []float64{}
+	type sampleStart struct {
+		at     time.Time
+		steady bool
+	}
 	var receiveWG sync.WaitGroup
 	connectJobs := make(chan int)
 	for i := 0; i < 16; i++ {
@@ -231,6 +239,9 @@ func run() error {
 					for {
 						_, data, e := conn.ReadMessage()
 						if e != nil {
+							if !closing.Load() {
+								unexpectedDisconnects.Add(1)
+							}
 							return
 						}
 						if !measure {
@@ -246,7 +257,12 @@ func run() error {
 							delivered.Add(1)
 							if stamp, ok := started.Load(event.Data.OperationID); ok {
 								metricMu.Lock()
-								deliveryLatencies = append(deliveryLatencies, float64(time.Since(stamp.(time.Time)).Microseconds())/1000)
+								sample := stamp.(sampleStart)
+								latency := float64(time.Since(sample.at).Microseconds()) / 1000
+								deliveryLatencies = append(deliveryLatencies, latency)
+								if sample.steady {
+									steadyDeliveryLatencies = append(steadyDeliveryLatencies, latency)
+								}
 								metricMu.Unlock()
 							}
 						}
@@ -261,6 +277,7 @@ func run() error {
 	close(connectJobs)
 	wg.Wait()
 	defer func() {
+		closing.Store(true)
 		for _, conn := range connections {
 			if conn != nil {
 				conn.Close()
@@ -274,11 +291,11 @@ func run() error {
 	fmt.Printf("Established %d distinct-user sockets in %s\n", connected.Load(), time.Since(setupStart).Round(time.Millisecond))
 	var accepted, rejected, failed, offered, generatorSkipped atomic.Int64
 	sem := make(chan struct{}, 64)
-	send := func(op string) {
+	send := func(op string, steady bool) {
 		defer wg.Done()
 		defer func() { <-sem }()
 		stamp := time.Now()
-		started.Store(op, stamp)
+		started.Store(op, sampleStart{stamp, steady})
 		envelope, e := cryptoenc.SealEnvelope(pub, []byte("benchmark payload"), cryptoenc.Binding(chat, names[0], names[0], op))
 		if e != nil {
 			failed.Add(1)
@@ -304,7 +321,7 @@ func run() error {
 			started.Delete(op)
 		}
 	}
-	phase := func(d time.Duration, frequency int) {
+	phase := func(d time.Duration, frequency int, steady bool) {
 		timer := time.NewTimer(d)
 		ticker := time.NewTicker(time.Second / time.Duration(frequency))
 		defer timer.Stop()
@@ -319,7 +336,7 @@ func run() error {
 				select {
 				case sem <- struct{}{}:
 					wg.Add(1)
-					go send(fmt.Sprintf("%sop-%d", prefix, n))
+					go send(fmt.Sprintf("%sop-%d", prefix, n), steady)
 				default:
 					generatorSkipped.Add(1)
 				}
@@ -327,14 +344,13 @@ func run() error {
 		}
 	}
 	loadStart := time.Now()
-	phase(*duration, *rate)
+	phase(*duration, *rate, true)
 	steadyAccepted := accepted.Load()
 	steadyRejected := rejected.Load()
 	metricMu.Lock()
 	steadyLatency := append([]float64(nil), latencies...)
-	steadyDeliveryLatency := append([]float64(nil), deliveryLatencies...)
 	metricMu.Unlock()
-	phase(*burst, *burstRate)
+	phase(*burst, *burstRate, false)
 	deadline := time.Now().Add(15 * time.Second)
 	expectedDeliveries := accepted.Load() * int64(*groupSize-1)
 	for delivered.Load() < expectedDeliveries && time.Now().Before(deadline) {
@@ -359,16 +375,26 @@ func run() error {
 		historyCount += len(messages)
 		after = messages[len(messages)-1].Seq
 	}
-	percentile := func(values []float64) float64 {
+	percentile := func(values []float64, quantile float64) float64 {
 		if len(values) == 0 {
 			return 0
 		}
 		sort.Float64s(values)
-		return values[int(float64(len(values)-1)*0.95)]
+		return values[int(math.Ceil(float64(len(values))*quantile))-1]
 	}
 	metricMu.Lock()
-	result := map[string]any{"users_connected": connected.Load(), "offered": offered.Load(), "accepted": accepted.Load(), "steady_accepted": steadyAccepted, "steady_backpressure": steadyRejected, "backpressure": rejected.Load(), "failed": failed.Load(), "status_counts": statusCounts, "generator_skipped": generatorSkipped.Load(), "delivered": delivered.Load(), "history_messages": historyCount, "accept_p95_ms": percentile(latencies), "delivery_p95_ms": percentile(deliveryLatencies), "steady_accept_p95_ms": percentile(steadyLatency), "steady_delivery_p95_ms": percentile(steadyDeliveryLatency), "steady_seconds": duration.Seconds(), "steady_rate": *rate, "burst_seconds": burst.Seconds(), "burst_rate": *burstRate, "elapsed_seconds": time.Since(loadStart).Seconds(), "limitations": []string{"synthetic payload and shared recipient HPKE fixture key", fmt.Sprintf("%d users; one active %d-member conversation", *users, *groupSize), "HTTP behind isolated trusted proxy header; TLS CPU not measured", "generator runs outside server container; resource stats recorded separately"}}
+	result := map[string]any{"users_connected": connected.Load(), "offered": offered.Load(), "accepted": accepted.Load(), "steady_accepted": steadyAccepted, "steady_backpressure": steadyRejected, "backpressure": rejected.Load(), "failed": failed.Load(), "status_counts": statusCounts, "generator_skipped": generatorSkipped.Load(), "delivered": delivered.Load(), "history_messages": historyCount, "accept_p95_ms": percentile(latencies, .95), "delivery_p95_ms": percentile(deliveryLatencies, .95), "steady_accept_p95_ms": percentile(steadyLatency, .95), "steady_delivery_p95_ms": percentile(steadyDeliveryLatencies, .95), "steady_seconds": duration.Seconds(), "steady_rate": *rate, "burst_seconds": burst.Seconds(), "burst_rate": *burstRate, "elapsed_seconds": time.Since(loadStart).Seconds(), "limitations": []string{"synthetic payload and shared recipient HPKE fixture key", fmt.Sprintf("%d users; one active %d-member conversation", *users, *groupSize), "HTTP behind isolated trusted proxy header; TLS CPU not measured", "generator runs outside server container; resource stats recorded separately"}}
 	result["group_size"] = *groupSize
+	result["unexpected_disconnects"] = unexpectedDisconnects.Load()
+	result["accept_p99_ms"] = percentile(latencies, .99)
+	result["delivery_p99_ms"] = percentile(deliveryLatencies, .99)
+	result["steady_accept_p99_ms"] = percentile(steadyLatency, .99)
+	result["steady_delivery_p99_ms"] = percentile(steadyDeliveryLatencies, .99)
+	result["accept_samples"] = len(latencies)
+	result["delivery_samples"] = len(deliveryLatencies)
+	result["steady_delivery_samples"] = len(steadyDeliveryLatencies)
+	result["percentile_method"] = "nearest rank: sorted samples[ceil(n*q)-1]; successful requests only; steady deliveries classified by send phase"
+
 	data, _ := json.MarshalIndent(result, "", "  ")
 	metricMu.Unlock()
 	if *out != "" {
@@ -377,7 +403,7 @@ func run() error {
 		}
 	}
 	fmt.Println(string(data))
-	if historyCount != int(accepted.Load()) || delivered.Load() != expectedDeliveries || failed.Load() > 0 {
+	if historyCount != int(accepted.Load()) || delivered.Load() != expectedDeliveries || failed.Load() > 0 || unexpectedDisconnects.Load() > 0 {
 		return fmt.Errorf("load acceptance integrity failed")
 	}
 	return nil

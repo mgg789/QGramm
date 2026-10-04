@@ -194,7 +194,8 @@ replay ledger, повтор первого human ciphertext после restart �
 
 Provider внутри independent MLS стенда — local HTTPS mock с отдельным test CA
 в isolated Docker network. Это проверка provider contract/TLS и штатного egress
-validator. Отдельно OpenAI-совместимый API проверен живым DeepSeek; см.
+validator. Тот же lifecycle с независимым OpenMLS, restart и replay проверен также с
+живым DeepSeek; см. [live evidence](benchmarks/live-mls-provider.json) и
 [статус приемки](verification.md). Production networking guard не изменён.
 Raw private keys, snapshots/JWTs не логируются. Reproducible test-only tooling:
 `sh tools/mls-interop/run.sh`, pinned source/image digests, nested go.mod/go.sum;

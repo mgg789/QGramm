@@ -192,8 +192,9 @@ OpenMLS process. Restored `ai_chats.state` rejects the first human wire replay.
 
 Provider in this independent-MLS fixture is a local HTTPS mock with temporary
 test CA in an isolated Docker network. This checks provider contract/TLS and
-the normal egress validator. Separate live OpenAI-compatible API acceptance
-uses DeepSeek; see [verification](verification.md). Production network guards
+the normal egress validator. The same Core restart/replay lifecycle also passed with live DeepSeek and an
+independent OpenMLS human; see [live evidence](benchmarks/live-mls-provider.json)
+and [verification](verification.md). Production network guards
 are unchanged. Private keys, snapshots and JWTs are not logged. Reproduce with
 `sh tools/mls-interop/run.sh`; source/base-image hashes and nested test dependency
 sums are pinned. Rust/gRPC are excluded from deployment. See
@@ -201,8 +202,8 @@ sums are pinned. Rust/gRPC are excluded from deployment. See
 
 The public-commit interoperability profile has recorded PASS evidence.
 Mixed/private handshakes and operational external authority validation remain
-separate limitations. The combined live-provider/independent-MLS contour is
-separate from the two successful individual checks.
+separate limitations. The combined live-provider/independent-MLS contour now has separate PASS evidence;
+operator tool endpoints are outside that two-request synthetic workload.
 
 Sources: [RFC 9420](https://www.rfc-editor.org/rfc/rfc9420),
 [MLS WG interoperability](https://github.com/mlswg/mls-implementations),
