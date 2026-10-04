@@ -1,0 +1,473 @@
+{
+  "variant": "before",
+  "instrumented": true,
+  "accepted": 7998,
+  "checkpoint_labels": [
+    "idle",
+    "steady",
+    "burst",
+    "final"
+  ],
+  "snapshots": [
+    {
+      "at": "20261004T210436.590543258Z",
+      "diagnostics": {
+        "bucket_upper_ms": [
+          "0.125",
+          "0.25",
+          "0.5",
+          "1",
+          "2",
+          "4",
+          "8",
+          "16",
+          "32",
+          "+Inf"
+        ],
+        "commit_transactions": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "queue_wait_jobs": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "sql_read_calls": 13994,
+        "writer_service_transactions": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "frees": 1333592,
+      "gc_cpu_fraction": 0.005751619311593625,
+      "gc_cycles": 28,
+      "gc_pause_total_ns": 14449831,
+      "goroutines": 4028,
+      "heap_alloc_bytes": 21552776,
+      "heap_inuse_bytes": 26681344,
+      "heap_sys_bytes": 57278464,
+      "http_admission": {
+        "active": 0,
+        "pending": 0,
+        "admitted": 7001,
+        "rejected": 0,
+        "wait_ns": 0
+      },
+      "mallocs": 1462700,
+      "message_writer": {
+        "capacity": 32,
+        "queued": 0,
+        "admitted": 0,
+        "rejected": 0,
+        "completed": 0,
+        "cancelled": 0,
+        "queue_wait_ns": 0,
+        "service_ns": 0,
+        "commit_ns": 0,
+        "commit_count": 0,
+        "commit_errors": 0
+      },
+      "reader_db": {
+        "MaxOpenConnections": 8,
+        "OpenConnections": 8,
+        "InUse": 0,
+        "Idle": 8,
+        "WaitCount": 3999,
+        "WaitDuration": 14103124828,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      },
+      "stack_inuse_bytes": 26607616,
+      "sys_bytes": 91744536,
+      "total_alloc_bytes": 112481248,
+      "writer_db": {
+        "MaxOpenConnections": 1,
+        "OpenConnections": 1,
+        "InUse": 0,
+        "Idle": 1,
+        "WaitCount": 8988,
+        "WaitDuration": 35291975152,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      }
+    },
+    {
+      "at": "20261004T210446.836070013Z",
+      "diagnostics": {
+        "bucket_upper_ms": [
+          "0.125",
+          "0.25",
+          "0.5",
+          "1",
+          "2",
+          "4",
+          "8",
+          "16",
+          "32",
+          "+Inf"
+        ],
+        "commit_transactions": [
+          0,
+          0,
+          1,
+          45,
+          14,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        "queue_wait_jobs": [
+          61,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "sql_read_calls": 14872,
+        "writer_service_transactions": [
+          0,
+          0,
+          0,
+          29,
+          31,
+          1,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "frees": 1551713,
+      "gc_cpu_fraction": 0.001475915472717228,
+      "gc_cycles": 29,
+      "gc_pause_total_ns": 14545247,
+      "goroutines": 4028,
+      "heap_alloc_bytes": 21811448,
+      "heap_inuse_bytes": 26951680,
+      "heap_sys_bytes": 57245696,
+      "http_admission": {
+        "active": 0,
+        "pending": 0,
+        "admitted": 7062,
+        "rejected": 0,
+        "wait_ns": 0
+      },
+      "mallocs": 1683960,
+      "message_writer": {
+        "capacity": 32,
+        "queued": 0,
+        "admitted": 61,
+        "rejected": 0,
+        "completed": 61,
+        "cancelled": 0,
+        "queue_wait_ns": 253043,
+        "service_ns": 65129709,
+        "commit_ns": 56210702,
+        "commit_count": 61,
+        "commit_errors": 0
+      },
+      "reader_db": {
+        "MaxOpenConnections": 8,
+        "OpenConnections": 8,
+        "InUse": 0,
+        "Idle": 8,
+        "WaitCount": 3999,
+        "WaitDuration": 14103124828,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      },
+      "stack_inuse_bytes": 26640384,
+      "sys_bytes": 92072216,
+      "total_alloc_bytes": 129127328,
+      "writer_db": {
+        "MaxOpenConnections": 1,
+        "OpenConnections": 1,
+        "InUse": 0,
+        "Idle": 1,
+        "WaitCount": 8988,
+        "WaitDuration": 35291975152,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      }
+    },
+    {
+      "at": "20261004T210517.402991305Z",
+      "diagnostics": {
+        "bucket_upper_ms": [
+          "0.125",
+          "0.25",
+          "0.5",
+          "1",
+          "2",
+          "4",
+          "8",
+          "16",
+          "32",
+          "+Inf"
+        ],
+        "commit_transactions": [
+          28,
+          142,
+          973,
+          2519,
+          468,
+          52,
+          6,
+          0,
+          0,
+          0
+        ],
+        "queue_wait_jobs": [
+          3975,
+          13,
+          47,
+          38,
+          48,
+          29,
+          15,
+          24,
+          0,
+          0
+        ],
+        "sql_read_calls": 72162,
+        "writer_service_transactions": [
+          0,
+          69,
+          845,
+          2285,
+          912,
+          70,
+          7,
+          0,
+          0,
+          0
+        ]
+      },
+      "frees": 7623107,
+      "gc_cpu_fraction": 0.0011926496313386375,
+      "gc_cycles": 50,
+      "gc_pause_total_ns": 26407122,
+      "goroutines": 4046,
+      "heap_alloc_bytes": 25813496,
+      "heap_inuse_bytes": 30965760,
+      "heap_sys_bytes": 57311232,
+      "http_admission": {
+        "active": 1,
+        "pending": 0,
+        "admitted": 11190,
+        "rejected": 0,
+        "wait_ns": 0
+      },
+      "mallocs": 7804333,
+      "message_writer": {
+        "capacity": 32,
+        "queued": 0,
+        "admitted": 4189,
+        "rejected": 0,
+        "completed": 4188,
+        "cancelled": 0,
+        "queue_wait_ns": 530010868,
+        "service_ns": 3492307143,
+        "commit_ns": 3050539013,
+        "commit_count": 4188,
+        "commit_errors": 0
+      },
+      "reader_db": {
+        "MaxOpenConnections": 8,
+        "OpenConnections": 8,
+        "InUse": 0,
+        "Idle": 8,
+        "WaitCount": 3999,
+        "WaitDuration": 14103124828,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      },
+      "stack_inuse_bytes": 26574848,
+      "sys_bytes": 92399896,
+      "total_alloc_bytes": 497289608,
+      "writer_db": {
+        "MaxOpenConnections": 1,
+        "OpenConnections": 1,
+        "InUse": 1,
+        "Idle": 0,
+        "WaitCount": 8988,
+        "WaitDuration": 35291975152,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      }
+    },
+    {
+      "at": "20261004T210521.760798918Z",
+      "diagnostics": {
+        "bucket_upper_ms": [
+          "0.125",
+          "0.25",
+          "0.5",
+          "1",
+          "2",
+          "4",
+          "8",
+          "16",
+          "32",
+          "+Inf"
+        ],
+        "commit_transactions": [
+          252,
+          488,
+          2788,
+          3456,
+          744,
+          254,
+          16,
+          0,
+          0,
+          0
+        ],
+        "queue_wait_jobs": [
+          6070,
+          96,
+          231,
+          240,
+          482,
+          338,
+          264,
+          101,
+          156,
+          20
+        ],
+        "sql_read_calls": 121051,
+        "writer_service_transactions": [
+          2,
+          478,
+          2430,
+          3462,
+          1328,
+          277,
+          20,
+          1,
+          0,
+          0
+        ]
+      },
+      "frees": 14422086,
+      "gc_cpu_fraction": 0.0017959313166732705,
+      "gc_cycles": 76,
+      "gc_pause_total_ns": 43371452,
+      "goroutines": 12,
+      "heap_alloc_bytes": 8581304,
+      "heap_inuse_bytes": 13197312,
+      "heap_sys_bytes": 80510976,
+      "http_admission": {
+        "active": 0,
+        "pending": 0,
+        "admitted": 15040,
+        "rejected": 0,
+        "wait_ns": 284250873
+      },
+      "mallocs": 14438455,
+      "message_writer": {
+        "capacity": 32,
+        "queued": 0,
+        "admitted": 7998,
+        "rejected": 0,
+        "completed": 7998,
+        "cancelled": 0,
+        "queue_wait_ns": 8799533604,
+        "service_ns": 6217726692,
+        "commit_ns": 5417560505,
+        "commit_count": 7998,
+        "commit_errors": 0
+      },
+      "reader_db": {
+        "MaxOpenConnections": 8,
+        "OpenConnections": 8,
+        "InUse": 0,
+        "Idle": 8,
+        "WaitCount": 4019,
+        "WaitDuration": 14107479118,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      },
+      "stack_inuse_bytes": 3375104,
+      "sys_bytes": 92399896,
+      "total_alloc_bytes": 926689304,
+      "writer_db": {
+        "MaxOpenConnections": 1,
+        "OpenConnections": 1,
+        "InUse": 0,
+        "Idle": 1,
+        "WaitCount": 8988,
+        "WaitDuration": 35291975152,
+        "MaxIdleClosed": 0,
+        "MaxIdleTimeClosed": 0,
+        "MaxLifetimeClosed": 0
+      }
+    }
+  ],
+  "source_provenance": {
+    "source_commit": "a78ebcf5f42d62e0f05f889a327d6be751c84ba6",
+    "source_snapshot_sha256": "b30ac802633116b9d4de59cfe3415fd7fb2d41c1d1d69f2aac8b2828c240584c",
+    "note": "Exact a78 archive plus identical profiling-only GC/SQL-read/timing histogram instrumentation from after source; diagnostics field and timing hooks inserted into original single-job writer; no algorithm changes",
+    "instrumentation_files": {
+      "cmd/qgramm/perf_profile.go": "c0afe128e516bcc92bec078c96a455ac9ed6b21847fa1abb77b3df57b039c614",
+      "internal/core/diagnostics.go": "ad801648df6a348e1b7ecce86f37db11adda9cb857acc535ea83e84668902bec",
+      "internal/core/diagnostics_bench.go": "3a541a611495a5444db6c0362bc3ea07e77a897e301b340596307b186a424a77",
+      "internal/core/prepared.go": "c91e75f0926f9c39f3bfcf80010401ac75f2abcc0868bd17382a0f8e3aee0dfe"
+    },
+    "image": "qgramm:sqlgc-before-profile-a78ebcf",
+    "image_id": "sha256:96d05b39914a14779ad0b7f2a2216e62b0e3cf816eca67ac9ea5f399a73e3fd8",
+    "server_binary_sha256": "17e1ef2577b574e9b4d61e9ef89c4046eed673fdda0212106ff8f6496df040c8",
+    "server_go": "go1.26.8"
+  },
+  "diagnostic_method": {
+    "wrapper_sha256": "d9c13b0d8ff6dfea55d49a3d3645212717fd40f39161779838177a5f2bd334d4",
+    "effective_runner_sha256": "e38ed9d333d36f0731ef3125854d4c734eccd09d0b034e013864a0c1ffd72725",
+    "checkpoint_labels": [
+      "idle",
+      "steady",
+      "burst",
+      "final"
+    ],
+    "snapshot_count": 4,
+    "forced_gc_checkpoint_count": 4,
+    "delta_scope": "final minus idle checkpoint; includes remaining idle, steady/burst, history and background work; instrumented and not a primary timing result"
+  }
+}

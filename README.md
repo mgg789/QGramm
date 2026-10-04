@@ -34,7 +34,9 @@ Two repetitions on Apple M5 Pro / Docker Desktop Linux arm64, 4 CPU / 8 GiB limi
 
 ¹ 100% means one CPU. QGramm steady RAM fell 52–54% and CPU about 27%. Full-response burst runs returned 83/20 managed 503 rejections; compact receipts had none. All accepted messages were delivered and stored. Whole-run delivery p99 was 29–71 ms for full responses and 7.6–25.4 ms for compact receipts. Baselines omit per-send HPKE/device/chat ACL and chat transactions; Centrifugo history is volatile. This is neither maximum throughput nor an equivalent-feature ranking. [Method, per-run p95/p99, profiles and raw evidence](docs/performance-dynamics.md). [Earlier baseline](docs/comparison-benchmark.en.md).
 
-Latest iteration: with all 10,000 sockets subscribed, the first three further changes reduced steady CPU 77% and RAM 34%; whole-run delivery p99 was6.5–7.4 ms. Same-container Redis showed no repeatable gain and has been removed. [Two-repeat comparison, limits and raw data](docs/performance-iteration.md).
+Previous iteration: with all 10,000 sockets subscribed, the first three further changes reduced steady CPU 77% and RAM 34%; whole-run delivery p99 was6.5–7.4 ms. Same-container Redis showed no repeatable gain and has been removed. [Two-repeat comparison, limits and raw data](docs/performance-iteration.md).
+
+Current commit/GC/SQL iteration: Redis removed. Diagnostic read-helper calls/accepted fell27.5% and allocations/accepted3%; primary CPU fell2–4%, but p95 rose slightly and one subscribed burst tail worsened. [Before/after results and limits](docs/performance-sql-gc.md).
 
 ## Small integration example
 

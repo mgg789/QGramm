@@ -1,5 +1,7 @@
 # Load measurements
 
+[Current commit/GC/SQL campaign](performance-sql-gc.md): 8 primary before/after runs + 2 separate diagnostics, Redis removed; reductions in internal work with mixed latency. Earlier data below are historical contours.
+
 [Recorded first-three/embedded-Redis campaign](performance-iteration.md): 12 runs, two repeats of standard and fully subscribed profiles per variant. Earlier results below retain their original image/provenance and workload scopes.
 
 [Measured alternative baselines](comparison-benchmark.md): NATS JetStream default/always fsync and Centrifugo memory history, with the same container quotas, connection count and nominal load. Their application semantics differ; the comparison records those differences.
