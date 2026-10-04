@@ -72,6 +72,7 @@ def main():
     parser.add_argument('--rate', type=int, default=100)
     parser.add_argument('--burst', default='5s')
     parser.add_argument('--burst-rate', type=int, default=1000)
+    parser.add_argument('--batch-size', type=int, default=1, help='messages per request; rates remain messages/sec')
     parser.add_argument('--response-mode', choices=['full', 'minimal'], default='full')
     parser.add_argument('--idle', default='10s', help='connected idle interval before steady traffic')
     parser.add_argument('--idle-subscriptions', action='store_true', help='all sockets subscribe to paired direct chats; requires an even user count and group-size 2')
@@ -211,7 +212,7 @@ def main():
             load = subprocess.run([str(binary),'-env',str(env),'-url','http://'+address,
                     '-users',str(args.users),'-group-size',str(args.group_size),
                     '-duration',args.duration,'-rate',str(args.rate),'-burst',args.burst,
-                    '-burst-rate',str(args.burst_rate),'-response-mode',args.response_mode,
+                    '-burst-rate',str(args.burst_rate),'-response-mode',args.response_mode,'-batch-size',str(args.batch_size),
                     '-idle',args.idle,'-phase-file',str(phase_file),'-out',str(result),
                     *(['-idle-subscriptions'] if args.idle_subscriptions else [])], cwd=ROOT)
             stopped.set()
