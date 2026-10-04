@@ -32,6 +32,8 @@ C["MessageInput"]["description"] = "basic requires envelope; e2ee requires MLS P
 C["Message"] = obj({"id": S, "chat_id": S, "sender": S, "device_id": S, "operation_id": S, "seq": N, "revision": I, "deleted": B, "mode": enum("basic", "e2ee"), "epoch": N, "created_at": I, "envelope": ref("Envelope"), "mls": BASE64, "attachments": arr(S), "reply_to": S, "forward_from": S}, ["id", "chat_id", "sender", "device_id", "operation_id", "seq", "revision", "deleted", "mode", "created_at"])
 C["Reaction"] = obj({"type": N, "user_id": S})
 C["Message"]["properties"]["reactions"] = arr(ref("Reaction"))
+C["AcceptanceReceipt"] = obj({"message_id": S, "chat_id": S, "operation_id": S, "seq": N})
+C["SendResult"] = {"oneOf": [obj({"status": {"const": "accepted"}, "message": ref("Message")}), obj({"status": {"const": "accepted"}, "receipt": ref("AcceptanceReceipt")})]}
 C["Chat"] = obj({"id": S, "kind": enum("direct", "group"), "mode": enum("basic", "e2ee"), "seq": N, "epoch": N, "pending_rekey": B, "role": enum("owner", "admin", "member"), "can_send": B})
 C["RosterMember"] = obj({"device_id": S, "leaf_index": {"type": "integer", "minimum": 0, "maximum": 65535}})
 C["ChunkBinding"] = obj({"chat_id": S, "user_id": S, "device_id": S, "operation_id": S})
@@ -84,8 +86,8 @@ ROUTES = {
 "GET /v1/ws": (None, None, [101]),
 "GET /v1/chats": (None, arr(ref("Chat")), [200]),
 "GET /v1/chats/{chat}/messages": (None, arr(ref("Message")), [200]),
-"POST /v1/chats/{chat}/messages": (ref("MessageInput"), ref("Message"), [201]),
-"POST /v1/chats/{chat}/messages/batch": (obj({"messages": {**arr(ref("MessageInput")), "minItems": 1}}), arr({"oneOf": [obj({"operation_id": S, "status": {"const": 201}, "message": ref("Message")}), obj({"operation_id": S, "status": I, "error": S})]}), [207]),
+"POST /v1/chats/{chat}/messages": (ref("MessageInput"), ref("SendResult"), [201]),
+"POST /v1/chats/{chat}/messages/batch": (obj({"messages": {**arr(ref("MessageInput")), "minItems": 1}}), arr({"oneOf": [obj({"operation_id": S, "status": {"const": 201}, "message": ref("Message")}), obj({"operation_id": S, "status": {"const": 201}, "receipt": ref("AcceptanceReceipt")}), obj({"operation_id": S, "status": I, "error": S})]}), [207]),
 "GET /v1/chats/{chat}/events": (None, arr(ref("Event")), [200]),
 "POST /v1/chats/{chat}/receipts": (obj({"delivered": N, "read": N}, []), obj({"acknowledged": B}), [200]),
 "PUT /management/v1/users/{user}": (obj({"disabled": B}, []), obj({"id": S, "disabled": B}), [200]),
@@ -142,11 +144,17 @@ def main():
         binary = "chunks/{index}" in path
         if binary and method == "PUT": params += [parameter("X-Chunk-SHA256", "header", HASH, True)]
         op = {"operationId": re.sub(r"[^a-zA-Z0-9]+", "_", route).strip("_"), "summary": route, "x-source": locations[route], "parameters": params, "responses": {"default": {"description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure", "content": {"application/json": {"schema": ref("Error")}}}}}
+        minimal_send = method == "POST" and path in ("/v1/chats/{chat}/messages", "/v1/chats/{chat}/messages/batch")
+        if minimal_send:
+            params.append(parameter("Prefer", "header", {**S, "example": "return=minimal"}))
+            op["description"] = "Default returns the current full message. Prefer: return=minimal returns a stable acceptance receipt without re-encrypting content for the sender; delivery remains a separate device receipt. Exact retries retain the operation result and check current access."
         op["security"] = [] if path in ("/healthz", "/readyz", "/v1/ws") else [{"managementBearer" if path.startswith("/management") else "deviceJWT": []}]
         if request:
             op["requestBody"] = {"required": True, "content": {"application/octet-stream" if binary else "application/json": {"schema": request}}}
         for code in codes:
             result = {"description": "WebSocket upgrade; frames in websocket.schema.json" if code == 101 else "Successful response"}
+            if minimal_send:
+                result["headers"] = {"Preference-Applied": {"description": "Present when the compact receipt was requested.", "schema": {"const": "return=minimal"}}}
             if response: result["content"] = {"application/octet-stream" if binary and method == "GET" else "application/json": {"schema": response}}
             op["responses"][str(code)] = result
         paths.setdefault(path, {})[method.lower()] = op

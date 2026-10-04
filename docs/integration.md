@@ -33,6 +33,17 @@ For a fetched basic message, AAD uses the **recipient** user/device and the serv
 
 ## Delivery and retries
 
+Send and batch accept the optional HTTP header `Prefer: return=minimal`. A single
+send still returns 201 after durable commit, with
+`{"status":"accepted","receipt":{"message_id":"...","chat_id":"...","operation_id":"...","seq":1}}`.
+Successful batch items use `receipt` instead of `message`; failed items keep
+their existing status/error. The response includes `Preference-Applied: return=minimal`.
+Without this header the full message response remains unchanged. The compact
+receipt avoids reading and re-encrypting message content for the sender;
+recipient delivery and encryption are unchanged. Retry the exact encrypted
+request: the receipt identifies the original acceptance, even after edits or
+deletion, while current access is checked again. It is not a delivery/read receipt.
+
 - A 201 send result means SQLite committed both message and event. It does not mean a recipient received/read it.
 - Preserve the complete serialized request and operation ID for retries. Changing ciphertext or metadata while reusing an operation ID returns 409, even if plaintext is identical.
 - `POST .../messages/batch` accepts `{messages:[...]}` and returns HTTP207 with per-item results. A batch is not an all-or-nothing transaction; retry failed items only.

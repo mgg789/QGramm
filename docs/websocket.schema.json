@@ -188,6 +188,68 @@
       ],
       "additionalProperties": false
     },
+    "AcceptanceReceipt": {
+      "type": "object",
+      "properties": {
+        "message_id": {
+          "type": "string"
+        },
+        "chat_id": {
+          "type": "string"
+        },
+        "operation_id": {
+          "type": "string"
+        },
+        "seq": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "message_id",
+        "chat_id",
+        "operation_id",
+        "seq"
+      ],
+      "additionalProperties": false
+    },
+    "SendResult": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "accepted"
+            },
+            "message": {
+              "$ref": "#/$defs/Message"
+            }
+          },
+          "required": [
+            "status",
+            "message"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "accepted"
+            },
+            "receipt": {
+              "$ref": "#/$defs/AcceptanceReceipt"
+            }
+          },
+          "required": [
+            "status",
+            "receipt"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
     "Chat": {
       "type": "object",
       "properties": {

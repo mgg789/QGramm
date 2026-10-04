@@ -76,6 +76,7 @@ type Core struct {
 	OnDelete         []func(context.Context, *sql.Tx, string) error
 	httpSlots        chan struct{}
 	DB               *sql.DB
+	readDB           *sql.DB
 	Config           config.Config
 	Engine           *cryptoenc.Engine
 	Mux              *http.ServeMux
