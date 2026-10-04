@@ -75,6 +75,27 @@ CREATE TABLE IF NOT EXISTS ai_audit(id INTEGER PRIMARY KEY,job_id TEXT NOT NULL,
 	if _, e = c.DB.Exec(`UPDATE ai_jobs SET status='uncertain',updated_at=? WHERE status='running'`, time.Now().Unix()); e != nil {
 		return e
 	}
+	c.OnDelete = append(c.OnDelete, func(ctx context.Context, tx *sql.Tx, message string) error {
+		var chat string
+		err := tx.QueryRowContext(ctx, `SELECT a.chat_id FROM ai_chats a JOIN messages m ON m.chat_id=a.chat_id WHERE m.id=?`, message).Scan(&chat)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		// Context can contain paraphrases of the deleted input. Clear the entire
+		// conversation context and invalidate captured in-flight contexts atomically.
+		blob, err := c.Engine.Seal([]byte("[]"), []byte("ai/context/"+chat))
+		if err != nil {
+			return err
+		}
+		if _, err = tx.ExecContext(ctx, `UPDATE ai_chats SET context=? WHERE chat_id=?`, blob, chat); err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `UPDATE ai_jobs SET status='failed',updated_at=? WHERE chat_id=? AND status IN ('queued','running')`, time.Now().Unix(), chat)
+		return err
+	})
 	c.InTransaction = append(c.InTransaction, func(ctx context.Context, tx *sql.Tx, id core.Identity, chat string, m core.Message) error {
 		var aiUser string
 		e := tx.QueryRowContext(ctx, `SELECT user_id FROM ai_chats WHERE chat_id=?`, chat).Scan(&aiUser)

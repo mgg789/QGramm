@@ -5,6 +5,14 @@ AI adapters are optional compiled modules: `qg_openai`, `qg_anthropic`,
 Credentials are runtime environment references in TOML; no provider credentials
 are baked into binaries or deployment files.
 
+Global message deletion resets that AI chat's entire stored context, including
+possible paraphrases, and marks its queued/running jobs failed in the deletion
+transaction. A late provider result cannot restore captured context or create a
+reply for those jobs. MLS participant state is retained independently. Requests
+already sent to providers/tools cannot be recalled; author-only hiding does not
+reset shared context. Other existing messages and downloaded/provider copies
+are subject to their own retention.
+
 AI resource limits are configurable with `[ai]` fields `max_context_turns`
 (default 20, range 1..20), `max_context_bytes` (262144, range 1..262144),
 `timeout_seconds` (45, range 1..45), and `max_response_bytes` (1048576,
