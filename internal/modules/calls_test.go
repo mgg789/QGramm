@@ -66,9 +66,6 @@ func TestCallsHTTPEncryptedSignalingAndState(t *testing.T) {
 			}
 		}
 	}
-	if cfg.Features.Redis {
-		cfg.Redis.Binary = testRedisBinary(t)
-	}
 	c, e := core.Open(cfg, core.Registered())
 	if e != nil {
 		t.Fatal(e)

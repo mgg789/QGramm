@@ -1,5 +1,7 @@
 # Embedded Redis experiment
 
+**Archived experiment: removed from the current core.** The files, feature flag, dependencies and commands below describe the previous revision only. See [recorded comparison](performance-iteration.md); do not use these deployment/test commands on the current checkout.
+
 `docker build -f Dockerfile.redis -t qgramm:redis .` builds a separate optional
 profile. `configs/redis.toml` enables `features.redis`; the build tool selects
 `qg_redis` and includes the Go Redis client. The default Dockerfile and minimal

@@ -73,41 +73,35 @@ func Registered() []string {
 }
 
 type Core struct {
-	OnWake             []func(string)
-	ExtendCapabilities []func(map[string]any)
-	shutdown           []func()
-	OnDelete           []func(context.Context, *sql.Tx, string) error
-	httpSlots          chan struct{}
-	httpPending        chan struct{}
-	admission          admissionCounters
-	writer             *messageWriter
-	readStatements     statementCache
-	writeStatements    statementCache
-	replayMu           sync.Mutex
-	replayHeads        map[string]int64
-	DB                 *sql.DB
-	readDB             *sql.DB
-	Config             config.Config
-	Engine             *cryptoenc.Engine
-	Mux                *http.ServeMux
-	Context            context.Context
-	cancel             context.CancelFunc
-	managementSecret   string
-	verifyKey          []byte
-	mu                 sync.Mutex
-	connections        map[string]map[*connection]struct{}
-	subscribers        map[string]map[*connection]struct{}
-	active             int
-	Prepare            []func(context.Context, Identity, string, *MessageInput) error
-	InTransaction      []func(context.Context, *sql.Tx, Identity, string, Message) error
-	Project            []func(context.Context, Identity, *Message) error
-	Cleanup            []func(context.Context) error
+	OnDelete         []func(context.Context, *sql.Tx, string) error
+	httpSlots        chan struct{}
+	httpPending      chan struct{}
+	admission        admissionCounters
+	writer           *messageWriter
+	readStatements   statementCache
+	writeStatements  statementCache
+	replayMu         sync.Mutex
+	replayHeads      map[string]int64
+	DB               *sql.DB
+	readDB           *sql.DB
+	Config           config.Config
+	Engine           *cryptoenc.Engine
+	Mux              *http.ServeMux
+	Context          context.Context
+	cancel           context.CancelFunc
+	managementSecret string
+	verifyKey        []byte
+	mu               sync.Mutex
+	connections      map[string]map[*connection]struct{}
+	subscribers      map[string]map[*connection]struct{}
+	active           int
+	Prepare          []func(context.Context, Identity, string, *MessageInput) error
+	InTransaction    []func(context.Context, *sql.Tx, Identity, string, Message) error
+	Project          []func(context.Context, Identity, *Message) error
+	Cleanup          []func(context.Context) error
 }
 
 func (c *Core) AddRoute(pattern string, h Handler) { c.Mux.HandleFunc(pattern, c.authorize(h)) }
 func (c *Core) AddManagementRoute(pattern string, h http.HandlerFunc) {
 	c.Mux.HandleFunc(pattern, c.management(h))
 }
-
-// AddShutdown registers module cleanup during initialization, before serving requests.
-func (c *Core) AddShutdown(fn func()) { c.shutdown = append(c.shutdown, fn) }

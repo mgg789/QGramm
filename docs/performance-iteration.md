@@ -1,5 +1,7 @@
 # Further performance changes and embedded Redis — 2026-10-04
 
+This is historical evidence for the measured revisions. The Redis experiment has since been removed; its build, configuration and runner commands below require that historical checkout.
+
 [Русский](performance-iteration.ru.md).
 
 ## Implemented changes
@@ -89,7 +91,7 @@ Ranges are the minimum and maximum of **two repeats**, not confidence intervals.
 - Standard CPU fell about 5.7%; memory and steady latency remained close. One optimized repeat had a worse whole-run p99 of14.55 ms, so there is no universal latency improvement.
 - Redis increased standard CPU **8.9%** versus the first three. Subscribed CPU changed −3.1% and RAM +2.2% by two-run means, without separating these small differences from noise. Whole-run p99 was37.97/6.99 ms versus6.51/7.43 ms without Redis: no repeatable benefit.
 
-**SQLite with local notifications remains the default.** Redis is explicitly optional. This measures one same-container Pub/Sub wake broker design, not every possible Redis integration.
+**SQLite with local notifications is the retained implementation.** The Redis experiment was removed after this comparison. This measures one same-container Pub/Sub wake broker design, not every possible Redis integration.
 
 ### Next changes to evaluate
 

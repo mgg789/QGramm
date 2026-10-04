@@ -203,9 +203,6 @@ func (c *Core) Close() error {
 	if c.writer != nil {
 		c.writer.close()
 	}
-	for i := len(c.shutdown) - 1; i >= 0; i-- {
-		c.shutdown[i]()
-	}
 	c.readStatements.close()
 	c.writeStatements.close()
 	c.mu.Lock()

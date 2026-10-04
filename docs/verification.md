@@ -8,7 +8,7 @@ This is a pre-release core. Implementation, mocks, independent peers and live pr
 |---|---|
 | Minimal and full unit/integration/race | `go test -race ./...`; `go test -race -tags qg_groups,qg_files,qg_e2ee,qg_calls,qg_delete,qg_edit,qg_reply,qg_forward,qg_reactions,qg_openai,qg_anthropic,qg_mcp,qg_http_tools ./...` |
 | Vet | `go vet ./...` and the same full tag set |
-| Build/runtime matrix | `QGRAMM_REDIS_TEST_BINARY=<real executable> sh scripts/test-redis.sh sh scripts/build-matrix.sh`: 30 profiles, 7 invalid configurations; registry/routes/tables/files/dependency graphs checked |
+| Build/runtime matrix | Current command: `sh scripts/build-matrix.sh` (13 features, 28 profiles and 7 invalid configurations); previous 30-profile result included the now-removed Redis experiment. Registry/routes/tables/files/dependency graphs checked in that recorded run. |
 | Protocol/security integration | JWT issuer/audience, device revocation, ACL, recipient HPKE, durable dedup/restart, replay/cursors, receipts and one-use WS tickets |
 | Fault paths | SQLite `SQLITE_FULL` rollback/recovery, exact batch retry after lost response, reconnect, expired replay, bounded capacity, corrupt/missing file chunks, quotas; AI late-reply invalidation after deletion |
 | Fuzzing | Five-second runs: `FuzzStrictJSON`, `FuzzEncryptedFrames`, `FuzzMLSKeyPackage`, two workers; no crashes. Short smoke fuzz, not exhaustive fuzzing |
@@ -19,7 +19,7 @@ This is a pre-release core. Implementation, mocks, independent peers and live pr
 | Native browser direct/TURN | Chromium152 Linuxarm64: decoded PCM and rendered video, selected relay/relay TURN pairs, HPKE signaling, substituted fingerprint rejected with zero media; runner exit0. [Details](browser-webrtc-verification.md) |
 | OpenAI-compatible API | Verified against live DeepSeek `deepseek-flash`: Chat Completions JSON API, encrypted input, job dedup, real response and recipient decryption. The core uses Go HTTP transport. [Evidence](benchmarks/live-provider.json) |
 | Live provider + independent MLS | DeepSeek `deepseek-flash` from Docker, independent OpenMLS input/response AAD, actual Core SQLite restart and replay rejection; two succeeded jobs and provider audit records. [Evidence](benchmarks/live-mls-provider.json) |
-| Optional embedded Redis | Actual pinned Redis7.2.14: private Unix socket, TCP/AOF/snapshots disabled, healthy Pub/Sub, SIGKILL → local fallback, bounded queue, reap/cleanup; real-process race tests (no skips), minimal and Redis container smoke. [Lifecycle and fixture commands](redis.md) |
+| Archived Redis experiment (removed) | Actual pinned Redis7.2.14: private Unix socket, TCP/AOF/snapshots disabled, healthy Pub/Sub, SIGKILL → local fallback, bounded queue, reap/cleanup; real-process race tests (no skips), minimal and Redis container smoke. [Historical lifecycle and fixture commands](redis.md) |
 | Runnable integration | `go run -race ./examples/basic`: Ed25519, management provisioning, ticket WebSocket, pinned-key HPKE send/decrypt, identical retry and delivery receipt |
 | Anthropic adapter | Messages/tool-use/tool-result contracts covered by integration tests with a test provider |
 | Load | 10,000 WS, sustained100/s and burst1000/s on Docker Linux4CPU/8GiB limit; accepted=delivered=history. Published p95/p99 rerun, hardware/provenance and reproduction tooling; separate group and file microbenchmark. [Results](benchmark.md) |
