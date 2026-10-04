@@ -125,7 +125,7 @@ func assemble(modules []module) ([]byte, error) {
 			bundle.WriteString("\n\n")
 		}
 	}
-	return bundle.Bytes(), nil
+	return append(bytes.TrimRight(bundle.Bytes(), "\n"), '\n'), nil
 }
 func licenseFiles(root string) ([]string, error) {
 	paths := []string{}
