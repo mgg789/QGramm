@@ -189,25 +189,7 @@ func (c *Core) runWebsocket(conn *connection) {
 			c.subscribe(conn, chat, false)
 		}
 	}()
-	// Idle sockets need maintenance only at ping deadlines. Replay polling
-	// is enabled separately only for sockets with subscriptions.
-	var replay *time.Ticker
-	var replayC <-chan time.Time
-	defer func() {
-		if replay != nil {
-			replay.Stop()
-		}
-	}()
-	updateReplay := func() {
-		if len(subscriptions) > 0 && replay == nil {
-			replay = time.NewTicker(time.Second)
-			replayC = replay.C
-		} else if len(subscriptions) == 0 && replay != nil {
-			replay.Stop()
-			replay = nil
-			replayC = nil
-		}
-	}
+	// Journal fallback polling is shared by Core; sockets only own ping deadlines.
 	maintenance := time.NewTimer(25 * time.Second)
 	defer maintenance.Stop()
 	expires := time.NewTimer(15 * time.Minute)
@@ -231,7 +213,6 @@ func (c *Core) runWebsocket(conn *connection) {
 			if e != nil {
 				c.subscribe(conn, chat, false)
 				delete(subscriptions, chat)
-				updateReplay()
 				return write(map[string]any{"type": "sync.error", "chat_id": chat, "error": e.Error()}) == nil
 			}
 			for _, event := range events {
@@ -260,7 +241,6 @@ func (c *Core) runWebsocket(conn *connection) {
 			if cmd.Type == "unsubscribe" {
 				c.subscribe(conn, cmd.ChatID, false)
 				delete(subscriptions, cmd.ChatID)
-				updateReplay()
 				continue
 			}
 			if cmd.Type != "subscribe" || cmd.After < 0 || len(subscriptions) >= 128 {
@@ -277,18 +257,11 @@ func (c *Core) runWebsocket(conn *connection) {
 			}
 			subscriptions[cmd.ChatID] = cmd.After
 			c.subscribe(conn, cmd.ChatID, true)
-			updateReplay()
 			if !flush(cmd.ChatID) {
 				return
 			}
 		case <-conn.wake:
 			for chat := range conn.takePending() {
-				if !flush(chat) {
-					return
-				}
-			}
-		case <-replayC:
-			for chat := range subscriptions {
 				if !flush(chat) {
 					return
 				}

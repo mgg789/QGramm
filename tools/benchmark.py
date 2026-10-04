@@ -26,6 +26,8 @@ def main():
     parser.add_argument('--out', required=True)
     parser.add_argument('--image', help='existing matching-profile image; retained after run')
     parser.add_argument('--image-source-commit', help='recorded provenance for an existing image')
+    parser.add_argument('--image-source-sha256', help='fingerprint of the immutable source snapshot used to build an existing image')
+    parser.add_argument('--image-source-note', help='describe uncommitted overlays or other qualifications of the image source')
     parser.add_argument('--users', type=int, default=10000)
     parser.add_argument('--group-size', type=int, default=2)
     parser.add_argument('--duration', default='30s')
@@ -34,6 +36,9 @@ def main():
     parser.add_argument('--burst-rate', type=int, default=1000)
     parser.add_argument('--response-mode', choices=['full', 'minimal'], default='full')
     parser.add_argument('--idle', default='10s', help='connected idle interval before steady traffic')
+    parser.add_argument('--idle-subscriptions', action='store_true', help='all sockets subscribe to paired direct chats; requires an even user count and group-size 2')
+    parser.add_argument('--generator-binary', help='reuse a frozen benchmark generator executable')
+    parser.add_argument('--redis', action='store_true', help='enable embedded Redis; use a matching Redis-enabled image')
     parser.add_argument('--profile-dir', help='requires benchmark-tag image; captures private pprof files separately from comparable timing runs')
     args = parser.parse_args()
     name = 'qgramm-load-' + uuid.uuid4().hex[:12]
@@ -45,7 +50,7 @@ def main():
     for path in sorted(command('git', 'ls-files', '--cached', '--others', '--exclude-standard', capture=True).splitlines()):
         # Runtime/build code only; evidence files must not hash themselves and
         # untracked new production source must be included.
-        if not path.endswith(('.go','.mod','.sum','.toml')) and path != 'Dockerfile':
+        if not path.endswith(('.go','.mod','.sum','.toml')) and path not in ('Dockerfile', 'Dockerfile.redis'):
             continue
         file = ROOT / path
         if file.is_file():
@@ -63,17 +68,21 @@ def main():
                               '[storage]\npath="/data/qgramm.db"\nfiles="/data/files"\n'
                               f'[capacity]\nexpected_concurrent_users={args.users}\n'
                               f'max_connections={max(args.users+1000,12000)}\n'
-                              f'[features]\ngroups={str(args.group_size>2).lower()}\n')
+                              f'[features]\ngroups={str(args.group_size>2).lower()}\n'
+                              + ('redis=true\n' if args.redis else ''))
             # Build context contains no benchmark secrets; they stay in temp.
             if not args.image:
                 relative = pathlib.Path('configs') / (name+'.toml')
                 build_config = ROOT / relative
                 build_config.write_text(config.read_text())
                 try:
-                    command('docker','build','--build-arg','CONFIG='+str(relative),'-t',image,'.')
+                    command('docker','build','-f','Dockerfile.redis' if args.redis else 'Dockerfile','--build-arg','CONFIG='+str(relative),'-t',image,'.')
                 finally:
                     build_config.unlink(missing_ok=True)
-            command('go','build','-o',str(binary),'./cmd/qgramm-bench')
+            if args.generator_binary:
+                shutil.copy2(pathlib.Path(args.generator_binary).resolve(), binary)
+            else:
+                command('go','build','-o',str(binary),'./cmd/qgramm-bench')
             command(str(binary),'-init','-env',str(env))
             container_env = temp/'container.env'
             container_env.write_text('\n'.join(line for line in env.read_text().splitlines()
@@ -135,7 +144,8 @@ def main():
                     '-users',str(args.users),'-group-size',str(args.group_size),
                     '-duration',args.duration,'-rate',str(args.rate),'-burst',args.burst,
                     '-burst-rate',str(args.burst_rate),'-response-mode',args.response_mode,
-                    '-idle',args.idle,'-phase-file',str(phase_file),'-out',str(result)], cwd=ROOT)
+                    '-idle',args.idle,'-phase-file',str(phase_file),'-out',str(result),
+                    *(['-idle-subscriptions'] if args.idle_subscriptions else [])], cwd=ROOT)
             stopped.set()
             sampler.join(timeout=10)
             if args.profile_dir:
@@ -163,8 +173,10 @@ def main():
                 'image_id':inspect['Image'],'cpu_limit':4,'ram_limit_gib':8,
                 'generator_source_commit':command('git','rev-parse','HEAD',capture=True).strip(),
                 'server_source_commit':args.image_source_commit if args.image else command('git','rev-parse','HEAD',capture=True).strip(),
+                'server_source_snapshot_sha256':args.image_source_sha256,
+                'server_source_note':args.image_source_note,
                 'generator_tracked_worktree_sha256':source.hexdigest(),
-                'source_fingerprint_scope':'tracked and untracked Go/mod/sum/TOML/Dockerfile inputs; excludes evidence outputs',
+                'source_fingerprint_scope':'tracked and untracked Go/mod/sum/TOML/Dockerfile/Dockerfile.redis inputs; excludes evidence outputs',
                 'generator_sha256':generator_source_sha,
                 'generator_binary_sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),
                 'generator_source_changed_during_run':generator_source_sha != hashlib.sha256((ROOT/'cmd/qgramm-bench/main.go').read_bytes()).hexdigest(),
@@ -175,6 +187,13 @@ def main():
             evidence['resource_samples'] = samples
             evidence['resource_sampling'] = 'docker stats approximately every 2 seconds including setup; sampled maxima'
             evidence['instrumented'] = bool(args.profile_dir)
+            evidence['embedded_redis'] = args.redis
+            if args.redis:
+                evidence['embedded_redis_runtime'] = {
+                    'version':command('docker','exec',name,'redis-server','--version',capture=True).strip(),
+                    'processes':command('docker','top',name,'-eo','pid,comm',capture=True).strip(),
+                    'resource_scope':'docker stats aggregates Go and Redis in the same container cgroup'
+                }
             out.write_text(json.dumps(evidence,indent=2)+'\n')
             if load.returncode:
                 raise RuntimeError('load acceptance failed; diagnostic evidence saved')

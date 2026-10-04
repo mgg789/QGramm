@@ -75,6 +75,13 @@ func Registered() []string {
 type Core struct {
 	OnDelete         []func(context.Context, *sql.Tx, string) error
 	httpSlots        chan struct{}
+	httpPending      chan struct{}
+	admission        admissionCounters
+	writer           *messageWriter
+	readStatements   statementCache
+	writeStatements  statementCache
+	replayMu         sync.Mutex
+	replayHeads      map[string]int64
 	DB               *sql.DB
 	readDB           *sql.DB
 	Config           config.Config

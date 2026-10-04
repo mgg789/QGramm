@@ -42,7 +42,7 @@ func Decode(w http.ResponseWriter, r *http.Request, v any, max int64) bool {
 }
 func (c *Core) deviceActive(r *http.Request, id Identity) bool {
 	var active bool
-	err := c.reader().QueryRowContext(r.Context(), `SELECT d.revoked=0 AND u.disabled=0 FROM devices d JOIN users u ON u.id=d.user_id WHERE d.id=? AND d.user_id=?`, id.DeviceID, id.UserID).Scan(&active)
+	err := c.readQueryRow(r.Context(), `SELECT d.revoked=0 AND u.disabled=0 FROM devices d JOIN users u ON u.id=d.user_id WHERE d.id=? AND d.user_id=?`, id.DeviceID, id.UserID).Scan(&active)
 	return err == nil && active
 }
 func (c *Core) authenticate(r *http.Request) (Identity, error) {
@@ -134,14 +134,12 @@ func (c *Core) Handler() http.Handler {
 			return
 		}
 		if r.URL.Path != "/v1/ws" && r.URL.Path != "/healthz" && r.URL.Path != "/readyz" && c.httpSlots != nil {
-			select {
-			case c.httpSlots <- struct{}{}:
-				defer func() { <-c.httpSlots }()
-			default:
+			if !c.admitHTTP(r.Context()) {
 				w.Header().Set("Retry-After", "1")
 				Error(w, 503, "request capacity reached")
 				return
 			}
+			defer func() { <-c.httpSlots }()
 		}
 		c.Mux.ServeHTTP(w, r)
 	})
