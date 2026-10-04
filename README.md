@@ -40,6 +40,8 @@ Previous commit/GC/SQL iteration: Redis removed. Diagnostic read-helper calls/ac
 
 Experimental replay/WAL work on dev adds one-query history, bounded single-event replay and a request-scoped parsed HPKE key. PASSIVE checkpoint is opt-in; FULL and automatic checkpoint remain. Local replay improved8.1%, but final steady p99 rose8.9%/18.4%; the candidate remains on dev. Initial SQL regression, correction and natural-GC diagnostics are published separately. [Measurements and limitations](docs/performance-tail.md).
 
+Next three experiments (dev): bounded HTTP batch commits and optional compact ACK together lowered ready-batch steady p99 by27.2% and CPU13.3%, with RAM3.4% higher. Idle-buffer reuse was reverted after a38.8% whole-run p99 regression; single-message speed gains were not consistent. [All18 runs, controls and selection](docs/performance-three.md).
+
 ## Small integration example
 
 ```sh

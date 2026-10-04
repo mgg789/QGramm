@@ -1,0 +1,36 @@
+{
+  "before": {
+    "server_source_commit": "2ce7077",
+    "base_source_commit": "2ce7077",
+    "server_source_snapshot_sha256": "dd09f7082bb2fee942cc2c6d07c685e8e988b7dcea90333125986e16f33f57fb",
+    "archive_sha256": "20f980bf6ff9bf45c0def33f8880926d482c90455c7b0754aa245d30f2f3eca9",
+    "overlay_files_sha256": {},
+    "image": "qgramm:next3-before",
+    "image_id": "sha256:aad2ebee3a924c5d2c662b7b95c6ac972b0a64e2e57c655fdb6feacacc22d877",
+    "note": "Immutable 2ce7077 archive; Go1.26.8 cached build stage identical across images; checkpoint disabled; SQLite FULL and automatic checkpoint retained; no diagnostic tag."
+  },
+  "idle": {
+    "server_source_commit": "ab09b58",
+    "base_source_commit": "ab09b58",
+    "server_source_snapshot_sha256": "253b5bfdd0d84578ed92cad756aaf8ea5af99f42457af498d57d73e81f310d51",
+    "archive_sha256": "664b09a3acbbf6b3def3186f2f081024d7c88483e0fc47811a5f3383e04e87db",
+    "overlay_files_sha256": {},
+    "image": "qgramm:next3-idle",
+    "image_id": "sha256:ee32c7c39e90c2b4d3c0e8187a07baef2f91d726bd94c6d304d13425888c32c9",
+    "note": "Immutable ab09b58 archive; Go1.26.8 cached build stage identical across images; checkpoint disabled; SQLite FULL and automatic checkpoint retained; no diagnostic tag."
+  },
+  "batch": {
+    "server_source_commit": "30eafab315d303b7fd209a06e5e31e8ac30b2774",
+    "base_source_commit": "2ce7077",
+    "server_source_snapshot_sha256": "c17a980476e191608331199a4294843eb8587282d05130ad7347d87a112f4794",
+    "archive_sha256": "20f980bf6ff9bf45c0def33f8880926d482c90455c7b0754aa245d30f2f3eca9",
+    "overlay_files_sha256": {
+      "internal/core/messages.go": "2fc51793b6f792183781572305ff31ae991eea6afdbcd354366af6ba58c1d469",
+      "internal/core/writer_queue.go": "685e622fa1ff32b2708967e167db3f029f746ae6659377a3e3d81d01accec912",
+      "internal/core/http_batch_commit_test.go": "4d659a3ed3d503092e4c31822702b827717ef1f783d356c6b17013f67203c8a8"
+    },
+    "image": "qgramm:next3-batch",
+    "image_id": "sha256:2dc7b4b3925fff2bee1e3b48e87ddfaf461f182905fef092f3881748d4e6cdcd",
+    "note": "Immutable 2ce7077 archive plus only batch source/tests from 30eafab315d303b7fd209a06e5e31e8ac30b2774; no idle optimization; Go1.26.8 cached build stage identical across images; checkpoint disabled; SQLite FULL and automatic checkpoint retained; no diagnostic tag."
+  }
+}
