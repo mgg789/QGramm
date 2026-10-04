@@ -15,13 +15,12 @@
     "encrypted result and recipient HPKE decryption"
   ],
   "not_verified": [
-    "OpenAI-hosted API",
-    "Anthropic-hosted API",
     "live tools",
     "live provider inside Docker",
     "live provider with independent MLS peer"
   ],
   "credential_source": "operator local file; contents and path omitted",
   "prompt": "synthetic short marker; no personal data",
-  "response": "omitted"
+  "response": "omitted",
+  "transport": "Go net/http with OpenAI-compatible Chat Completions JSON API"
 }

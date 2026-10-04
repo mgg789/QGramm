@@ -166,6 +166,16 @@ Broader mixed-policy matrix остаётся FAIL; profile public commits не �
 поддержку mixed/private handshakes. Live provider API и проверка operational
 external authority не входят в synthetic provider fixture.
 
+Public/private здесь — формат MLS-сообщений, а не доступность чата. Прикладные
+сообщения передаются как зашифрованные PrivateMessage. Proposals и commits
+управляют составом группы и сменой эпохи: PublicMessage удостоверяет отправителя,
+но оставляет управляющее содержимое видимым; PrivateMessage дополнительно
+шифрует его. RFC 9420 §6 допускает публичные handshakes, когда сервис доставки
+должен их проверять. Публичный commit не раскрывает секретные ключи группы.
+QGramm принимает public member commits для проверки подписей и согласования
+ACL/эпох. Клиенты должны выбрать этот профиль; зашифрованные управляющие
+сообщения требуют дополнительной реализации и проверки совместимости.
+
 ### Production adapter и AI с независимым OpenMLS
 
 2026-10-04: `docker compose -p qgramm-adapter-gate -f tools/mls-interop/compose.yml run --rm runner`
@@ -182,9 +192,10 @@ admission, client send, durable jobs и history, два human→AI→human excha
 отдельный unmodified pinned OpenMLS process. Persisted `ai_chats.state` хранит
 replay ledger, повтор первого human ciphertext после restart отклонён.
 
-Provider — local HTTPS mock с отдельным test CA в isolated Docker network.
-Это проверка provider contract/TLS и штатного egress validator, **не live OpenAI
-или Anthropic acceptance**. Production networking guard не изменён.
+Provider внутри independent MLS стенда — local HTTPS mock с отдельным test CA
+в isolated Docker network. Это проверка provider contract/TLS и штатного egress
+validator. Отдельно OpenAI-совместимый API проверен живым DeepSeek; см.
+[статус приемки](verification.md). Production networking guard не изменён.
 Raw private keys, snapshots/JWTs не логируются. Reproducible test-only tooling:
 `sh tools/mls-interop/run.sh`, pinned source/image digests, nested go.mod/go.sum;
 Rust/gRPC не добавлены в deployment/runtime. См. tools/mls-interop/README.md.

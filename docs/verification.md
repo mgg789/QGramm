@@ -17,7 +17,8 @@ This is a pre-release core. Implementation, mocks, independent peers and live pr
 | Production MLS/AI restart | `sh tools/mls-interop/run.sh`, `-race`: actual adapter snapshot/replay/counter/epoch and Core AI HTTP/SQLite restart against OpenMLS; provider is HTTPS mock |
 | Calls direct/TURN | `python3 tools/webrtc/run.py`, exit0: real Opus/VP8 frames between Pion peers, direct and forced coturn relay/relay. [Scope](webrtc-verification.md) |
 | Native browser partial | Chromium152 Linuxarm64: HPKE, decoded/rendered video, substituted fingerprint rejected with zero media. Audio incomplete; runner exit1. [Details](browser-webrtc-verification.md) |
-| Live provider | DeepSeek `deepseek-flash`, actual OpenAI-compatible module: encrypted input, job dedup, real response and recipient decryption. [Evidence](benchmarks/live-provider.json) |
+| OpenAI-compatible API | Verified against live DeepSeek `deepseek-flash`: Chat Completions JSON API, encrypted input, job dedup, real response and recipient decryption. The core uses Go HTTP transport. [Evidence](benchmarks/live-provider.json) |
+| Anthropic adapter | Messages/tool-use/tool-result contracts covered by integration tests with a test provider |
 | Load | 10,000 WS, sustained100/s and burst1000/s on Docker Linux4CPU/8GiB limit; accepted=delivered=history. Separate group and file microbenchmark. [Results](benchmark.md) |
 | Docker | Minimal arm64 build, UID10001, health/restart, retained volume, exclusive0600 offline backup; third-party license bundle included |
 | Architectures | Static Linux amd64/arm64 binaries cross-built; arm64 container run. amd64 native runtime not checked |
@@ -26,10 +27,14 @@ This is a pre-release core. Implementation, mocks, independent peers and live pr
 
 Development host: macOS arm64 Go1.26.4; Docker Go1.26.8. Image/source/workload contours and sampled resources accompany benchmark JSON. Test fixtures create ephemeral synthetic keys; real credentials are never committed or printed.
 
+Provider acceptance uses live DeepSeek for the OpenAI-compatible API and
+integration fixtures for the Anthropic Messages contract. Separate vendor-hosted
+live calls are not release gates in the selected acceptance policy.
+
 ## Remaining gates and unsupported profiles
 
 - Browser decoded audio is not confirmed; macOS Chrome ICE stayed checking. Browser TURN, Safari/Firefox, public NAT and client MLS fingerprint authentication remain unverified.
-- OpenAI-hosted/Anthropic-hosted APIs were not called. DeepSeek validates OpenAI compatibility, not both vendors. Real tools and live provider+independent MLS were not exercised.
+- Real tools and combined live-provider/independent-MLS acceptance remain separate contours.
 - Mixed public/private MLS handshake matrix failed; only documented public member commits are supported. External signed roster authority and client cryptographic checks are mandatory.
 - No independently qualified Linux local-SSD reference host, long soak, exact process peaks, TLS performance or concurrent large-file load. Sizing remains workload-dependent.
 - No independent cryptographic audit, production deployment, horizontal cluster or guarantee of deleting downloaded/provider/backed-up copies.
