@@ -186,6 +186,7 @@ drain:
 // Successful results remain private until the shared FULL commit completes.
 func (w *messageWriter) executeBatch(jobs []messageWriteJob) {
 	start := time.Now()
+	bodyStart := diagnosticStart()
 	var results [maxWriteBatch]messageWriteResult
 	tx, batchErr := w.core.DB.BeginTx(w.core.Context, nil)
 	if tx != nil {
@@ -237,6 +238,7 @@ func (w *messageWriter) executeBatch(jobs []messageWriteJob) {
 			}
 		}
 	}
+	w.core.observeBody(diagnosticElapsed(bodyStart))
 	if batchErr == nil && changed > 0 {
 		commitStart := time.Now()
 		batchErr = tx.Commit()

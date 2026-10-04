@@ -196,6 +196,8 @@ func (c *Core) runWebsocket(conn *connection) {
 	defer expires.Stop()
 	lastPing := time.Now()
 	write := func(v any) error {
+		started := diagnosticStart()
+		defer func() { c.observeWSWrite(diagnosticElapsed(started)) }()
 		_ = socket.SetWriteDeadline(time.Now().Add(10 * time.Second))
 		return socket.WriteJSON(v)
 	}

@@ -32,6 +32,12 @@ func init() {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		panic(err)
 	}
+	// A separate diagnostic run can collect timelines without injecting GC or
+	// enabling sampling profilers. It is still instrumented, not a primary run.
+	if os.Getenv("QGRAMM_BENCH_TIMELINE_ONLY") == "1" {
+		startTimeline(dir)
+		return
+	}
 	f, err := os.OpenFile(filepath.Join(dir, "cpu.pprof"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		panic(err)
@@ -77,6 +83,48 @@ func init() {
 			}
 			data, _ := json.Marshal(row)
 			_ = os.WriteFile(filepath.Join(dir, stamp+"-runtime.json"), append(data, '\n'), 0600)
+		}
+	}()
+}
+
+func startTimeline(dir string) {
+	f, err := os.OpenFile(filepath.Join(dir, "timeline.jsonl"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		panic(err)
+	}
+	var attached atomic.Pointer[core.Core]
+	profileCoreHook = func(c *core.Core) { attached.Store(c) }
+	changes := make(chan os.Signal, 2)
+	signal.Notify(changes, syscall.SIGUSR1, syscall.SIGUSR2)
+	go func() {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+		defer f.Close()
+		defer signal.Stop(changes)
+		encoder := json.NewEncoder(f)
+		snapshot := func() {
+			c := attached.Load()
+			if c == nil {
+				return
+			}
+			diagnostics := c.DiagnosticStats()
+			_ = encoder.Encode(map[string]any{
+				"at_unix_ns": time.Now().UnixNano(), "forced_gc": false,
+				"heap_alloc_bytes": diagnostics["heap_alloc_bytes"], "total_alloc_bytes": diagnostics["total_alloc_bytes"],
+				"mallocs": diagnostics["mallocs"], "gc_cycles": diagnostics["gc_cycles"], "gc_pause_total_ns": diagnostics["gc_pause_total_ns"],
+				"diagnostics": diagnostics, "message_writer": c.WriterStats(),
+			})
+		}
+		for {
+			select {
+			case <-ticker.C:
+				snapshot()
+			case sig := <-changes:
+				snapshot()
+				if sig == syscall.SIGUSR2 {
+					return
+				}
+			}
 		}
 	}()
 }

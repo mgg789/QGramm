@@ -153,6 +153,10 @@ func Open(cfg config.Config, compiled []string) (*Core, error) {
 		return nil, err
 	}
 	c.writer = newMessageWriter(c)
+	if err := c.startCheckpointer(); err != nil {
+		c.Close()
+		return nil, err
+	}
 	go c.replayLoop()
 	go c.cleanupLoop()
 	go c.connectionAuthLoop()
@@ -202,6 +206,10 @@ func (c *Core) Close() error {
 	c.cancel()
 	if c.writer != nil {
 		c.writer.close()
+	}
+	if c.checkpoint != nil {
+		<-c.checkpoint.done
+		c.checkpoint.db.Close()
 	}
 	c.readStatements.close()
 	c.writeStatements.close()

@@ -136,11 +136,31 @@ func storageAAD(aad []byte) []byte {
 }
 
 func SealEnvelope(publicKey, plaintext, binding []byte) (Envelope, error) {
-	public, err := hpke.KEM_X25519_HKDF_SHA256.Scheme().UnmarshalBinaryPublicKey(publicKey)
+	recipient, err := ParseRecipient(publicKey)
 	if err != nil {
 		return Envelope{}, err
 	}
-	sender, err := suite.NewSender(public, []byte(hpkeInfo))
+	return recipient.SealEnvelope(plaintext, binding)
+}
+
+// Recipient contains only the parsed public key and its identifier. Reuse it
+// within one authorized projection batch; SealEnvelope creates a fresh HPKE
+// sender and encapsulation for every message.
+type Recipient struct {
+	public kem.PublicKey
+	id     string
+}
+
+func ParseRecipient(publicKey []byte) (Recipient, error) {
+	public, err := hpke.KEM_X25519_HKDF_SHA256.Scheme().UnmarshalBinaryPublicKey(publicKey)
+	if err != nil {
+		return Recipient{}, err
+	}
+	return Recipient{public: public, id: keyID(publicKey)}, nil
+}
+
+func (r *Recipient) SealEnvelope(plaintext, binding []byte) (Envelope, error) {
+	sender, err := suite.NewSender(r.public, []byte(hpkeInfo))
 	if err != nil {
 		return Envelope{}, err
 	}
@@ -152,7 +172,7 @@ func SealEnvelope(publicKey, plaintext, binding []byte) (Envelope, error) {
 	if err != nil {
 		return Envelope{}, err
 	}
-	return Envelope{KeyID: keyID(publicKey), Enc: base64.StdEncoding.EncodeToString(enc), Ciphertext: base64.StdEncoding.EncodeToString(ct)}, nil
+	return Envelope{KeyID: r.id, Enc: base64.StdEncoding.EncodeToString(enc), Ciphertext: base64.StdEncoding.EncodeToString(ct)}, nil
 }
 func (e *Engine) OpenEnvelope(env Envelope, binding []byte) ([]byte, error) {
 	private := e.private

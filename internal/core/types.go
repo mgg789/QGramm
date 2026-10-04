@@ -74,6 +74,7 @@ func Registered() []string {
 
 type Core struct {
 	diagnostics      diagnosticState
+	checkpoint       *walCheckpointer
 	OnDelete         []func(context.Context, *sql.Tx, string) error
 	httpSlots        chan struct{}
 	httpPending      chan struct{}

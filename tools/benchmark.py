@@ -39,7 +39,14 @@ def main():
     parser.add_argument('--idle-subscriptions', action='store_true', help='all sockets subscribe to paired direct chats; requires an even user count and group-size 2')
     parser.add_argument('--generator-binary', help='reuse a frozen benchmark generator executable')
     parser.add_argument('--profile-dir', help='requires benchmark-tag image; captures private pprof files separately from comparable timing runs')
+    parser.add_argument('--timeline-only', action='store_true', help='private 100ms diagnostic timeline; no forced GC or sampling profilers; requires --profile-dir')
+    parser.add_argument('--checkpoint-interval-ms', type=int, default=0, help='optional background PASSIVE checkpoint; zero keeps SQLite automatic checkpoint only')
+    parser.add_argument('--checkpoint-bytes', type=int, default=4194304, help='minimum WAL bytes for the optional background checkpoint')
     args = parser.parse_args()
+    if args.timeline_only and not args.profile_dir:
+        parser.error('--timeline-only requires --profile-dir')
+    if args.checkpoint_interval_ms < 0 or args.checkpoint_bytes < 0:
+        parser.error('checkpoint settings must be nonnegative')
     name = 'qgramm-load-' + uuid.uuid4().hex[:12]
     image = args.image or name + ':test'
     out = pathlib.Path(args.out).resolve()
@@ -63,8 +70,10 @@ def main():
             binary, env, result = temp/'bench', temp/'secrets.env', temp/'result.json'
             phase_file = temp/'phase'
             config = temp/'benchmark.toml'
+            checkpoint_config = (f'checkpoint_interval_ms={args.checkpoint_interval_ms}\nwal_checkpoint_bytes={args.checkpoint_bytes}\n'
+                                 if args.checkpoint_interval_ms else '')
             config.write_text('[server]\nlisten="0.0.0.0:8080"\ntrusted_proxy=true\n'
-                              '[storage]\npath="/data/qgramm.db"\nfiles="/data/files"\n'
+                              '[storage]\npath="/data/qgramm.db"\nfiles="/data/files"\n' + checkpoint_config +
                               f'[capacity]\nexpected_concurrent_users={args.users}\n'
                               f'max_connections={max(args.users+1000,12000)}\n'
                               f'[features]\ngroups={str(args.group_size>2).lower()}\n')
@@ -100,6 +109,8 @@ def main():
                 if any(profile_output.iterdir()):
                     raise RuntimeError('profile output directory must be empty')
                 profile_args = ['--env','QGRAMM_BENCH_PROFILE_DIR=/profiles','--mount','type=bind,src='+str(profile_dir)+',dst=/profiles']
+                if args.timeline_only:
+                    profile_args.extend(['--env', 'QGRAMM_BENCH_TIMELINE_ONLY=1'])
             command('docker','run','-d','--name',name,'--cpus','4','--memory','8g',
                     '--ulimit','nofile=65536:65536','--env-file',str(container_env),
                     '-p','127.0.0.1::8080','-v',name+':/data',
@@ -185,6 +196,8 @@ def main():
             evidence['resource_samples'] = samples
             evidence['resource_sampling'] = 'docker stats approximately every 2 seconds including setup; sampled maxima'
             evidence['instrumented'] = bool(args.profile_dir)
+            evidence['diagnostic_mode'] = ('timeline-no-forced-gc' if args.timeline_only else 'pprof-forced-gc') if args.profile_dir else None
+            evidence['storage_checkpoint'] = {'interval_ms': args.checkpoint_interval_ms, 'wal_threshold_bytes': args.checkpoint_bytes if args.checkpoint_interval_ms else None, 'automatic_checkpoint_retained': True, 'synchronous': 'FULL'}
             out.write_text(json.dumps(evidence,indent=2)+'\n')
             if load.returncode:
                 raise RuntimeError('load acceptance failed; diagnostic evidence saved')

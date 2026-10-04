@@ -38,19 +38,23 @@ func (s *statementCache) close() {
 		stmt.Close()
 	}
 }
-func (c *Core) readQueryRow(ctx context.Context, query string, args ...any) *sql.Row {
+func (c *Core) readQueryRow(ctx context.Context, query string, args ...any) *diagnosticRow {
+	started := diagnosticStart()
 	c.observeRead()
 	if stmt := c.readStatements.get(ctx, c.reader(), query, true); stmt != nil {
-		return stmt.QueryRowContext(ctx, args...)
+		return c.wrapReadRow(stmt.QueryRowContext(ctx, args...), started)
 	}
-	return c.reader().QueryRowContext(ctx, query, args...)
+	return c.wrapReadRow(c.reader().QueryRowContext(ctx, query, args...), started)
 }
-func (c *Core) readQuery(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+func (c *Core) readQuery(ctx context.Context, query string, args ...any) (*diagnosticRows, error) {
+	started := diagnosticStart()
 	c.observeRead()
 	if stmt := c.readStatements.get(ctx, c.reader(), query, true); stmt != nil {
-		return stmt.QueryContext(ctx, args...)
+		rows, err := stmt.QueryContext(ctx, args...)
+		return c.wrapReadRows(rows, err, started)
 	}
-	return c.reader().QueryContext(ctx, query, args...)
+	rows, err := c.reader().QueryContext(ctx, query, args...)
+	return c.wrapReadRows(rows, err, started)
 }
 func (c *Core) writeQueryRow(ctx context.Context, query string, args ...any) *sql.Row {
 	if stmt := c.writeStatements.get(ctx, c.DB, query, true); stmt != nil {

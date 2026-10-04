@@ -34,8 +34,10 @@ type Server struct {
 	Origins               []string `toml:"origins"`
 }
 type Storage struct {
-	Path  string `toml:"path"`
-	Files string `toml:"files"`
+	Path                 string `toml:"path"`
+	Files                string `toml:"files"`
+	CheckpointIntervalMS int    `toml:"checkpoint_interval_ms"`
+	CheckpointWALBytes   int64  `toml:"wal_checkpoint_bytes"`
 }
 type Security struct {
 	Issuer                string   `toml:"issuer"`
@@ -206,6 +208,12 @@ func (c Config) Validate() error {
 	}
 	if c.Storage.Path == "" || c.Storage.Files == "" {
 		return fmt.Errorf("storage paths must not be empty")
+	}
+	if c.Storage.CheckpointIntervalMS != 0 && (c.Storage.CheckpointIntervalMS < 100 || c.Storage.CheckpointIntervalMS > 60000 || c.Storage.Path == ":memory:") {
+		return fmt.Errorf("storage.checkpoint_interval_ms must be 0 (disabled) or 100..60000 for a file database")
+	}
+	if c.Storage.CheckpointWALBytes != 0 && (c.Storage.CheckpointWALBytes < 65536 || c.Storage.CheckpointWALBytes > 1<<30 || c.Storage.CheckpointIntervalMS == 0) {
+		return fmt.Errorf("storage.wal_checkpoint_bytes must be 0 (4MiB default) or 65536..1073741824 with checkpoint enabled")
 	}
 	if c.Security.Issuer == "" || c.Security.Audience == "" {
 		return fmt.Errorf("security issuer and audience are required")

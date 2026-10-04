@@ -5,7 +5,7 @@
 | Section | Fields and meaning |
 |---|---|
 | `server` | `listen`, TLS certificate/key paths, `allow_insecure_loopback`, `trusted_proxy`, allowed browser `origins` |
-| `storage` | SQLite `path` and encrypted chunk directory `files`; container paths should be beneath `/data` |
+| `storage` | SQLite `path`, encrypted chunk directory `files`, optional `checkpoint_interval_ms` and `wal_checkpoint_bytes`; container paths should be beneath `/data` |
 | `security` | JWT `issuer`/`audience`; references `token_public_key_env`, `management_secret_env`, `master_key_env`, `hpke_key_env`; bounded retired-key reference lists `previous_master_key_envs`, `previous_hpke_key_envs` |
 | `features` | Boolean `groups`, `files`, `e2ee`, `calls`, `delete`, `edit`, `reply`, `forward`, `reactions`, `openai`, `anthropic`, `mcp`, `http_tools` |
 | `capacity` | `expected_concurrent_users`; optional explicit `max_connections`, `queue_depth`, `workers` |
@@ -16,6 +16,26 @@
 The authoritative field definitions/defaults are in `internal/config/config.go`; examples are in `configs/`. Secret references must be environment variable identifiers, never credentials. Calls require external TURN settings. Tools require an enabled AI provider, and each configured connector must have its feature compiled.
 
 Each `[[ai.tools]]` defines `name`, `kind`, `url`, `methods`, `secret_env`, `allow_private`, `schema`, `timeout_seconds`, `max_response_bytes`. Zero tool limits inherit globals; positive values narrow them. See [AI bounds and schema vocabulary](ai.md). AI defaults: 20 turns, 262144 context bytes, 45 seconds and 1048576 response bytes. These are also absolute safety ceilings.
+
+## Optional WAL checkpoint
+
+`storage.checkpoint_interval_ms` defaults to **0**: no additional pool or worker is created. Values **100..60000** enable a periodic `PASSIVE` checkpoint on one separate writable connection with a zero busy timeout. This is an opt-in tuning experiment; it retains SQLite automatic checkpoint and `synchronous=FULL` on every writer connection. A restart applies the setting; no rebuild is needed.
+
+`storage.wal_checkpoint_bytes` is the WAL file-size trigger, **65536..1073741824** bytes; zero or omission selects **4194304** (4 MiB). A nonzero threshold requires an enabled interval. An unchanged WAL is skipped after a complete checkpoint; partial/busy/failed attempts retry on a later tick. `PASSIVE` does not truncate the allocated WAL. The threshold is neither a disk quota nor a hard WAL bound: long-lived read transactions can prevent checkpoint progress. Database `:memory:` cannot enable this worker.
+
+Example tested candidate, to benchmark against the default on your storage:
+
+```toml
+[storage]
+path = "/data/qgramm.db"
+files = "/data/files"
+checkpoint_interval_ms = 100
+wal_checkpoint_bytes = 1048576
+```
+
+Checkpoint I/O can contend with commits even on a separate connection; this setting does not guarantee lower latency. See [SQLite WAL checkpoint behavior](https://www.sqlite.org/wal.html).
+
+**RU:** по умолчанию `checkpoint_interval_ms=0`, дополнительный пул и worker отсутствуют. Интервал 100–60000 мс включает фоновый `PASSIVE` checkpoint, сохраняя `FULL` и автоматический checkpoint SQLite. `wal_checkpoint_bytes` задает порог размера WAL (64 КиБ–1 ГиБ; 0/отсутствие — 4 МиБ), а не ограничение дискового пространства. Удерживаемые читателями транзакции могут задерживать обработку WAL. Настройку следует сравнить с режимом по умолчанию на своем хранилище; достаточно перезапуска.
 
 ## Build selection
 
