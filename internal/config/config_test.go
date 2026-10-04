@@ -58,6 +58,13 @@ func TestSecurityValidation(t *testing.T) {
 			c.AI.MaxSteps = 65
 		}},
 		{"tool without provider", func(c *Config) { c.Features.HTTPTools = true }},
+		{"ambiguous HTTP tool method", func(c *Config) {
+			c.Features.OpenAI = true
+			c.Features.HTTPTools = true
+			c.AI.OpenAIKeyEnv = "OPENAI_KEY"
+			c.AI.Model = "model"
+			c.AI.Tools = []Tool{{Name: "query", Kind: "http", URL: "https://example.com", Methods: []string{"GET", "POST"}}}
+		}},
 		{"unknown tool kind", func(c *Config) { c.AI.Tools = []Tool{{Name: "bad", Kind: "shell"}} }},
 		{"credential URL", func(c *Config) {
 			c.Features.OpenAI = true

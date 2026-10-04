@@ -40,12 +40,30 @@ func (c *Core) DisconnectDevice(device string) {
 func (c *Core) Wake(chat string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	for _, set := range c.connections {
-		for conn := range set {
-			select {
-			case conn.wake <- chat:
-			default:
-			}
+	for conn := range c.subscribers[chat] {
+		select {
+		case conn.wake <- chat:
+		default:
+		}
+	}
+}
+
+// Only subscribed connections are woken. Overflow is recovered by journal polling.
+func (c *Core) subscribe(conn *connection, chat string, enabled bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.subscribers == nil {
+		c.subscribers = map[string]map[*connection]struct{}{}
+	}
+	if enabled {
+		if c.subscribers[chat] == nil {
+			c.subscribers[chat] = map[*connection]struct{}{}
+		}
+		c.subscribers[chat][conn] = struct{}{}
+	} else {
+		delete(c.subscribers[chat], conn)
+		if len(c.subscribers[chat]) == 0 {
+			delete(c.subscribers, chat)
 		}
 	}
 }
@@ -133,6 +151,11 @@ func (c *Core) websocket(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	subscriptions := map[string]int64{}
+	defer func() {
+		for chat := range subscriptions {
+			c.subscribe(conn, chat, false)
+		}
+	}()
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	expires := time.NewTimer(15 * time.Minute)
@@ -152,6 +175,7 @@ func (c *Core) websocket(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 		events, e := c.Events(ctx, id, chat, cursor, 100)
 		if e != nil {
+			c.subscribe(conn, chat, false)
 			delete(subscriptions, chat)
 			return write(map[string]any{"type": "sync.error", "chat_id": chat, "error": e.Error()}) == nil
 		}
@@ -173,6 +197,7 @@ func (c *Core) websocket(w http.ResponseWriter, r *http.Request) {
 			return
 		case cmd := <-commands:
 			if cmd.Type == "unsubscribe" {
+				c.subscribe(conn, cmd.ChatID, false)
 				delete(subscriptions, cmd.ChatID)
 				continue
 			}
@@ -189,6 +214,7 @@ func (c *Core) websocket(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			subscriptions[cmd.ChatID] = cmd.After
+			c.subscribe(conn, cmd.ChatID, true)
 			if !flush(cmd.ChatID) {
 				return
 			}

@@ -1,0 +1,29 @@
+//go:build qg_reply
+
+package modules
+
+import (
+	"context"
+	"database/sql"
+	"github.com/mgg789/QGramm/internal/core"
+)
+
+func init() {
+	core.Register("reply", func(c *core.Core) error {
+		c.InTransaction = append(c.InTransaction, func(ctx context.Context, tx *sql.Tx, id core.Identity, chat string, m core.Message) error {
+			if m.ReplyTo == "" {
+				return nil
+			}
+			var found bool
+			err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM messages msg JOIN members member ON member.chat_id=msg.chat_id WHERE msg.id=? AND msg.chat_id=? AND msg.deleted=0 AND member.user_id=? AND member.active=1 AND msg.seq>=member.joined_seq)`, m.ReplyTo, chat, id.UserID).Scan(&found)
+			if err != nil {
+				return err
+			}
+			if !found {
+				return &core.APIError{Status: 400, Message: "reply target inaccessible"}
+			}
+			return nil
+		})
+		return nil
+	})
+}

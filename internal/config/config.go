@@ -38,12 +38,14 @@ type Storage struct {
 	Files string `toml:"files"`
 }
 type Security struct {
-	Issuer              string `toml:"issuer"`
-	Audience            string `toml:"audience"`
-	TokenPublicKeyEnv   string `toml:"token_public_key_env"`
-	ManagementSecretEnv string `toml:"management_secret_env"`
-	MasterKeyEnv        string `toml:"master_key_env"`
-	HPKEKeyEnv          string `toml:"hpke_key_env"`
+	Issuer                string   `toml:"issuer"`
+	Audience              string   `toml:"audience"`
+	TokenPublicKeyEnv     string   `toml:"token_public_key_env"`
+	ManagementSecretEnv   string   `toml:"management_secret_env"`
+	MasterKeyEnv          string   `toml:"master_key_env"`
+	HPKEKeyEnv            string   `toml:"hpke_key_env"`
+	PreviousMasterKeyEnvs []string `toml:"previous_master_key_envs"`
+	PreviousHPKEKeyEnvs   []string `toml:"previous_hpke_key_envs"`
 }
 type Features struct {
 	Groups    bool `toml:"groups"`
@@ -93,22 +95,28 @@ type Policy struct {
 	UploadTTLHours      int      `toml:"upload_ttl_hours"`
 }
 type AI struct {
-	OpenAIURL       string `toml:"openai_url"`
-	AnthropicURL    string `toml:"anthropic_url"`
-	OpenAIKeyEnv    string `toml:"openai_key_env"`
-	AnthropicKeyEnv string `toml:"anthropic_key_env"`
-	Model           string `toml:"model"`
-	MaxSteps        int    `toml:"max_steps"`
-	Tools           []Tool `toml:"tools"`
+	OpenAIURL        string `toml:"openai_url"`
+	AnthropicURL     string `toml:"anthropic_url"`
+	OpenAIKeyEnv     string `toml:"openai_key_env"`
+	AnthropicKeyEnv  string `toml:"anthropic_key_env"`
+	Model            string `toml:"model"`
+	MaxSteps         int    `toml:"max_steps"`
+	MaxContextTurns  int    `toml:"max_context_turns"`
+	MaxContextBytes  int    `toml:"max_context_bytes"`
+	TimeoutSeconds   int    `toml:"timeout_seconds"`
+	MaxResponseBytes int    `toml:"max_response_bytes"`
+	Tools            []Tool `toml:"tools"`
 }
 type Tool struct {
-	Name         string         `toml:"name"`
-	Kind         string         `toml:"kind"`
-	URL          string         `toml:"url"`
-	SecretEnv    string         `toml:"secret_env"`
-	Methods      []string       `toml:"methods"`
-	AllowPrivate bool           `toml:"allow_private"`
-	Schema       map[string]any `toml:"schema"`
+	Name             string         `toml:"name"`
+	Kind             string         `toml:"kind"`
+	URL              string         `toml:"url"`
+	SecretEnv        string         `toml:"secret_env"`
+	Methods          []string       `toml:"methods"`
+	AllowPrivate     bool           `toml:"allow_private"`
+	Schema           map[string]any `toml:"schema"`
+	TimeoutSeconds   int            `toml:"timeout_seconds"`
+	MaxResponseBytes int            `toml:"max_response_bytes"`
 }
 type Calls struct {
 	TURNURLs             []string `toml:"turn_urls"`
@@ -122,7 +130,7 @@ func Defaults() Config {
 		Security: Security{Issuer: "qgramm", Audience: "qgramm", TokenPublicKeyEnv: "QGRAMM_TOKEN_PUBLIC_KEY", ManagementSecretEnv: "QGRAMM_MANAGEMENT_SECRET", MasterKeyEnv: "QGRAMM_MASTER_KEY", HPKEKeyEnv: "QGRAMM_HPKE_KEY"},
 		Capacity: Capacity{ExpectedConcurrentUsers: 100},
 		Policy:   Policy{History: "since_join", DeleteMode: "global", ReactionTypes: []string{"👍", "❤️", "👎"}, EventRetentionHours: 720, DedupRetentionHours: 24, MaxMessageBytes: 65536, MaxBatch: 100, MaxFileBytes: 67108864, MaxChunkBytes: 1048576, MaxStorageBytes: 10737418240, UploadTTLHours: 24},
-		AI:       AI{OpenAIURL: "https://api.openai.com/v1", AnthropicURL: "https://api.anthropic.com/v1", MaxSteps: 8},
+		AI:       AI{OpenAIURL: "https://api.openai.com/v1", AnthropicURL: "https://api.anthropic.com/v1", MaxSteps: 8, MaxContextTurns: 20, MaxContextBytes: 262144, TimeoutSeconds: 45, MaxResponseBytes: 1048576},
 		Calls:    Calls{CredentialTTLSeconds: 600},
 	}
 }
@@ -202,6 +210,21 @@ func (c Config) Validate() error {
 	if c.Security.Issuer == "" || c.Security.Audience == "" {
 		return fmt.Errorf("security issuer and audience are required")
 	}
+	for field, refs := range map[string][]string{"previous_master_key_envs": c.Security.PreviousMasterKeyEnvs, "previous_hpke_key_envs": c.Security.PreviousHPKEKeyEnvs} {
+		if len(refs) > 4 {
+			return fmt.Errorf("security.%s allows at most four retired keys", field)
+		}
+		seen := map[string]bool{}
+		for _, ref := range refs {
+			if err := secretRef("security."+field, ref, true); err != nil {
+				return err
+			}
+			if seen[ref] || ref == c.Security.MasterKeyEnv || ref == c.Security.HPKEKeyEnv {
+				return fmt.Errorf("retired key references must be unique and distinct from active keys")
+			}
+			seen[ref] = true
+		}
+	}
 	for _, r := range []struct {
 		name, value string
 		required    bool
@@ -258,9 +281,15 @@ func (c Config) Validate() error {
 		if c.AI.Model == "" || c.AI.MaxSteps < 1 || c.AI.MaxSteps > 64 {
 			return fmt.Errorf("AI requires a model and max_steps 1..64")
 		}
+		if c.AI.MaxContextTurns < 1 || c.AI.MaxContextTurns > 20 || c.AI.MaxContextBytes < 1 || c.AI.MaxContextBytes > 262144 || c.AI.TimeoutSeconds < 1 || c.AI.TimeoutSeconds > 45 || c.AI.MaxResponseBytes < 1 || c.AI.MaxResponseBytes > 1048576 {
+			return fmt.Errorf("AI limits require context turns 1..20, context bytes 1..262144, timeout seconds 1..45, response bytes 1..1048576")
+		}
 	}
 	seen = map[string]bool{}
 	for _, tool := range c.AI.Tools {
+		if tool.TimeoutSeconds < 0 || tool.TimeoutSeconds > 45 || tool.MaxResponseBytes < 0 || tool.MaxResponseBytes > 1048576 {
+			return fmt.Errorf("tool limits require timeout seconds 0..45 and response bytes 0..1048576 (0 inherits AI limit)")
+		}
 		if tool.Name == "" || seen[tool.Name] {
 			return fmt.Errorf("AI tool names must be unique and nonempty")
 		}
@@ -282,8 +311,8 @@ func (c Config) Validate() error {
 		if err := secretRef("tool.secret_env", tool.SecretEnv, false); err != nil {
 			return err
 		}
-		if tool.Kind == "http" && len(tool.Methods) == 0 {
-			return fmt.Errorf("HTTP tools require an explicit method allowlist")
+		if tool.Kind == "http" && len(tool.Methods) != 1 {
+			return fmt.Errorf("HTTP tools require exactly one explicit method")
 		}
 		for _, m := range tool.Methods {
 			switch m {

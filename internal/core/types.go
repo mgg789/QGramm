@@ -24,6 +24,7 @@ type MessageInput struct {
 	Payload     []byte              `json:"-"`
 }
 type Message struct {
+	Reactions   []Reaction          `json:"reactions,omitempty"`
 	ID          string              `json:"id"`
 	ChatID      string              `json:"chat_id"`
 	Sender      string              `json:"sender"`
@@ -40,6 +41,10 @@ type Message struct {
 	Attachments []string            `json:"attachments,omitempty"`
 	ReplyTo     string              `json:"reply_to,omitempty"`
 	ForwardFrom string              `json:"forward_from,omitempty"`
+}
+type Reaction struct {
+	Type   int    `json:"type"`
+	UserID string `json:"user_id"`
 }
 type Event struct {
 	Seq       int64  `json:"seq"`
@@ -68,6 +73,7 @@ func Registered() []string {
 }
 
 type Core struct {
+	OnDelete         []func(context.Context, *sql.Tx, string) error
 	httpSlots        chan struct{}
 	DB               *sql.DB
 	Config           config.Config
@@ -79,6 +85,7 @@ type Core struct {
 	verifyKey        []byte
 	mu               sync.Mutex
 	connections      map[string]map[*connection]struct{}
+	subscribers      map[string]map[*connection]struct{}
 	active           int
 	Prepare          []func(context.Context, Identity, string, *MessageInput) error
 	InTransaction    []func(context.Context, *sql.Tx, Identity, string, Message) error

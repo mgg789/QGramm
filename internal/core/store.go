@@ -69,7 +69,26 @@ func Open(cfg config.Config, compiled []string) (*Core, error) {
 	if len(management) < 32 {
 		return nil, errors.New("management secret must contain at least 32 characters")
 	}
-	engine, err := cryptoenc.New(master, hpke)
+	loadRetired := func(refs []string) ([][]byte, error) {
+		keys := make([][]byte, 0, len(refs))
+		for _, ref := range refs {
+			key, e := secretKey(ref, 32)
+			if e != nil {
+				return nil, e
+			}
+			keys = append(keys, key)
+		}
+		return keys, nil
+	}
+	previousMasters, err := loadRetired(cfg.Security.PreviousMasterKeyEnvs)
+	if err != nil {
+		return nil, err
+	}
+	previousHPKE, err := loadRetired(cfg.Security.PreviousHPKEKeyEnvs)
+	if err != nil {
+		return nil, err
+	}
+	engine, err := cryptoenc.NewWithPrevious(master, hpke, previousMasters, previousHPKE)
 	if err != nil {
 		return nil, err
 	}

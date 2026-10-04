@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"fmt"
 	"github.com/mgg789/QGramm/internal/config"
@@ -10,8 +11,10 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -46,14 +49,15 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	if *backup != "" {
+		// Maintenance must never install modules or start AI/upload workers.
+		return createOfflineBackup(cfg.Storage.Path, *backup)
+	}
 	c, err := core.Open(cfg, strings.FieldsFunc(compiledFeatures, func(r rune) bool { return r == ',' }))
 	if err != nil {
 		return err
 	}
 	defer c.Close()
-	if *backup != "" {
-		return createBackup(c, *backup)
-	}
 	if cfg.Server.AllowInsecureLoopback {
 		host, _, err := net.SplitHostPort(cfg.Server.Listen)
 		if err != nil {
@@ -87,6 +91,24 @@ func run() error {
 		err = server.Shutdown(shutdown)
 	}
 	return err
+}
+
+func createOfflineBackup(source, destination string) error {
+	path, err := filepath.Abs(source)
+	if err != nil {
+		return err
+	}
+	u := url.URL{Scheme: "file", Path: path, RawQuery: "mode=rw"}
+	db, err := sql.Open("sqlite", u.String())
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	if err = db.Ping(); err != nil {
+		return err
+	}
+	return createBackup(&core.Core{DB: db}, destination)
 }
 func createBackup(c *core.Core, path string) error {
 	// Reserve atomically with restrictive permissions; SQLite accepts an empty file.

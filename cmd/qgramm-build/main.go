@@ -105,6 +105,8 @@ func run(args []string) error {
 		// secret environment variables are inspected or embedded.
 		quote := func(s string) string { b, _ := json.Marshal(s); return string(b) }
 		refs := []string{c.Security.TokenPublicKeyEnv, c.Security.ManagementSecretEnv, c.Security.MasterKeyEnv, c.Security.HPKEKeyEnv}
+		refs = append(refs, c.Security.PreviousMasterKeyEnvs...)
+		refs = append(refs, c.Security.PreviousHPKEKeyEnvs...)
 		if c.Features.OpenAI {
 			refs = append(refs, c.AI.OpenAIKeyEnv)
 		}
