@@ -11,7 +11,7 @@ import (
 func localConfig() Config { c := Defaults(); c.Server.AllowInsecureLoopback = true; return c }
 
 func TestLoadProfiles(t *testing.T) {
-	for _, path := range []string{"../../configs/minimal.toml", "../../configs/full.toml", "../../configs/support.toml", "../../configs/community.toml", "../../configs/ai-openai.toml", "../../configs/ai-anthropic.toml", "../../configs/ai-network.toml", "../../qgramm.toml"} {
+	for _, path := range []string{"../../configs/minimal.toml", "../../configs/full.toml", "../../configs/support.toml", "../../configs/community.toml", "../../configs/ai-openai.toml", "../../configs/ai-anthropic.toml", "../../configs/ai-network.toml", "../../configs/ai-policy.toml", "../../qgramm.toml"} {
 		t.Run(path, func(t *testing.T) {
 			c, e := Load(path)
 			if e != nil {

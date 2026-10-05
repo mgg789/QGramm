@@ -24,6 +24,7 @@ type Config struct {
 	Capacity Capacity `toml:"capacity"`
 	Policy   Policy   `toml:"policy"`
 	AI       AI       `toml:"ai"`
+	AIPolicy AIPolicy `toml:"ai_policy"`
 	Calls    Calls    `toml:"calls"`
 }
 
@@ -136,10 +137,11 @@ type Features struct {
 	AIStreaming bool `toml:"ai_streaming"`
 	MCP         bool `toml:"mcp"`
 	HTTPTools   bool `toml:"http_tools"`
+	AIPolicy    bool `toml:"ai_policy"`
 }
 
 func (f Features) Enabled() []string {
-	names := map[string]bool{"groups": f.Groups, "files": f.Files, "e2ee": f.E2EE, "calls": f.Calls, "delete": f.Delete, "edit": f.Edit, "reply": f.Reply, "forward": f.Forward, "reactions": f.Reactions, "openai": f.OpenAI, "anthropic": f.Anthropic, "ai_streaming": f.AIStreaming, "mcp": f.MCP, "http_tools": f.HTTPTools}
+	names := map[string]bool{"groups": f.Groups, "files": f.Files, "e2ee": f.E2EE, "calls": f.Calls, "delete": f.Delete, "edit": f.Edit, "reply": f.Reply, "forward": f.Forward, "reactions": f.Reactions, "openai": f.OpenAI, "anthropic": f.Anthropic, "ai_streaming": f.AIStreaming, "mcp": f.MCP, "http_tools": f.HTTPTools, "ai_policy": f.AIPolicy}
 	out := []string{}
 	for name, enabled := range names {
 		if enabled {
@@ -170,46 +172,50 @@ type Policy struct {
 	UploadTTLHours      int      `toml:"upload_ttl_hours"`
 }
 type AI struct {
-	OpenAIURL        string                `toml:"openai_url"`
-	AnthropicURL     string                `toml:"anthropic_url"`
-	OpenAIKeyEnv     string                `toml:"openai_key_env"`
-	AnthropicKeyEnv  string                `toml:"anthropic_key_env"`
-	Model            string                `toml:"model"`
-	MaxSteps         int                   `toml:"max_steps"`
-	MaxContextTurns  int                   `toml:"max_context_turns"`
-	MaxContextBytes  int                   `toml:"max_context_bytes"`
-	TimeoutSeconds   int                   `toml:"timeout_seconds"`
-	MaxResponseBytes int                   `toml:"max_response_bytes"`
-	MaxOutputTokens  int                   `toml:"max_output_tokens"`
-	AllowPrivate     bool                  `toml:"allow_private"`
-	Streaming        bool                  `toml:"streaming"`
-	Auth             string                `toml:"auth"`
-	SystemPrompt     string                `toml:"system_prompt"`
-	Capabilities     []string              `toml:"capabilities"`
-	Tools            []Tool                `toml:"tools"`
-	Endpoints        map[string]AIEndpoint `toml:"endpoints"`
-	Bots             map[string]AIBot      `toml:"bots"`
-	DefaultBot       string                `toml:"default_bot"`
+	OpenAIURL                             string                `toml:"openai_url"`
+	AnthropicURL                          string                `toml:"anthropic_url"`
+	OpenAIKeyEnv                          string                `toml:"openai_key_env"`
+	AnthropicKeyEnv                       string                `toml:"anthropic_key_env"`
+	Model                                 string                `toml:"model"`
+	MaxSteps                              int                   `toml:"max_steps"`
+	MaxContextTurns                       int                   `toml:"max_context_turns"`
+	MaxContextBytes                       int                   `toml:"max_context_bytes"`
+	TimeoutSeconds                        int                   `toml:"timeout_seconds"`
+	MaxResponseBytes                      int                   `toml:"max_response_bytes"`
+	MaxOutputTokens                       int                   `toml:"max_output_tokens"`
+	InputPriceMicrounitsPerMillionTokens  int64                 `toml:"input_price_microunits_per_million_tokens"`
+	OutputPriceMicrounitsPerMillionTokens int64                 `toml:"output_price_microunits_per_million_tokens"`
+	AllowPrivate                          bool                  `toml:"allow_private"`
+	Streaming                             bool                  `toml:"streaming"`
+	Auth                                  string                `toml:"auth"`
+	SystemPrompt                          string                `toml:"system_prompt"`
+	Capabilities                          []string              `toml:"capabilities"`
+	Tools                                 []Tool                `toml:"tools"`
+	Endpoints                             map[string]AIEndpoint `toml:"endpoints"`
+	Bots                                  map[string]AIBot      `toml:"bots"`
+	DefaultBot                            string                `toml:"default_bot"`
 }
 
 // AIEndpoint is a named provider connection. Pointer overrides are deliberate:
 // an explicit false or zero is distinct from an omitted value and therefore
 // cannot accidentally inherit the global setting.
 type AIEndpoint struct {
-	Provider         string   `toml:"provider"`
-	URL              string   `toml:"url"`
-	Model            string   `toml:"model"`
-	KeyEnv           string   `toml:"key_env"`
-	Auth             string   `toml:"auth"`
-	AllowPrivate     *bool    `toml:"allow_private"`
-	Streaming        *bool    `toml:"streaming"`
-	Capabilities     []string `toml:"capabilities"`
-	MaxSteps         *int     `toml:"max_steps"`
-	MaxContextTurns  *int     `toml:"max_context_turns"`
-	MaxContextBytes  *int     `toml:"max_context_bytes"`
-	TimeoutSeconds   *int     `toml:"timeout_seconds"`
-	MaxOutputTokens  *int     `toml:"max_output_tokens"`
-	MaxResponseBytes *int     `toml:"max_response_bytes"`
+	Provider                              string   `toml:"provider"`
+	URL                                   string   `toml:"url"`
+	Model                                 string   `toml:"model"`
+	KeyEnv                                string   `toml:"key_env"`
+	Auth                                  string   `toml:"auth"`
+	AllowPrivate                          *bool    `toml:"allow_private"`
+	Streaming                             *bool    `toml:"streaming"`
+	Capabilities                          []string `toml:"capabilities"`
+	MaxSteps                              *int     `toml:"max_steps"`
+	MaxContextTurns                       *int     `toml:"max_context_turns"`
+	MaxContextBytes                       *int     `toml:"max_context_bytes"`
+	TimeoutSeconds                        *int     `toml:"timeout_seconds"`
+	MaxOutputTokens                       *int     `toml:"max_output_tokens"`
+	MaxResponseBytes                      *int     `toml:"max_response_bytes"`
+	InputPriceMicrounitsPerMillionTokens  *int64   `toml:"input_price_microunits_per_million_tokens"`
+	OutputPriceMicrounitsPerMillionTokens *int64   `toml:"output_price_microunits_per_million_tokens"`
 }
 
 // AIBot names an AI participant configuration and points at one endpoint.
@@ -318,6 +324,12 @@ func (a AI) resolveBot(name string) (AI, string, error) {
 	if ep.MaxResponseBytes != nil {
 		out.MaxResponseBytes = *ep.MaxResponseBytes
 	}
+	if ep.InputPriceMicrounitsPerMillionTokens != nil {
+		out.InputPriceMicrounitsPerMillionTokens = *ep.InputPriceMicrounitsPerMillionTokens
+	}
+	if ep.OutputPriceMicrounitsPerMillionTokens != nil {
+		out.OutputPriceMicrounitsPerMillionTokens = *ep.OutputPriceMicrounitsPerMillionTokens
+	}
 	if bot.SystemPrompt != "" {
 		out.SystemPrompt = bot.SystemPrompt
 	}
@@ -368,9 +380,27 @@ type Tool struct {
 	SecretEnv        string         `toml:"secret_env"`
 	Methods          []string       `toml:"methods"`
 	AllowPrivate     bool           `toml:"allow_private"`
+	RequireApproval  bool           `toml:"require_approval"`
+	CostMicrounits   int64          `toml:"cost_microunits"`
 	Schema           map[string]any `toml:"schema"`
 	TimeoutSeconds   int            `toml:"timeout_seconds"`
 	MaxResponseBytes int            `toml:"max_response_bytes"`
+}
+
+// AIPolicy contains the signed-grant, approval and accounting policy for the
+// optional AI control plane. Values are policy estimates and enforcement
+// inputs; they do not represent an external provider billing limit.
+type AIPolicy struct {
+	GrantPublicKeyEnv            string `toml:"grant_public_key_env"`
+	Issuer                       string `toml:"issuer"`
+	Audience                     string `toml:"audience"`
+	ApprovalTTLSeconds           int    `toml:"approval_ttl_seconds"`
+	RequireProviderApproval      bool   `toml:"require_provider_approval"`
+	ProviderReserveMicrounits    int64  `toml:"provider_reserve_microunits"`
+	GlobalDailyBudgetMicrounits  int64  `toml:"global_daily_budget_microunits"`
+	PerBotDailyBudgetMicrounits  int64  `toml:"per_bot_daily_budget_microunits"`
+	PerUserDailyBudgetMicrounits int64  `toml:"per_user_daily_budget_microunits"`
+	Currency                     string `toml:"currency"`
 }
 type Calls struct {
 	TURNURLs             []string `toml:"turn_urls"`
@@ -385,6 +415,7 @@ func Defaults() Config {
 		Capacity: Capacity{ExpectedConcurrentUsers: 100},
 		Policy:   Policy{History: "since_join", DeleteMode: "global", ReactionTypes: []string{"👍", "❤️", "👎"}, EventRetentionHours: 720, DedupRetentionHours: 24, MaxMessageBytes: 65536, MaxBatch: 100, MaxFileBytes: 67108864, MaxChunkBytes: 1048576, MaxStorageBytes: 10737418240, UploadTTLHours: 24},
 		AI:       AI{OpenAIURL: "https://api.openai.com/v1", AnthropicURL: "https://api.anthropic.com/v1", MaxSteps: 8, MaxContextTurns: 20, MaxContextBytes: 262144, TimeoutSeconds: 45, MaxResponseBytes: 1048576, MaxOutputTokens: 2048, Auth: "bearer"},
+		AIPolicy: AIPolicy{GrantPublicKeyEnv: "QGRAMM_AI_GRANT_PUBLIC_KEY", Issuer: "qgramm-backend", Audience: "qgramm-ai-control", ApprovalTTLSeconds: 300, ProviderReserveMicrounits: 1000000, Currency: "USD"},
 		Calls:    Calls{CredentialTTLSeconds: 600},
 	}
 }
@@ -674,6 +705,9 @@ func SecretReferences(c Config) []string {
 			refs = append(refs, tool.SecretEnv)
 		}
 	}
+	if c.Features.AIPolicy && c.AIPolicy.GrantPublicKeyEnv != "" {
+		refs = append(refs, c.AIPolicy.GrantPublicKeyEnv)
+	}
 	seen := make(map[string]bool, len(refs))
 	out := make([]string, 0, len(refs))
 	for _, ref := range refs {
@@ -719,6 +753,22 @@ func validateAIOverride(name string, value *int, min, max int) error {
 	return nil
 }
 
+const maxAIPricingMicrounits = int64(1_000_000_000_000)
+
+func validateAIPricing(name string, value int64) error {
+	if value < 0 || value > maxAIPricingMicrounits {
+		return fmt.Errorf("%s must be 0..%d", name, maxAIPricingMicrounits)
+	}
+	return nil
+}
+
+func validateAIPricingOverride(name string, value *int64) error {
+	if value == nil {
+		return nil
+	}
+	return validateAIPricing(name, *value)
+}
+
 func validateAIOverrides(prefix string, profile AIEndpoint) error {
 	if err := validateAIOverride(prefix+".max_steps", profile.MaxSteps, 1, 64); err != nil {
 		return err
@@ -735,7 +785,13 @@ func validateAIOverrides(prefix string, profile AIEndpoint) error {
 	if err := validateAIOverride(prefix+".max_output_tokens", profile.MaxOutputTokens, 1, maxAIOutputTokens); err != nil {
 		return err
 	}
-	return validateAIOverride(prefix+".max_response_bytes", profile.MaxResponseBytes, 1, 1048576)
+	if err := validateAIOverride(prefix+".max_response_bytes", profile.MaxResponseBytes, 1, 1048576); err != nil {
+		return err
+	}
+	if err := validateAIPricingOverride(prefix+".input_price_microunits_per_million_tokens", profile.InputPriceMicrounitsPerMillionTokens); err != nil {
+		return err
+	}
+	return validateAIPricingOverride(prefix+".output_price_microunits_per_million_tokens", profile.OutputPriceMicrounitsPerMillionTokens)
 }
 
 func validateAIBotOverrides(prefix string, profile AIBot) error {
@@ -904,6 +960,68 @@ func (c Config) validateAINamedProfiles() error {
 	return nil
 }
 
+var aiCurrency = regexp.MustCompile(`^[A-Z]{3}$`)
+
+func (c Config) validateAIPolicyConfig() error {
+	defaults := Defaults().AIPolicy
+	if !c.Features.AIPolicy {
+		if c.AIPolicy != defaults {
+			return fmt.Errorf("AI policy settings require the ai_policy feature")
+		}
+		if c.AI.InputPriceMicrounitsPerMillionTokens != 0 || c.AI.OutputPriceMicrounitsPerMillionTokens != 0 {
+			return fmt.Errorf("AI pricing requires the ai_policy feature")
+		}
+		for _, endpoint := range c.AI.Endpoints {
+			if (endpoint.InputPriceMicrounitsPerMillionTokens != nil && *endpoint.InputPriceMicrounitsPerMillionTokens != 0) || (endpoint.OutputPriceMicrounitsPerMillionTokens != nil && *endpoint.OutputPriceMicrounitsPerMillionTokens != 0) {
+				return fmt.Errorf("AI endpoint pricing requires the ai_policy feature")
+			}
+		}
+		for _, tool := range c.AI.Tools {
+			if tool.RequireApproval || tool.CostMicrounits != 0 {
+				return fmt.Errorf("AI tool approval and cost require the ai_policy feature")
+			}
+		}
+		return nil
+	}
+	if !c.Features.OpenAI && !c.Features.Anthropic {
+		return fmt.Errorf("ai_policy requires a compiled AI provider")
+	}
+	if err := secretRef("ai_policy.grant_public_key_env", c.AIPolicy.GrantPublicKeyEnv, true); err != nil {
+		return err
+	}
+	if c.AIPolicy.Issuer == "" || c.AIPolicy.Audience == "" {
+		return fmt.Errorf("ai_policy issuer and audience are required")
+	}
+	if c.AIPolicy.Issuer == c.AIPolicy.Audience || c.AIPolicy.Issuer == c.Security.Issuer || c.AIPolicy.Issuer == c.Security.Audience || c.AIPolicy.Audience == c.Security.Issuer || c.AIPolicy.Audience == c.Security.Audience {
+		return fmt.Errorf("ai_policy issuer and audience must be separate from device authentication")
+	}
+	if c.AIPolicy.ApprovalTTLSeconds < 1 || c.AIPolicy.ApprovalTTLSeconds > 900 {
+		return fmt.Errorf("ai_policy.approval_ttl_seconds must be 1..900")
+	}
+	if c.AIPolicy.ProviderReserveMicrounits < 0 || c.AIPolicy.ProviderReserveMicrounits > maxAIPricingMicrounits {
+		return fmt.Errorf("ai_policy.provider_reserve_microunits must be 0..%d", maxAIPricingMicrounits)
+	}
+	for name, value := range map[string]int64{
+		"global_daily_budget_microunits":   c.AIPolicy.GlobalDailyBudgetMicrounits,
+		"per_bot_daily_budget_microunits":  c.AIPolicy.PerBotDailyBudgetMicrounits,
+		"per_user_daily_budget_microunits": c.AIPolicy.PerUserDailyBudgetMicrounits,
+	} {
+		if value < 0 || value > 1_000_000_000_000_000 {
+			return fmt.Errorf("ai_policy.%s must be 0..1000000000000000", name)
+		}
+	}
+	if (c.AIPolicy.GlobalDailyBudgetMicrounits > 0 || c.AIPolicy.PerBotDailyBudgetMicrounits > 0 || c.AIPolicy.PerUserDailyBudgetMicrounits > 0) && c.AIPolicy.ProviderReserveMicrounits == 0 {
+		return fmt.Errorf("ai_policy provider reserve must be positive when a daily budget is configured")
+	}
+	if !aiCurrency.MatchString(c.AIPolicy.Currency) {
+		return fmt.Errorf("ai_policy.currency must be exactly three uppercase letters")
+	}
+	if err := validateAIPricing("ai.input_price_microunits_per_million_tokens", c.AI.InputPriceMicrounitsPerMillionTokens); err != nil {
+		return err
+	}
+	return validateAIPricing("ai.output_price_microunits_per_million_tokens", c.AI.OutputPriceMicrounitsPerMillionTokens)
+}
+
 func (c Config) Validate() error {
 	host, port, err := net.SplitHostPort(c.Server.Listen)
 	if err != nil || port == "" {
@@ -942,6 +1060,9 @@ func (c Config) Validate() error {
 	}
 	if c.Security.Issuer == "" || c.Security.Audience == "" {
 		return fmt.Errorf("security issuer and audience are required")
+	}
+	if err := c.validateAIPolicyConfig(); err != nil {
+		return err
 	}
 	for field, refs := range map[string][]string{"previous_master_key_envs": c.Security.PreviousMasterKeyEnvs, "previous_hpke_key_envs": c.Security.PreviousHPKEKeyEnvs} {
 		if len(refs) > 4 {
@@ -1043,6 +1164,9 @@ func (c Config) Validate() error {
 		}
 		if tool.Name == "" || seen[tool.Name] {
 			return fmt.Errorf("AI tool names must be unique and nonempty")
+		}
+		if tool.CostMicrounits < 0 || tool.CostMicrounits > maxAIPricingMicrounits {
+			return fmt.Errorf("tool cost_microunits must be 0..%d", maxAIPricingMicrounits)
 		}
 		seen[tool.Name] = true
 		if tool.Kind == "mcp" {
