@@ -68,6 +68,16 @@ The executable example starts a disposable loopback core, issues Ed25519 tokens,
 
 Requires Go 1.26 to build locally, or Docker to build the image. One instance serves one application. SQLite and encrypted file chunks live in a persistent volume. No PostgreSQL, Redis, registration server or bundled TURN is required.
 
+Start with a compact TOML preset and override only what your application needs:
+
+```sh
+go run ./cmd/qgramm-build init -preset support -target local -users 1000 -out my-qgramm.toml
+go run ./cmd/qgramm-build validate -config my-qgramm.toml
+go run ./cmd/qgramm-build explain -config my-qgramm.toml
+```
+
+Presets are `minimal`, `support`, `community`, `ai-openai` and `ai-anthropic`. Explicit TOML values override the preset, including `false` to exclude a module. `explain` reports the effective settings, their sources, derived limits and secret environment-variable names; it never reads secret values. These commands validate configuration offline; startup still checks secrets and the compiled feature manifest. See the [configuration guide](docs/configuration.md) and [Russian reference](docs/reference.ru.md).
+
 ```sh
 go run ./cmd/qgramm-build plan -config qgramm.toml
 go run ./cmd/qgramm-build build -config qgramm.toml -out bin/qgramm

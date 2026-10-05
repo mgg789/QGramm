@@ -66,6 +66,16 @@ go run ./examples/basic
 
 Минимальный состав — один контейнер, SQLite и volume. PostgreSQL/Redis и медиасервер не нужны. Локальная конфигурация `qgramm.toml` разрешает только loopback-разработку; для контейнера используйте `configs/container.toml` с HTTPS-прокси.
 
+Для нового подключения можно сгенерировать короткую конфигурацию и посмотреть итоговые настройки:
+
+```sh
+go run ./cmd/qgramm-build init -preset support -target local -users 1000 -out my-qgramm.toml
+go run ./cmd/qgramm-build validate -config my-qgramm.toml
+go run ./cmd/qgramm-build explain -config my-qgramm.toml
+```
+
+Профили: `minimal`, `support`, `community`, `ai-openai`, `ai-anthropic`. Явные TOML-поля переопределяют профиль, включая отключение модуля через `false`. `explain` показывает значения, их происхождение, вычисленные лимиты и имена переменных с секретами; значения секретов не читает. Это проверка конфигурации; при запуске отдельно проверяются секреты и состав бинарника. Подробности — в [русском справочнике](docs/reference.ru.md).
+
 ```sh
 go run ./cmd/qgramm-build plan -config qgramm.toml
 go run ./cmd/qgramm-build build -config qgramm.toml -out bin/qgramm

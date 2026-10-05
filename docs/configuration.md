@@ -2,6 +2,33 @@
 
 `qgramm.toml` is strict: unknown keys, invalid combinations and embedded secret values are rejected. `.env` supplies only environment values at runtime; the service does not automatically parse .env locally. Docker Compose receives it using `--env-file`.
 
+## Quick start
+
+Generate a new configuration, validate it offline, inspect its effective values, then build or restart as appropriate:
+
+```sh
+go run ./cmd/qgramm-build init -preset minimal -target local -users 100 -out app-qgramm.toml
+go run ./cmd/qgramm-build validate -config app-qgramm.toml
+go run ./cmd/qgramm-build explain -config app-qgramm.toml
+go run ./cmd/qgramm-build build -config app-qgramm.toml -out bin/qgramm
+```
+
+`init` refuses to overwrite an existing path and writes mode `0600`. Container output uses `0.0.0.0:8080`, `/data/qgramm.db`, `/data/files` and `trusted_proxy = true`; terminate TLS at an HTTPS reverse proxy and keep the container port private. `compose` keeps the existing loopback-only host mapping (`127.0.0.1:8080:8080`).
+
+The optional top-level `preset` is applied after defaults and before explicit TOML keys. Explicit `false`, `0` and empty lists therefore disable or replace preset values.
+
+| Preset | Enabled features and values |
+|---|---|
+| `minimal` | none |
+| `support` | `groups`, `files`, `delete`, `edit`, `reply`, `reactions` |
+| `community` | support plus `forward` |
+| `ai-openai` | `openai`; `ai.openai_key_env = "QGRAMM_OPENAI_KEY"` |
+| `ai-anthropic` | `anthropic`; `ai.anthropic_key_env = "QGRAMM_ANTHROPIC_KEY"` |
+
+AI presets require an explicit `ai.model`; the loader never guesses a provider or model. Calls, includes and environment interpolation are never implicit. Use `validate` for schema and semantic checks only: `secrets_presence` is always `not_checked`. `explain` reports effective configuration, field sources (`default`, `preset`, `explicit`, `derived`), feature tags, current resource inputs, derived capacity and secret reference names; it does not read secret values and does not establish service readiness.
+
+For automatic capacity fields, `sources` reports the final value as `derived`; `declared_sources` distinguishes an explicit `0` from an omitted default. `declared_capacity` and `derived_capacity` show both values. CPU/RAM inputs come from the machine running the command; the service derives its own limits again on startup inside its container.
+
 | Section | Fields and meaning |
 |---|---|
 | `server` | `listen`, TLS certificate/key paths, `allow_insecure_loopback`, `trusted_proxy`, allowed browser `origins` |
@@ -16,6 +43,19 @@
 The authoritative field definitions/defaults are in `internal/config/config.go`; examples are in `configs/`. Secret references must be environment variable identifiers, never credentials. Calls require external TURN settings. Tools require an enabled AI provider, and each configured connector must have its feature compiled.
 
 Each `[[ai.tools]]` defines `name`, `kind`, `url`, `methods`, `secret_env`, `allow_private`, `schema`, `timeout_seconds`, `max_response_bytes`. Zero tool limits inherit globals; positive values narrow them. See [AI bounds and schema vocabulary](ai.md). AI defaults: 20 turns, 262144 context bytes, 45 seconds and 1048576 response bytes. These are also absolute safety ceilings.
+
+Secret references are names only; the process resolves them at runtime:
+
+```toml
+[security]
+master_key_env = "QGRAMM_MASTER_KEY"
+```
+
+```text
+TOML reference name -> process environment value -> key material
+```
+
+`validate` and `explain` report the reference name and never the value.
 
 ## Optional WAL checkpoint
 
@@ -39,9 +79,9 @@ Checkpoint I/O can contend with commits even on a separate connection; this sett
 
 ## Build selection
 
-`qgramm-build build` derives `qg_*` tags from enabled features and injects the binary manifest. Direct untagged `go build ./cmd/qgramm` creates a minimal binary. Direct tagged builds without the manifest intentionally fail configuration verification; use the builder.
+`qgramm-build build` derives `qg_*` tags from the final effective feature set. Rebuild only when that set changes; ordinary configuration, capacity, policy, URL and secret-reference changes need a restart. A feature disabled in TOML is absent from the selected build. `plan` shows the selected tags and uncalibrated sizing estimate; `validate` and `explain` are offline configuration diagnostics.
 
-Changing build features requires rebuilding. A TOML with missing/extra features is rejected at startup, even if the extra module is never used. Ordinary configuration changes need a restart. Disabled modules have no routes, tables or workers in a new deployment. Tables from a previously fuller deployment are not destructively deleted when features change.
+Disabled modules have no routes, tables or workers in a new deployment. Tables from a previously fuller deployment are not destructively deleted when features change.
 
 ## Sizing
 
@@ -53,4 +93,4 @@ Changing build features requires rebuilding. A TOML with missing/extra features 
 
 Stop the container. Run `qgramm -config ... -backup /data/backup.db` using the same build/config/environment; the command must run against a stopped instance and writes a consistent SQLite backup. Back up the file directory and all relevant keys separately with the service stopped. Restore database, files and matching keys together before starting **one** instance. Do not restore old AI MLS state and resume sending without a fresh cryptographic identity/epoch: counter rollback can invalidate security.
 
-The initial schema is version 1, tracked by `schema_versions`. Future schema upgrades must preserve transaction boundaries and use explicit versioned migrations; old messenger data is not imported.
+Schema versions are tracked by `schema_versions`. Version 2 adds retention indexes atomically to existing databases. Cleanup deletes at most 256 expired rows per statement and yields between batches, within a 20-second cycle budget; large backlogs can continue on later minute ticks. Old messenger data is not imported.

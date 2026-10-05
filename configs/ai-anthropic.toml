@@ -1,0 +1,12 @@
+# Anthropic profile. Set QGRAMM_ANTHROPIC_KEY in the service environment.
+preset = "ai-anthropic"
+
+[server]
+listen = "127.0.0.1:8080"
+allow_insecure_loopback = true
+
+[capacity]
+expected_concurrent_users = 100
+
+[ai]
+model = "operator-selected-model"

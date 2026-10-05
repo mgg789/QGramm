@@ -2,6 +2,31 @@
 
 Ядро предоставляет HTTP-команды и WebSocket-события. Ваше приложение отвечает за учетные записи, интерфейс, ключи устройств, MLS и WebRTC. Контракты полей: [OpenAPI](openapi.json), [WebSocket JSON Schema](websocket.schema.json), [интеграция](integration.ru.md). Все сообщения пользователю и AI принимаются зашифрованными; AI-провайдер получает plaintext.
 
+## Быстрый старт конфигурации
+
+```sh
+go run ./cmd/qgramm-build init -preset minimal -target local -users 100 -out app-qgramm.toml
+go run ./cmd/qgramm-build validate -config app-qgramm.toml
+go run ./cmd/qgramm-build explain -config app-qgramm.toml
+go run ./cmd/qgramm-build build -config app-qgramm.toml -out bin/qgramm
+```
+
+`init` проверяет сгенерированный TOML до записи, создает новый файл с `0600` и отказывается заменять существующий путь или symlink. Для `-target container` используются `0.0.0.0:8080`, `/data/qgramm.db`, `/data/files` и `trusted_proxy = true`; HTTPS должен завершаться на обратном прокси. `compose` сохраняет loopback-маппинг `127.0.0.1:8080:8080`.
+
+Top-level `preset` необязателен. Порядок разрешения: defaults → preset → явные ключи TOML. Явные `false`, `0` и пустые списки отключают или заменяют preset.
+
+| Preset | Эффект |
+|---|---|
+| `minimal` | без optional features |
+| `support` | `groups`, `files`, `delete`, `edit`, `reply`, `reactions` |
+| `community` | `support` плюс `forward` |
+| `ai-openai` | только `openai` и `ai.openai_key_env = "QGRAMM_OPENAI_KEY"` |
+| `ai-anthropic` | только `anthropic` и `ai.anthropic_key_env = "QGRAMM_ANTHROPIC_KEY"` |
+
+AI-preset требует явного `ai.model`; provider/model не угадываются. Calls, includes и env interpolation не включаются неявно. `validate` проверяет только TOML-схему и семантику, без чтения секретов (`secrets_presence=not_checked`). `explain` выводит effective config, источник каждого поля (`default`/`preset`/`explicit`/`derived`), feature tags, входы ресурсов, capacity и только имена secret references; это не проверка readiness.
+
+Для автоматических лимитов `sources` показывает итоговое значение как `derived`, а `declared_sources` различает явный `0` и отсутствующее поле. `declared_capacity` и `derived_capacity` показывают оба значения. CLI использует CPU/RAM машины, где выполняется команда; при запуске сервис пересчитывает лимиты внутри своего контейнера.
+
 ## Полный TOML reference
 
 Неизвестные поля и недопустимые сочетания отклоняются. `.env` содержит значения секретов; TOML — только имена переменных. Сервис самостоятельно не читает `.env`; значения передает процесс запуска либо Compose. Примеры: `qgramm.toml`, `configs/minimal.toml`, `configs/full.toml`, `configs/container.toml`.
@@ -19,16 +44,29 @@
 
 Каждый `[[ai.tools]]` задает `name`, `kind` (`http`/`mcp`), `url`, `methods`, `secret_env`, `allow_private`, `schema`, `timeout_seconds`, `max_response_bytes`. Последние два поля при 0 наследуют AI-пределы, положительные значения только сужают их. Defaults AI: 20 turns, 262144 context bytes, 45 секунд, 1048576 response bytes; увеличивать сверх этих safety ceilings нельзя. Точный допустимый поднабор JSON Schema описан в [AI reference](ai.md): неизвестные ограничения не игнорируются. Инструменты требуют AI-provider, соответствующий connector — включенной build-фичи; звонки требуют TURN-настроек. Значения и ограничения проверяет `internal/config/config.go`.
 
+Secret reference — только имя переменной:
+
+```toml
+[security]
+master_key_env = "QGRAMM_MASTER_KEY"
+```
+
+```text
+имя reference в TOML -> значение переменной процесса -> key material
+```
+
+`validate` и `explain` показывают имя, но не читают значение.
+
 ## Сборка и развертывание
 
 ```sh
-go run ./cmd/qgramm-build build -config qgramm.toml -out bin/qgramm
+go run ./cmd/qgramm-build build -config app-qgramm.toml -out bin/qgramm
 go run ./cmd/qgramm-build plan -config qgramm.toml
 go run ./cmd/qgramm-build compose -config configs/container.toml -out compose.yaml
 docker compose --env-file .env up --build -d
 ```
 
-Отключенные модули исключены Go build tags: нет их маршрутов, таблиц и workers в новой БД. Старые таблицы более полной установки не удаляются автоматически. Состав TOML сверяется с манифестом бинарника; смена функций требует сборки, обычных настроек — перезапуска. Docker работает UID 10001, с persistent `/data`, healthcheck и graceful shutdown. SQLite WAL/FULL рассчитан на один экземпляр; горизонтальный кластер не реализован.
+Отключенные модули исключены Go build tags: нет их маршрутов, таблиц и workers в новой БД. Пересобирайте только при изменении итогового набора features; обычные настройки, capacity, policy, URL и имена secret references требуют перезапуска. Старые таблицы более полной установки не удаляются автоматически. Docker работает UID 10001, с persistent `/data`, healthcheck и graceful shutdown. SQLite WAL/FULL рассчитан на один экземпляр; горизонтальный кластер не реализован.
 
 Расчет ресурсов учитывает CPU/cgroup/RAM, ограничивает очереди и параллельность; Compose задает CPU/RAM limits, но не резервирует хост. Одно число пользователей не описывает поток сообщений, размеры файлов или fan-out. Текущие рекомендации консервативны и не являются гарантией производительности. [Измерения и ограничения](benchmark.md).
 

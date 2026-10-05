@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -25,6 +26,77 @@ type Config struct {
 	AI       AI       `toml:"ai"`
 	Calls    Calls    `toml:"calls"`
 }
+
+// ConfigDetails describes the effective configuration without reading any
+// runtime secret values. It is useful to build diagnostics and deployment
+// plans while keeping Load's historical Config-only API intact.
+type ConfigDetails struct {
+	Config           Config
+	Preset           string
+	ExplicitPaths    []string
+	PresetPaths      []string
+	Sources          map[string]string
+	DeclaredSources  map[string]string
+	Resources        Resources
+	DeclaredCapacity Capacity
+	DerivedCapacity  Capacity
+}
+
+var presetNames = []string{"ai-anthropic", "ai-openai", "community", "minimal", "support"}
+
+// presetValues returns only the curated fields owned by a preset. Every value
+// remains overridable by an explicit TOML key decoded afterwards.
+func presetValues(name string, c *Config) error {
+	set := func(value func()) {
+		value()
+	}
+	switch name {
+	case "":
+		return nil
+	case "minimal":
+		return nil
+	case "support":
+		set(func() { c.Features.Groups = true })
+		set(func() { c.Features.Files = true })
+		set(func() { c.Features.Delete = true })
+		set(func() { c.Features.Edit = true })
+		set(func() { c.Features.Reply = true })
+		set(func() { c.Features.Reactions = true })
+		return nil
+	case "community":
+		if err := presetValues("support", c); err != nil {
+			return err
+		}
+		c.Features.Forward = true
+		return nil
+	case "ai-openai":
+		c.Features.OpenAI = true
+		c.AI.OpenAIKeyEnv = "QGRAMM_OPENAI_KEY"
+		return nil
+	case "ai-anthropic":
+		c.Features.Anthropic = true
+		c.AI.AnthropicKeyEnv = "QGRAMM_ANTHROPIC_KEY"
+		return nil
+	default:
+		return fmt.Errorf("unknown preset; choose one of %s", strings.Join(presetNames, ", "))
+	}
+}
+
+func presetPaths(name string) []string {
+	switch name {
+	case "support":
+		return []string{"features.delete", "features.edit", "features.files", "features.groups", "features.reactions", "features.reply"}
+	case "community":
+		return []string{"features.delete", "features.edit", "features.files", "features.forward", "features.groups", "features.reactions", "features.reply"}
+	case "ai-openai":
+		return []string{"ai.openai_key_env", "features.openai"}
+	case "ai-anthropic":
+		return []string{"ai.anthropic_key_env", "features.anthropic"}
+	default:
+		return nil
+	}
+}
+
 type Server struct {
 	Listen                string   `toml:"listen"`
 	TLSCert               string   `toml:"tls_cert"`
@@ -137,28 +209,287 @@ func Defaults() Config {
 	}
 }
 
+// Load preserves the original runtime API while using the same effective
+// configuration path as qgramm-build.
 func Load(path string) (Config, error) {
+	d, err := LoadDetailed(path)
+	if err != nil {
+		return d.Config, err
+	}
+	return d.Config, nil
+}
+
+// LoadDetailed reads and resolves a configuration using the current host's
+// resource inputs. It never reads environment variable values.
+func LoadDetailed(path string) (ConfigDetails, error) {
 	c := Defaults()
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return c, fmt.Errorf("read configuration: %w", err)
+		return ConfigDetails{Config: c}, fmt.Errorf("read configuration: %w", err)
 	}
-	md, err := toml.Decode(string(data), &c)
+	return parseDetailed(data, DetectResources())
+}
+
+// ParseDetailed resolves a TOML document using the current host's resource
+// inputs. It is intended for offline validation and diagnostics.
+func ParseDetailed(data []byte) (ConfigDetails, error) {
+	return parseDetailed(data, DetectResources())
+}
+
+// Parse is the in-memory counterpart to Load and is useful to callers that
+// already own a TOML document.
+func Parse(data []byte) (Config, error) {
+	d, err := ParseDetailed(data)
+	return d.Config, err
+}
+
+// ParseDetailedWithResources makes capacity derivation deterministic for
+// planning and tests while preserving the same schema and semantic checks.
+func ParseDetailedWithResources(data []byte, resources Resources) (ConfigDetails, error) {
+	return parseDetailed(data, resources)
+}
+
+func parseDetailed(data []byte, resources Resources) (ConfigDetails, error) {
+	base := Defaults()
+	var header struct {
+		Preset string `toml:"preset"`
+	}
+	if _, err := toml.Decode(string(data), &header); err != nil {
+		return ConfigDetails{Config: base}, fmt.Errorf("decode configuration: %w", err)
+	}
+	if err := presetValues(header.Preset, &base); err != nil {
+		return ConfigDetails{Config: base, Preset: header.Preset}, err
+	}
+	md, err := toml.Decode(string(data), &base)
 	if err != nil {
-		return c, fmt.Errorf("decode configuration: %w", err)
+		return ConfigDetails{Config: base, Preset: header.Preset}, fmt.Errorf("decode configuration: %w", err)
 	}
-	if unknown := md.Undecoded(); len(unknown) > 0 {
-		names := []string{}
-		for _, k := range unknown {
-			names = append(names, k.String())
+	unknown := make([]string, 0)
+	explicit := make(map[string]bool)
+	for _, k := range md.Keys() {
+		path := strings.Join([]string(k), ".")
+		if path == "preset" {
+			continue
 		}
-		return c, fmt.Errorf("unknown configuration fields: %s", strings.Join(names, ", "))
+		explicit[path] = true
 	}
-	if err = c.Validate(); err != nil {
-		return c, err
+	for _, k := range md.Undecoded() {
+		path := strings.Join([]string(k), ".")
+		if path != "preset" {
+			unknown = append(unknown, k.String())
+		}
 	}
-	c.Capacity = DeriveCapacity(c.Capacity, DetectResources())
-	return c, nil
+	if len(unknown) > 0 {
+		return ConfigDetails{Config: base, Preset: header.Preset, ExplicitPaths: sortedKeys(explicit), PresetPaths: presetPaths(header.Preset)}, fmt.Errorf("unknown configuration fields: %s", strings.Join(unknown, ", "))
+	}
+	if err = validateAIPresetModel(base, explicit, header.Preset); err != nil {
+		return ConfigDetails{Config: base, Preset: header.Preset, ExplicitPaths: sortedKeys(explicit), PresetPaths: presetPaths(header.Preset)}, err
+	}
+	if err = base.Validate(); err != nil {
+		return ConfigDetails{Config: base, Preset: header.Preset, ExplicitPaths: sortedKeys(explicit), PresetPaths: presetPaths(header.Preset)}, err
+	}
+	declared := base.Capacity
+	base.Capacity = DeriveCapacity(base.Capacity, resources)
+	d := ConfigDetails{
+		Config:           base,
+		Preset:           header.Preset,
+		ExplicitPaths:    sortedKeys(explicit),
+		PresetPaths:      presetPaths(header.Preset),
+		Resources:        resources,
+		DeclaredCapacity: declared,
+		DerivedCapacity:  base.Capacity,
+	}
+	d.Sources = sourceMap(d, explicit)
+	d.DeclaredSources = declaredSourceMap(d, explicit)
+	if md.IsDefined("preset") {
+		d.Sources["preset"] = "explicit"
+		d.DeclaredSources["preset"] = "explicit"
+	}
+	return d, nil
+}
+
+func validateAIPresetModel(c Config, explicit map[string]bool, preset string) error {
+	if (c.Features.OpenAI || c.Features.Anthropic) && (!explicit["ai.model"] || strings.TrimSpace(c.AI.Model) == "") {
+		if strings.HasPrefix(preset, "ai-") {
+			return fmt.Errorf("AI preset requires explicit ai.model")
+		}
+		return fmt.Errorf("AI requires an explicit ai.model")
+	}
+	return nil
+}
+
+func sortedKeys(values map[string]bool) []string {
+	out := make([]string, 0, len(values))
+	for value := range values {
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func sourceMap(d ConfigDetails, explicit map[string]bool) map[string]string {
+	sources := declaredSourceMap(d, explicit)
+	for _, field := range []struct {
+		path string
+		zero bool
+	}{
+		{"capacity.max_connections", d.DeclaredCapacity.MaxConnections == 0},
+		{"capacity.queue_depth", d.DeclaredCapacity.QueueDepth == 0},
+		{"capacity.workers", d.DeclaredCapacity.Workers == 0},
+	} {
+		if field.zero {
+			sources[field.path] = "derived"
+		}
+	}
+	if d.Preset != "" {
+		sources["preset"] = "explicit"
+	}
+	return sources
+}
+
+func declaredSourceMap(d ConfigDetails, explicit map[string]bool) map[string]string {
+	sources := make(map[string]string)
+	preset := make(map[string]bool, len(d.PresetPaths))
+	for _, path := range d.PresetPaths {
+		preset[path] = true
+	}
+	for _, path := range configLeafPaths(reflect.ValueOf(d.Config), "") {
+		sources[path] = "default"
+		if hasPath(explicit, path) {
+			sources[path] = "explicit"
+		} else if hasPath(preset, path) {
+			sources[path] = "preset"
+		}
+	}
+	if d.Preset != "" {
+		sources["preset"] = "explicit"
+	}
+	return sources
+}
+
+func hasPath(values map[string]bool, path string) bool {
+	if values[path] {
+		return true
+	}
+	for value := range values {
+		if strings.HasPrefix(value, path+".") {
+			return true
+		}
+	}
+	return false
+}
+
+func configLeafPaths(value reflect.Value, prefix string) []string {
+	if value.Kind() == reflect.Pointer {
+		if value.IsNil() {
+			return []string{prefix}
+		}
+		return configLeafPaths(value.Elem(), prefix)
+	}
+	if value.Kind() != reflect.Struct {
+		if prefix == "" {
+			return nil
+		}
+		return []string{prefix}
+	}
+	typeOf := value.Type()
+	paths := make([]string, 0)
+	for i := 0; i < value.NumField(); i++ {
+		field := typeOf.Field(i)
+		name := strings.Split(field.Tag.Get("toml"), ",")[0]
+		if name == "" || name == "-" || field.PkgPath != "" {
+			continue
+		}
+		path := name
+		if prefix != "" {
+			path = prefix + "." + name
+		}
+		if value.Field(i).Kind() == reflect.Struct {
+			paths = append(paths, configLeafPaths(value.Field(i), path)...)
+		} else {
+			paths = append(paths, path)
+		}
+	}
+	return paths
+}
+
+// EffectiveMap converts the typed configuration to a stable, TOML-keyed map
+// suitable for JSON diagnostics. It contains references such as
+// QGRAMM_MASTER_KEY as names, never the corresponding environment values.
+func EffectiveMap(c Config) map[string]any {
+	value, _ := configValueMap(reflect.ValueOf(c)).(map[string]any)
+	return value
+}
+
+func configValueMap(value reflect.Value) any {
+	if value.Kind() == reflect.Pointer {
+		if value.IsNil() {
+			return nil
+		}
+		return configValueMap(value.Elem())
+	}
+	switch value.Kind() {
+	case reflect.Struct:
+		out := make(map[string]any)
+		typeOf := value.Type()
+		for i := 0; i < value.NumField(); i++ {
+			field := typeOf.Field(i)
+			name := strings.Split(field.Tag.Get("toml"), ",")[0]
+			if name == "" || name == "-" || field.PkgPath != "" {
+				continue
+			}
+			out[name] = configValueMap(value.Field(i))
+		}
+		return out
+	case reflect.Slice, reflect.Array:
+		out := make([]any, value.Len())
+		for i := range out {
+			out[i] = configValueMap(value.Index(i))
+		}
+		return out
+	case reflect.Map:
+		out := make(map[string]any)
+		for _, key := range value.MapKeys() {
+			if key.Kind() == reflect.String {
+				out[key.String()] = configValueMap(value.MapIndex(key))
+			}
+		}
+		return out
+	default:
+		return value.Interface()
+	}
+}
+
+// SecretReferences returns configured environment variable names in stable
+// order. It deliberately does not consult os.Environ or look up any value.
+func SecretReferences(c Config) []string {
+	refs := []string{c.Security.TokenPublicKeyEnv, c.Security.ManagementSecretEnv, c.Security.MasterKeyEnv, c.Security.HPKEKeyEnv}
+	refs = append(refs, c.Security.PreviousMasterKeyEnvs...)
+	refs = append(refs, c.Security.PreviousHPKEKeyEnvs...)
+	if c.AI.OpenAIKeyEnv != "" {
+		refs = append(refs, c.AI.OpenAIKeyEnv)
+	}
+	if c.AI.AnthropicKeyEnv != "" {
+		refs = append(refs, c.AI.AnthropicKeyEnv)
+	}
+	if c.Calls.TURNSecretEnv != "" {
+		refs = append(refs, c.Calls.TURNSecretEnv)
+	}
+	for _, tool := range c.AI.Tools {
+		if tool.SecretEnv != "" {
+			refs = append(refs, tool.SecretEnv)
+		}
+	}
+	seen := make(map[string]bool, len(refs))
+	out := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		if ref != "" && !seen[ref] {
+			seen[ref] = true
+			out = append(out, ref)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 var envName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)

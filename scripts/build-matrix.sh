@@ -31,6 +31,23 @@ with (root/'profiles').open('w') as manifest:
         (root/(name+'.toml')).write_text(config)
         tags=','.join('qg_'+f for f in sorted(enabled))
         manifest.write(name+'|'+tags+'\n')
+    presets={
+        'minimal':set(),
+        'support':{'groups','files','delete','edit','reply','reactions'},
+        'community':{'groups','files','delete','edit','reply','forward','reactions'},
+        'ai-openai':{'openai'},
+        'ai-anthropic':{'anthropic'},
+    }
+    for preset, enabled in presets.items():
+        name='preset-'+preset
+        (root/(name+'.toml')).write_text('preset="'+preset+'"\n'+base)
+        manifest.write(name+'|'+','.join('qg_'+f for f in sorted(enabled))+'\n')
+    for name, preset, overrides, enabled in [
+        ('preset-support-override','support','files=false\n',presets['support']-{'files'}),
+        ('preset-ai-disabled','ai-openai','openai=false\n',set()),
+    ]:
+        (root/(name+'.toml')).write_text('preset="'+preset+'"\n'+base+'[features]\n'+overrides)
+        manifest.write(name+'|'+','.join('qg_'+f for f in sorted(enabled))+'\n')
 invalid=root/'invalid';invalid.mkdir()
 cases={
     'mcp-without-provider':base+'[features]\nmcp=true\n',
@@ -40,6 +57,8 @@ cases={
     'literal-secret':base+'[security]\nmaster_key_env="not-an-env-reference"\n',
     'bad-policy':base+'[policy]\nhistory="arbitrary"\n',
     'tool-without-feature':base+'[features]\nopenai=true\n[[ai.tools]]\nname="bad"\nkind="http"\nurl="https://tools.example.com"\nmethods=["POST"]\n',
+    'unknown-preset':'preset="nonexistent"\n'+base,
+    'ai-preset-without-model':'preset="ai-openai"\n'+base.replace('model="test-model"\n',''),
 }
 for name, config in cases.items(): (invalid/(name+'.toml')).write_text(config)
 PY
@@ -64,4 +83,4 @@ done < "$scratch/profiles"
 QGRAMM_MATRIX_INVALID_DIR="$scratch/invalid" go test ./cmd/qgramm-build -run '^TestMatrixInvalidConfigurations$' -count=1
 go test ./internal/config ./cmd/qgramm-build
 go test -tags qg_groups,qg_files,qg_e2ee,qg_calls,qg_delete,qg_edit,qg_reply,qg_forward,qg_reactions,qg_openai,qg_anthropic,qg_mcp,qg_http_tools ./...
-echo '28 build/runtime selections and 7 invalid configurations passed; no calibrated capacity claim'
+echo '35 build/runtime selections and 9 invalid configurations passed; no calibrated capacity claim'
