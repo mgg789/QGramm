@@ -2933,6 +2933,674 @@
           }
         ]
       }
+    },
+    "/management/v1/ai/agents": {
+      "post": {
+        "operationId": "POST_management_v1_ai_agents",
+        "summary": "POST /management/v1/ai/agents",
+        "x-source": "internal/modules/ai_participants.go",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agent_id": {
+                      "type": "string"
+                    },
+                    "bot_name": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": "string"
+                    },
+                    "device_id": {
+                      "type": "string"
+                    },
+                    "provider": {
+                      "type": "string",
+                      "enum": [
+                        "openai",
+                        "anthropic"
+                      ]
+                    },
+                    "version": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "tools": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "agent_id",
+                    "bot_name",
+                    "user_id",
+                    "device_id",
+                    "provider",
+                    "version",
+                    "tools"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "bot_name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9_.-]+$"
+                  },
+                  "user_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9_.-]+$"
+                  },
+                  "tools": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "bot_name"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/management/v1/ai/agents/{agent}/chats/{chat}": {
+      "post": {
+        "operationId": "POST_management_v1_ai_agents_agent_chats_chat",
+        "summary": "POST /management/v1/ai/agents/{agent}/chats/{chat}",
+        "x-source": "internal/modules/ai_participants.go",
+        "parameters": [
+          {
+            "name": "agent",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "chat_id": {
+                      "type": "string"
+                    },
+                    "agent_id": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": "string"
+                    },
+                    "device_id": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "tools": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "chat_id",
+                    "agent_id",
+                    "user_id",
+                    "device_id",
+                    "version",
+                    "tools"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tools": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/chats/{chat}/ai/tasks": {
+      "post": {
+        "operationId": "POST_v1_chats_chat_ai_tasks",
+        "summary": "POST /v1/chats/{chat}/ai/tasks",
+        "x-source": "internal/modules/ai_participants.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "chat_id": {
+                      "type": "string"
+                    },
+                    "message_id": {
+                      "type": "string"
+                    },
+                    "task_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "chat_id",
+                    "message_id",
+                    "task_ids"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "message_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9_.-]+$"
+                  },
+                  "agents": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9_.-]+$"
+                    },
+                    "minItems": 1,
+                    "maxItems": 16,
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "message_id",
+                  "agents"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "GET_v1_chats_chat_ai_tasks",
+        "summary": "GET /v1/chats/{chat}/ai/tasks",
+        "x-source": "internal/modules/ai_participants.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tasks": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AITask"
+                      }
+                    }
+                  },
+                  "required": [
+                    "tasks"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/chats/{chat}/ai/tasks/{task}": {
+      "get": {
+        "operationId": "GET_v1_chats_chat_ai_tasks_task",
+        "summary": "GET /v1/chats/{chat}/ai/tasks/{task}",
+        "x-source": "internal/modules/ai_participants.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "task",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AITask"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "DELETE_v1_chats_chat_ai_tasks_task",
+        "summary": "DELETE /v1/chats/{chat}/ai/tasks/{task}",
+        "x-source": "internal/modules/ai_participants.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "task",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "task_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "queued",
+                        "running",
+                        "succeeded",
+                        "failed",
+                        "uncertain",
+                        "cancelled"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "task_id",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/chats/{chat}/ai/jobs/{job}/progress": {
+      "get": {
+        "operationId": "GET_v1_chats_chat_ai_jobs_job_progress",
+        "summary": "GET /v1/chats/{chat}/ai/jobs/{job}/progress",
+        "x-source": "internal/modules/ai_progress.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "job",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "job_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "queued",
+                        "running",
+                        "succeeded",
+                        "failed",
+                        "uncertain",
+                        "cancelled"
+                      ]
+                    },
+                    "chunks": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AIProgressChunk"
+                      }
+                    }
+                  },
+                  "required": [
+                    "job_id",
+                    "status",
+                    "chunks"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/chats/{chat}/ai/jobs/{job}/cancel": {
+      "post": {
+        "operationId": "POST_v1_chats_chat_ai_jobs_job_cancel",
+        "summary": "POST /v1/chats/{chat}/ai/jobs/{job}/cancel",
+        "x-source": "internal/modules/ai_progress.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "job",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "job_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "queued",
+                        "running",
+                        "succeeded",
+                        "failed",
+                        "uncertain",
+                        "cancelled"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "job_id",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -4029,6 +4697,168 @@
               "data"
             ],
             "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "ai.agent.attached"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "agent_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "agent_id"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "ai.tasks.queued"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "source_message_id": {
+                    "type": "string"
+                  },
+                  "agents": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "source_message_id",
+                  "agents"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "ai.progress.available"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "job_id": {
+                    "type": "string"
+                  },
+                  "chunk": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "text.delta",
+                      "tool.started",
+                      "tool.arguments.delta"
+                    ]
+                  }
+                },
+                "required": [
+                  "job_id",
+                  "chunk",
+                  "kind"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "ai.job.cancelled"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "job_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "job_id"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data"
+            ],
+            "additionalProperties": false
           }
         ]
       },
@@ -4469,7 +5299,8 @@
               "running",
               "succeeded",
               "failed",
-              "uncertain"
+              "uncertain",
+              "cancelled"
             ]
           },
           "result_id": {
@@ -4493,6 +5324,113 @@
           "updated_at"
         ],
         "additionalProperties": false
+      },
+      "AITask": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "message_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "uncertain",
+              "cancelled"
+            ]
+          },
+          "result_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "updated_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "chat_id": {
+            "type": "string"
+          },
+          "agent_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "message_id",
+          "status",
+          "result_id",
+          "created_at",
+          "updated_at",
+          "chat_id",
+          "agent_id"
+        ],
+        "additionalProperties": false
+      },
+      "AIProgressChunk": {
+        "type": "object",
+        "properties": {
+          "chunk": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "text.delta",
+              "tool.started",
+              "tool.arguments.delta"
+            ]
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "sender": {
+            "type": "string"
+          },
+          "device_id": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "basic",
+              "e2ee"
+            ]
+          },
+          "epoch": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "envelope": {
+            "$ref": "#/components/schemas/Envelope"
+          },
+          "mls": {
+            "type": "string",
+            "contentEncoding": "base64"
+          }
+        },
+        "required": [
+          "chunk",
+          "kind",
+          "operation_id",
+          "sender",
+          "device_id",
+          "mode",
+          "epoch"
+        ],
+        "additionalProperties": false,
+        "description": "BASIC envelope or MLS ciphertext; Binding(chat,sender,device,operation_id). operation_id=ai-progress-{job}-{chunk}. Parts are previews; final message/job status establishes completion."
       }
     },
     "securitySchemes": {

@@ -13,6 +13,7 @@ forward = true
 reactions = true
 openai = true
 anthropic = true
+ai_streaming = true
 mcp = true
 http_tools = true
 [ai]

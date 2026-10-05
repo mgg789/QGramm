@@ -28,7 +28,7 @@ func TestPlanIsExplicitAndContainsAssumptions(t *testing.T) {
 	if e = json.Unmarshal(data, &plan); e != nil {
 		t.Fatal(e)
 	}
-	if len(plan.Tags) != 13 || len(plan.Estimate.Assumptions) == 0 {
+	if len(plan.Tags) != 14 || len(plan.Estimate.Assumptions) == 0 {
 		t.Fatalf("incomplete plan: %s", data)
 	}
 }

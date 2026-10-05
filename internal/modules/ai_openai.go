@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"os"
 	"strings"
 
 	"github.com/mgg789/QGramm/internal/config"
@@ -15,11 +14,20 @@ import (
 
 func init() { aiProviders["openai"] = aiOpenAI; core.Register("openai", installAI) }
 func aiOpenAI(ctx context.Context, c config.Config, turns []aiTurn, tools []config.Tool, request aiRequester) (aiAnswer, error) {
-	key := os.Getenv(c.AI.OpenAIKeyEnv)
-	if key == "" {
-		return aiAnswer{}, errors.New("provider credential unavailable")
+	if callback := aiStreamCallbackFromContext(ctx); callback != nil {
+		if aiOpenAIStreamFn == nil {
+			return aiAnswer{}, errors.New("provider streaming unavailable")
+		}
+		return aiOpenAIStreamFn(ctx, c, turns, tools, callback)
+	}
+	headers, headerErr := aiProviderHeaders(c.AI, "openai")
+	if headerErr != nil {
+		return aiAnswer{}, headerErr
 	}
 	messages := []map[string]any{}
+	if c.AI.SystemPrompt != "" {
+		messages = append(messages, map[string]any{"role": "system", "content": c.AI.SystemPrompt})
+	}
 	for _, t := range turns {
 		m := map[string]any{"role": t.Role, "content": t.Content}
 		if t.ToolCallID != "" {
@@ -34,7 +42,7 @@ func aiOpenAI(ctx context.Context, c config.Config, turns []aiTurn, tools []conf
 		}
 		messages = append(messages, m)
 	}
-	body := map[string]any{"model": c.AI.Model, "messages": messages, "max_tokens": 2048, "stream": false}
+	body := map[string]any{"model": c.AI.Model, "messages": messages, "max_tokens": aiMaxOutputTokens(c.AI), "stream": false}
 	if len(tools) > 0 {
 		defs := []map[string]any{}
 		for _, t := range tools {
@@ -46,7 +54,7 @@ func aiOpenAI(ctx context.Context, c config.Config, turns []aiTurn, tools []conf
 		}
 		body["tools"] = defs
 	}
-	data, e := request(ctx, strings.TrimRight(c.AI.OpenAIURL, "/")+"/chat/completions", map[string]string{"Authorization": "Bearer " + key}, body, false)
+	data, e := request(ctx, strings.TrimRight(c.AI.OpenAIURL, "/")+"/chat/completions", headers, body, c.AI.AllowPrivate)
 	if e != nil {
 		return aiAnswer{}, e
 	}

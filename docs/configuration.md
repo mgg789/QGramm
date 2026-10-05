@@ -34,15 +34,54 @@ For automatic capacity fields, `sources` reports the final value as `derived`; `
 | `server` | `listen`, TLS certificate/key paths, `allow_insecure_loopback`, `trusted_proxy`, allowed browser `origins` |
 | `storage` | SQLite `path`, encrypted chunk directory `files`, optional `checkpoint_interval_ms` and `wal_checkpoint_bytes`; container paths should be beneath `/data` |
 | `security` | JWT `issuer`/`audience`; references `token_public_key_env`, `management_secret_env`, `master_key_env`, `hpke_key_env`; bounded retired-key reference lists `previous_master_key_envs`, `previous_hpke_key_envs` |
-| `features` | Boolean `groups`, `files`, `e2ee`, `calls`, `delete`, `edit`, `reply`, `forward`, `reactions`, `openai`, `anthropic`, `mcp`, `http_tools` |
+| `features` | Boolean `groups`, `files`, `e2ee`, `calls`, `delete`, `edit`, `reply`, `forward`, `reactions`, `openai`, `anthropic`, `ai_streaming`, `mcp`, `http_tools` |
 | `capacity` | `expected_concurrent_users`; optional explicit `max_connections`, `queue_depth`, `workers` |
 | `policy` | `history` since_join/all; `delete_mode` global/author_only; reaction type dictionary; event/dedup/upload retention; message/batch/file/chunk/storage limits |
-| `ai` | `openai_url`, `anthropic_url`, `openai_key_env`, `anthropic_key_env`, `model`, `max_steps`, `max_context_turns`, `max_context_bytes`, `timeout_seconds`, `max_response_bytes`, `tools` |
+| `ai` | Legacy provider URLs/key references plus `model`, `max_steps`, `max_context_turns`, `max_context_bytes`, `timeout_seconds`, `max_response_bytes`, `max_output_tokens`, `tools`; named profiles use `endpoints`, `bots` and `default_bot` |
 | `calls` | TURN URLs, shared-secret env reference, credential TTL |
 
 The authoritative field definitions/defaults are in `internal/config/config.go`; examples are in `configs/`. Secret references must be environment variable identifiers, never credentials. Calls require external TURN settings. Tools require an enabled AI provider, and each configured connector must have its feature compiled.
 
 Each `[[ai.tools]]` defines `name`, `kind`, `url`, `methods`, `secret_env`, `allow_private`, `schema`, `timeout_seconds`, `max_response_bytes`. Zero tool limits inherit globals; positive values narrow them. See [AI bounds and schema vocabulary](ai.md). AI defaults: 20 turns, 262144 context bytes, 45 seconds and 1048576 response bytes. These are also absolute safety ceilings.
+
+### Named AI endpoints and bots
+
+The stage-1 named participant configuration is resolved from global `[ai]`, then
+`[ai.endpoints.NAME]`, then `[ai.bots.NAME]`. Set `default_bot` when named
+endpoints are used without a global model. The endpoint selects `provider`
+(`openai` or `anthropic`), URL, model, `key_env`, `auth`, `allow_private`,
+optional streaming, capabilities and bounded overrides. A bot selects one
+endpoint and may narrow tools and limits. `max_output_tokens` is bounded to
+`1..65536`; `capabilities` currently accepts only `basic_text` and `tool`.
+Multimodal input/output and other capability names are not part of this wire
+contract.
+
+```toml
+[ai]
+default_bot = "assistant"
+max_output_tokens = 2048
+
+[ai.endpoints.openai]
+provider = "openai"
+url = "https://api.openai.com/v1"
+model = "operator-selected-model"
+key_env = "QGRAMM_OPENAI_KEY"
+auth = "bearer"
+capabilities = ["basic_text", "tool"]
+
+[ai.bots.assistant]
+endpoint = "openai"
+tools = []
+```
+
+For a local, private OpenAI-compatible service, `auth = "none"` is allowed
+only with `allow_private = true` and no `key_env`. This deliberately trusts the
+configured private endpoint; plaintext is sent to it. Secret values remain in
+the process environment and are never written to TOML, profiles or logs.
+Named agents are permanent user/device identities. They can be attached to
+BASIC direct or group chats and are addressed explicitly after a normal message;
+attaching a named agent to MLS E2EE is rejected in stage 1. See the [named AI
+network contract](ai-network.md).
 
 Secret references are names only; the process resolves them at runtime:
 

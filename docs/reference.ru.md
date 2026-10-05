@@ -36,13 +36,30 @@ AI-preset требует явного `ai.model`; provider/model не угады
 | `server` | `listen`: адрес; `tls_cert`, `tls_key`: пути TLS; `allow_insecure_loopback`: только разработка на loopback; `trusted_proxy`: доверять HTTPS-заголовку из изолированного ingress; `origins`: разрешенные browser origins |
 | `storage` | `path`: SQLite; `files`: каталог зашифрованных частей файлов |
 | `security` | `issuer`, `audience`: JWT authority; `token_public_key_env`: base64 Ed25519 32-byte verification key; `management_secret_env`: отдельный bearer минимум 32 символа; `master_key_env`: AES-256 32-byte key; `hpke_key_env`: X25519 32-byte private key; `previous_master_key_envs`, `previous_hpke_key_envs`: до четырех старых ключей каждого вида |
-| `features` | Независимые boolean: `groups`, `files`, `e2ee`, `calls`, `delete`, `edit`, `reply`, `forward`, `reactions`, `openai`, `anthropic`, `mcp`, `http_tools` |
+| `features` | Независимые boolean: `groups`, `files`, `e2ee`, `calls`, `delete`, `edit`, `reply`, `forward`, `reactions`, `openai`, `anthropic`, `ai_streaming`, `mcp`, `http_tools` |
 | `capacity` | `expected_concurrent_users`: одновременно подключенные люди; `max_connections`, `queue_depth`, `workers`: явные пределы, 0 — расчет |
 | `policy` | `history`: `since_join` либо `all` с явным grant внешнего backend; `delete_mode`: `global` либо `author_only`; `reaction_types`: словарь числовых типов с 0; `event_retention_hours`, `dedup_retention_hours`, `upload_ttl_hours`: сроки; `max_message_bytes`, `max_batch`, `max_file_bytes`, `max_chunk_bytes`, `max_storage_bytes`: размеры и квоты |
-| `ai` | `openai_url`, `anthropic_url`: provider base URL; `openai_key_env`, `anthropic_key_env`: имена секретов; `model`: модель; `max_steps`: предел вызовов инструментов; `max_context_turns`, `max_context_bytes`: контекст; `timeout_seconds`, `max_response_bytes`: сетевые пределы; `tools`: массив разрешенных коннекторов |
+| `ai` | Legacy `openai_url`, `anthropic_url` и имена ключей; `model`, `max_steps`, `max_context_turns`, `max_context_bytes`, `timeout_seconds`, `max_response_bytes`, `max_output_tokens`, `tools`; именованные профили используют `endpoints`, `bots`, `default_bot` |
 | `calls` | `turn_urls`: внешний TURN; `turn_secret_env`: имя shared secret; `credential_ttl_seconds`: срок credentials |
 
 Каждый `[[ai.tools]]` задает `name`, `kind` (`http`/`mcp`), `url`, `methods`, `secret_env`, `allow_private`, `schema`, `timeout_seconds`, `max_response_bytes`. Последние два поля при 0 наследуют AI-пределы, положительные значения только сужают их. Defaults AI: 20 turns, 262144 context bytes, 45 секунд, 1048576 response bytes; увеличивать сверх этих safety ceilings нельзя. Точный допустимый поднабор JSON Schema описан в [AI reference](ai.md): неизвестные ограничения не игнорируются. Инструменты требуют AI-provider, соответствующий connector — включенной build-фичи; звонки требуют TURN-настроек. Значения и ограничения проверяет `internal/config/config.go`.
+
+Именованный stage-1 профиль разрешается последовательно: глобальная `[ai]` →
+`[ai.endpoints.NAME]` → `[ai.bots.NAME]`. Если глобальная модель отсутствует,
+нужен корректный `default_bot`. Endpoint выбирает `provider` (`openai` или
+`anthropic`), URL, модель, `key_env`, `auth`, `allow_private`, streaming,
+capabilities и ограниченные overrides. Бот выбирает endpoint и может только
+сузить инструменты и лимиты. `max_output_tokens` — от 1 до 65536;
+capabilities сейчас ограничены `basic_text` и `tool`. Мультимодальность и
+другие capability names этим контрактом не поддерживаются.
+
+Для локального приватного OpenAI-compatible endpoint допустим `auth="none"`
+только вместе с `allow_private=true` и без `key_env`. Это явное доверие к
+endpoint: plaintext отправляется в него. Значения секретов остаются в окружении
+процесса и не записываются в TOML, профили или логи. Именованный бот —
+постоянная user/device identity; в stage 1 он подключается только к BASIC
+личным и групповым чатам и запускается явным заданием после обычного сообщения.
+Подключение именованного бота к MLS E2EE отклоняется. Подробности — [AI-сеть](ai-network.ru.md).
 
 Secret reference — только имя переменной:
 
@@ -88,7 +105,18 @@ Basic доверяет контейнеру: у него private HPKE/master key
 
 Для ротации замените primary ключи, внесите имена старых секретов в `previous_*_key_envs`, перезапустите. Новые записи используют primary, старые читаются только при сохранении нужных ключей. Удаление retired master делает его данные нечитаемыми; автоматического перешифрования нет. Backup требует всех применимых ключей. Это не криптографический аудит и не автоматическая forward secrecy.
 
-AI — явный отдельный участник личного чата. Он владеет только своими MLS-ключами; OpenAI/Anthropic получают plaintext. Durable jobs не создают повторный ответ при replay. Неопределенный внешний исход помечается `uncertain` и не повторяется бесконечно с оплатой. Global delete сбрасывает весь сохраненный AI context этого чата и отменяет queued/running jobs; поздний ответ не восстанавливает контекст. Уже отправленные провайдеру/инструменту запросы отозвать нельзя. Инструменты разрешает backend; URL/методы/размеры/timeout/шаги ограничены. Redirects запрещены, DNS dial закреплен, private addresses требуют явного разрешения. Модель не расширяет права. State шифруется; snapshots/backups могут сохранять прежние ключи. [AI contract](ai.md).
+Старый прямой AI-участник личного MLS-чата сохраняется и владеет только
+своими MLS-ключами; OpenAI/Anthropic получают plaintext. Именованные stage-1
+боты — постоянные пользователи/устройства для BASIC-чата, с отдельным
+контекстом на пару bot/chat и явным запуском через [AI network API](ai-network.ru.md).
+Durable jobs не создают повторный ответ при replay. Неопределенный внешний исход
+помечается `uncertain` и не повторяется бесконечно с оплатой. Global delete
+сбрасывает сохраненный AI context и отменяет queued/running jobs; поздний ответ
+не восстанавливает контекст. Уже отправленные провайдеру/инструменту запросы
+отозвать нельзя. Инструменты разрешает backend; URL/методы/размеры/timeout/шаги
+ограничены. Redirects запрещены, DNS dial закреплен, private addresses требуют
+явного разрешения. Модель не расширяет права. State шифруется; snapshots/backups
+могут сохранять прежние ключи. [AI contract](ai.md).
 
 ## Backup/restore и приемка
 

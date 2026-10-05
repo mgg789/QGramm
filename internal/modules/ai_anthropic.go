@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"os"
 	"strings"
 
 	"github.com/mgg789/QGramm/internal/config"
@@ -15,12 +14,21 @@ import (
 
 func init() { aiProviders["anthropic"] = aiAnthropic; core.Register("anthropic", installAI) }
 func aiAnthropic(ctx context.Context, c config.Config, turns []aiTurn, tools []config.Tool, request aiRequester) (aiAnswer, error) {
-	key := os.Getenv(c.AI.AnthropicKeyEnv)
-	if key == "" {
-		return aiAnswer{}, errors.New("provider credential unavailable")
+	if callback := aiStreamCallbackFromContext(ctx); callback != nil {
+		if aiAnthropicStreamFn == nil {
+			return aiAnswer{}, errors.New("provider streaming unavailable")
+		}
+		return aiAnthropicStreamFn(ctx, c, turns, tools, callback)
+	}
+	headers, headerErr := aiProviderHeaders(c.AI, "anthropic")
+	if headerErr != nil {
+		return aiAnswer{}, headerErr
 	}
 	messages := []map[string]any{}
 	for _, t := range turns {
+		if t.Role == "system" {
+			continue
+		}
 		role := t.Role
 		blocks := []map[string]any{}
 		if role == "tool" {
@@ -36,7 +44,10 @@ func aiAnthropic(ctx context.Context, c config.Config, turns []aiTurn, tools []c
 		}
 		messages = append(messages, map[string]any{"role": role, "content": blocks})
 	}
-	body := map[string]any{"model": c.AI.Model, "messages": messages, "max_tokens": 2048, "stream": false}
+	body := map[string]any{"model": c.AI.Model, "messages": messages, "max_tokens": aiMaxOutputTokens(c.AI), "stream": false}
+	if c.AI.SystemPrompt != "" {
+		body["system"] = c.AI.SystemPrompt
+	}
 	if len(tools) > 0 {
 		defs := []map[string]any{}
 		for _, t := range tools {
@@ -48,7 +59,7 @@ func aiAnthropic(ctx context.Context, c config.Config, turns []aiTurn, tools []c
 		}
 		body["tools"] = defs
 	}
-	data, e := request(ctx, strings.TrimRight(c.AI.AnthropicURL, "/")+"/messages", map[string]string{"x-api-key": key, "anthropic-version": "2023-06-01"}, body, false)
+	data, e := request(ctx, strings.TrimRight(c.AI.AnthropicURL, "/")+"/messages", headers, body, c.AI.AllowPrivate)
 	if e != nil {
 		return aiAnswer{}, e
 	}

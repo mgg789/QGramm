@@ -45,6 +45,29 @@ Provider acceptance uses live DeepSeek for the OpenAI-compatible API and
 integration fixtures for the Anthropic Messages contract. Separate vendor-hosted
 live calls are not release gates in the selected acceptance policy.
 
+## Stage-1 named AI evidence
+
+The stage-1 named-agent checks currently provide local evidence only: SQLite
+transaction and restart paths, concurrent task claims, multiple-agent targeting,
+BASIC group ACL and source deletion/revocation guards, encrypted progress/cancel
+state where `qg_ai_streaming` is enabled, and provider calls through local
+mocked HTTP fixtures. This does not establish interoperability with a hosted
+OpenAI or Anthropic service, and no new live-provider result is claimed here.
+
+`sh scripts/build-matrix.sh` passed 38 valid build/runtime profiles and 10
+invalid profiles, including the named network configuration and independent
+streaming exclusion. The matrix checks routes, tables, selected files and
+production dependency graphs. The existing 35-profile/9-invalid evidence above
+is a separate pre-stage-1 result.
+
+`go test -race ./...`, the complete 14-tag `go test -race ./...`, full-profile
+`go vet ./...`, and `go run -race ./examples/basic` passed. The named two-bot
+integration uses an actual local HTTP/SSE server without authentication;
+it checks encrypted input/output, explicit group targeting, no invocation loop,
+streaming and exact retry without a second provider call. MLS progress tests
+check receiver decryption of chunks and final output using the durable sender
+ratchet. These are local runtime/contract checks, not a new load measurement.
+
 ## Deferred acceptance and unsupported profiles
 
 - Browser PCM and TURN pass in Linux Chromium. macOS Chrome ICE, Safari/Firefox, public NAT and combined client MLS fingerprint authentication remain separate client/platform contours.

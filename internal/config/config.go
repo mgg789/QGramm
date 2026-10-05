@@ -997,6 +997,9 @@ func (c Config) Validate() error {
 		}
 		seen[r] = true
 	}
+	if c.Features.AIStreaming && !(c.Features.OpenAI || c.Features.Anthropic) {
+		return fmt.Errorf("AI streaming requires an enabled provider")
+	}
 	if (c.Features.MCP || c.Features.HTTPTools) && !(c.Features.OpenAI || c.Features.Anthropic) {
 		return fmt.Errorf("AI tools require an enabled AI provider")
 	}

@@ -76,6 +76,14 @@ tools = []
 	}
 }
 
+func TestStreamingRequiresProvider(t *testing.T) {
+	c := localConfig()
+	c.Features.AIStreaming = true
+	if err := c.Validate(); err == nil {
+		t.Fatal("streaming accepted without a provider")
+	}
+}
+
 func TestNamedAIProfilesRejectInvalidReferencesAndURLs(t *testing.T) {
 	for _, text := range []string{
 		`[server]

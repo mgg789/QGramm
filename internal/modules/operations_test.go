@@ -58,6 +58,8 @@ func newModuleHarness(t *testing.T, deleteMode string) *moduleHarness {
 			cfg.Features.OpenAI = true
 		case "anthropic":
 			cfg.Features.Anthropic = true
+		case "ai_streaming":
+			cfg.Features.AIStreaming = true
 		case "mcp":
 			cfg.Features.MCP = true
 		case "http_tools":

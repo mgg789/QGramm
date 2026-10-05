@@ -48,7 +48,7 @@ func TestMatrixRuntimeSelection(t *testing.T) {
 	for _, name := range expected {
 		enabled[name] = true
 	}
-	routes := map[string]string{"groups": "POST /management/v1/chats/groups", "files": "POST /v1/chats/example/uploads", "e2ee": "POST /v1/mls/keypackages", "calls": "GET /v1/calls/turn", "delete": "DELETE /v1/chats/example/messages/example", "edit": "PATCH /v1/chats/example/messages/example", "reactions": "GET /v1/chats/example/messages/example/reactions", "ai": "POST /management/v1/ai/participants"}
+	routes := map[string]string{"groups": "POST /management/v1/chats/groups", "files": "POST /v1/chats/example/uploads", "e2ee": "POST /v1/mls/keypackages", "calls": "GET /v1/calls/turn", "delete": "DELETE /v1/chats/example/messages/example", "edit": "PATCH /v1/chats/example/messages/example", "reactions": "GET /v1/chats/example/messages/example/reactions", "ai": "POST /management/v1/ai/participants", "ai_streaming": "GET /v1/chats/example/ai/jobs/example/progress"}
 	for feature, route := range routes {
 		want := enabled[feature]
 		if feature == "ai" {
@@ -60,7 +60,7 @@ func TestMatrixRuntimeSelection(t *testing.T) {
 			t.Errorf("route %s present=%v want=%v", route, pattern != "", want)
 		}
 	}
-	tables := map[string][]string{"files": {"uploads", "upload_chunks", "upload_messages"}, "calls": {"calls", "call_operations"}, "e2ee": {"mls_groups", "mls_roster", "mls_keypackages", "mls_controls", "mls_transitions"}, "delete": {"hidden_messages"}, "reactions": {"reactions"}, "ai": {"ai_chats", "ai_jobs", "ai_audit"}}
+	tables := map[string][]string{"files": {"uploads", "upload_chunks", "upload_messages"}, "calls": {"calls", "call_operations"}, "e2ee": {"mls_groups", "mls_roster", "mls_keypackages", "mls_controls", "mls_transitions"}, "delete": {"hidden_messages"}, "reactions": {"reactions"}, "ai": {"ai_chats", "ai_jobs", "ai_audit", "ai_agents", "ai_sessions", "ai_tasks"}, "ai_streaming": {"ai_progress", "ai_progress_heads", "ai_progress_versions"}}
 	for feature, names := range tables {
 		want := enabled[feature]
 		if feature == "ai" {

@@ -8,6 +8,7 @@
 - Use TOML references for secret names; never store real secrets in TOML, fixtures, logs, commits or documentation.
 - No client UI/SDK, user registration, PostgreSQL or bundled TURN. Clients implement MLS/WebRTC and verify peer identity.
 - Config feature changes require rebuilding; runtime verifies the compiled manifest.
+- Named AI profiles resolve global settings, endpoint and bot overrides. Named BASIC sessions require explicit task invocation; the legacy direct MLS path is separate. `qg_ai_streaming` adds encrypted durable previews; never reuse pre-stream MLS sender state for final output.
 - Configuration resolves defaults, then an optional curated preset, then explicit TOML overrides. `qgramm-build init` refuses existing files; `validate` and `explain` inspect configuration offline without reading secret values or asserting readiness. Build and runtime use the same loader.
 - Store schema changes must use versioned migrations. Preserve durable operation/event transaction boundaries.
 - Do not claim runtime/provider/crypto interoperability or load acceptance without recorded results. Outstanding checks belong in `docs/verification.md`.

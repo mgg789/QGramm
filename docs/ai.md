@@ -23,6 +23,33 @@ closed at these context bounds. Encoded outbound requests retain the fixed
 1 MiB safety ceiling. Each provider/tool network call has a configured deadline;
 JSON and MCP SSE responses use bounded readers.
 
+## Named permanent AI participants (stage 1)
+
+The named participant API is documented in the [AI network contract](ai-network.md).
+It creates a permanent AI user and device, with private identity material sealed
+at rest, from a validated TOML bot profile. `user_id` and the initial `tools`
+allowlist are optional on creation; the server generates a stable AI user when
+`user_id` is omitted. The current endpoint/bot configuration is resolved when a
+task runs, while the sealed profile remains an encrypted creation record.
+
+Named agents attach only to BASIC direct or group chats in this stage. A normal
+user message is persisted first, then an authorized client explicitly submits
+`POST /v1/chats/{chat}/ai/tasks` with its `message_id` and one or more AI user
+IDs. There is no metadata-driven auto-addressing, so an AI response cannot
+create an invocation loop. Each bot/chat has an independent session and
+deduplicates `(message_id, agent_id)`; multiple bots can therefore run in one
+group while retaining separate encrypted context and tool allowlists. The
+legacy direct MLS AI participant path below remains available; attaching a
+named agent to MLS is rejected.
+
+Named profiles use `[ai.endpoints.NAME]`, `[ai.bots.NAME]` and `default_bot`.
+Endpoints support the OpenAI and Anthropic adapters, bearer or explicitly
+private `auth = "none"`, bounded `max_output_tokens`, and only the
+`basic_text`/`tool` capabilities. Multimodal input/output is outside this
+stage-1 contract. The optional `qg_ai_streaming` build adds persisted encrypted
+progress and status/cancel routes; progress is a preview, and cancellation
+cannot recall a provider or tool request already sent.
+
 Each configured tool may set `timeout_seconds` and `max_response_bytes`;
 0 inherits the global value. Positive tool values can only narrow the effective
 global limit, with absolute ceilings 45 seconds/1048576 bytes. Tool result text
@@ -37,7 +64,10 @@ Tool может задать `timeout_seconds`/`max_response_bytes`: 0 насл�
 положительное значение только сужает effective limit. Сохраняются ceiling
 1 MiB outbound request и 65536 bytes tool text, штатные ACL/schema/egress guards.
 
-Management explicitly creates an AI user, device and direct chat:
+### Legacy direct participant API
+
+The following management API explicitly creates the legacy direct AI user,
+device and chat:
 
 ```http
 POST /management/v1/ai/participants
@@ -81,7 +111,7 @@ are dialed. Redirects and proxy environment variables are disabled, preventing
 credential migration to another origin.
 
 Basic AI messages use the existing server HPKE ingress and encrypted at-rest
-payloads. In E2EE mode, the management request additionally supplies a base64
+payloads. In the legacy direct E2EE mode, the management request additionally supplies a base64
 `key_package` for the named human device. The KeyPackage must authenticate its
 device credential and registered Ed25519 signing key using MLS suite 1. The AI
 is an actual MLS group participant, creates the two-member group, and returns a

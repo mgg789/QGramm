@@ -75,7 +75,16 @@ C["MLSRosterProof"] = obj({"version": {"const": 1}, "chat_id": S, "group_id": BA
 C["MLSRosterProof"]["description"] = "Exact declaration field order shown here; sort roster by device_id, use Go encoding/json escaping. commit_hash is empty for initialization, otherwise SHA256 wire commit. context_hash=SHA256 binary GroupContext."
 C["CallSignalInput"] = obj({"type": enum("accept", "reject", "end", "offer", "answer", "ice"), "operation_id": S, "to_device": S, "envelope": {"anyOf": [ref("Envelope"), {"type": "null"}]}, "mls": BASE64, "epoch": N}, ["type", "operation_id"])
 C["CallSignalPlaintext"] = obj({"sdp": S, "candidate": S, "sdp_mid": S, "sdp_mline_index": {"anyOf": [N, {"type": "null"}]}}, [])
-C["AIJob"] = obj({"id": S, "message_id": S, "status": enum("queued", "running", "succeeded", "failed", "uncertain"), "result_id": S, "created_at": I, "updated_at": I})
+C["AIJob"] = obj({"id": S, "message_id": S, "status": enum("queued", "running", "succeeded", "failed", "uncertain", "cancelled"), "result_id": S, "created_at": I, "updated_at": I})
+C["AITask"] = obj({**C["AIJob"]["properties"], "chat_id": S, "agent_id": S})
+C["AIProgressChunk"] = obj({"chunk": N, "kind": enum("text.delta", "tool.started", "tool.arguments.delta"), "operation_id": S, "sender": S, "device_id": S, "mode": enum("basic", "e2ee"), "epoch": N, "envelope": ref("Envelope"), "mls": BASE64}, ["chunk", "kind", "operation_id", "sender", "device_id", "mode", "epoch"])
+C["AIProgressChunk"]["description"] = "BASIC envelope or MLS ciphertext; Binding(chat,sender,device,operation_id). operation_id=ai-progress-{job}-{chunk}. Parts are previews; final message/job status establishes completion."
+C["Event"]["oneOf"] += [obj({"type": {"const": kind}, "seq": N, "chat_id": S, "data": data}) for kind, data in {
+    "ai.agent.attached": obj({"agent_id": S}),
+    "ai.tasks.queued": obj({"source_message_id": S, "agents": arr(S)}),
+    "ai.progress.available": obj({"job_id": S, "chunk": N, "kind": enum("text.delta", "tool.started", "tool.arguments.delta")}),
+    "ai.job.cancelled": obj({"job_id": S}),
+}.items()]
 
 # route -> (request schema or None, success response schema, success codes)
 ROUTES = {
@@ -118,6 +127,14 @@ ROUTES = {
 "POST /management/v1/ai/participants": (obj({"user_id": S, "device_id": S, "provider": enum("openai", "anthropic"), "mode": enum("basic", "e2ee"), "key_package": BASE64, "tools": arr(S)}, ["user_id", "device_id", "provider"]), obj({"chat_id": S, "user_id": S, "device_id": S, "provider": enum("openai", "anthropic"), "mode": enum("basic", "e2ee"), "epoch": N, "welcome": BASE64, "tools": {"anyOf": [arr(S), {"type": "null"}]}}), [201]),
 "PUT /management/v1/ai/chats/{chat}/tools": (obj({"tools": arr(S)}, []), obj({"tools": {"anyOf": [arr(S), {"type": "null"}]}}), [200]),
 "GET /management/v1/ai/chats/{chat}/jobs": (None, obj({"jobs": arr(ref("AIJob"))}), [200]),
+"POST /management/v1/ai/agents": (obj({"bot_name": ID, "user_id": ID, "tools": arr(S)}, ["bot_name"]), obj({"agent_id": S, "bot_name": S, "user_id": S, "device_id": S, "provider": enum("openai", "anthropic"), "version": I, "tools": {"anyOf": [arr(S), {"type": "null"}]}}), [201]),
+"POST /management/v1/ai/agents/{agent}/chats/{chat}": (obj({"tools": arr(S)}, []), obj({"chat_id": S, "agent_id": S, "user_id": S, "device_id": S, "version": I, "tools": {"anyOf": [arr(S), {"type": "null"}]}}), [201]),
+"POST /v1/chats/{chat}/ai/tasks": (obj({"message_id": ID, "agents": {**arr(ID), "minItems": 1, "maxItems": 16, "uniqueItems": True}}), obj({"chat_id": S, "message_id": S, "task_ids": arr(S)}), [202]),
+"GET /v1/chats/{chat}/ai/tasks": (None, obj({"tasks": arr(ref("AITask"))}), [200]),
+"GET /v1/chats/{chat}/ai/tasks/{task}": (None, ref("AITask"), [200]),
+"DELETE /v1/chats/{chat}/ai/tasks/{task}": (None, obj({"task_id": S, "status": C["AIJob"]["properties"]["status"]}), [200]),
+"GET /v1/chats/{chat}/ai/jobs/{job}/progress": (None, obj({"job_id": S, "status": C["AIJob"]["properties"]["status"], "chunks": arr(ref("AIProgressChunk"))}), [200]),
+"POST /v1/chats/{chat}/ai/jobs/{job}/cancel": (None, obj({"job_id": S, "status": C["AIJob"]["properties"]["status"]}), [200]),
 }
 
 def parameter(name, where, schema, required=False):
@@ -139,6 +156,7 @@ def main():
         params = [parameter(name, "path", N if name == "index" else S, True) for name in re.findall(r"{([^}]+)}", path)]
         if path.endswith("/messages") and method == "GET": params += [parameter("after", "query", N), parameter("limit", "query", {**N, "minimum": 1, "maximum": 200})]
         if path.endswith("/events"): params += [parameter("after", "query", N, True)]
+        if path.endswith("/progress"): params += [parameter("after", "query", N)]
         if path.endswith("/mls/inbox"): params += [parameter("after_welcome", "query", S), parameter("after_commit", "query", S)]
         if path == "/v1/ws": params += [parameter("ticket", "query", S, True), parameter("Origin", "header", S)]
         binary = "chunks/{index}" in path
