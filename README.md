@@ -42,6 +42,8 @@ Experimental replay/WAL work on dev adds one-query history, bounded single-event
 
 Next three experiments (dev): bounded HTTP batch commits and optional compact ACK together lowered ready-batch steady p99 by27.2% and CPU13.3%, with RAM3.4% higher. Idle-buffer reuse was reverted after a38.8% whole-run p99 regression; single-message speed gains were not consistent. [All18 runs, controls and selection](docs/performance-three.md).
 
+Further isolated batch-read experiments did not show a convincing gain: grouped full responses had steady p99+3.8%/CPU+2.8%; preliminary reads CPU−2.3% but p99+2.3%. Neither was retained; no conditional combination was run. [Six controlled runs and archived experiments](docs/performance-batch-reads.md).
+
 ## Small integration example
 
 ```sh

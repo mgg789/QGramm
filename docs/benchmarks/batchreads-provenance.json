@@ -1,0 +1,45 @@
+{
+  "before": {
+    "server_source_commit": "20c3932a729e75a5c2a0d2ced6feec05eae0e17a",
+    "base_source_commit": "20c3932a729e75a5c2a0d2ced6feec05eae0e17a",
+    "variant": "before",
+    "server_source_snapshot_sha256": "36bb7902333e68f085ed82f06138f7c196be757f4c57c6853b3aafdc7ca3cf0e",
+    "source_files_sha256": {
+      "internal/core/messages.go": "2fc51793b6f792183781572305ff31ae991eea6afdbcd354366af6ba58c1d469"
+    },
+    "image": "qgramm:batchreads-before",
+    "image_id": "sha256:93f22a395d7b58ae18a4fddcbc70f31481c509bfb9bc19852c880269af4e1ad4",
+    "note": "Immutable 20c3932a729e75a5c2a0d2ced6feec05eae0e17a archive; Go1.26.8 cached build; SQLite FULL/autocheckpoint unchanged, PASSIVE off, no profiler tag."
+  },
+  "projection": {
+    "server_source_commit": "20c3932a729e75a5c2a0d2ced6feec05eae0e17a",
+    "base_source_commit": "20c3932a729e75a5c2a0d2ced6feec05eae0e17a",
+    "variant": "projection",
+    "server_source_snapshot_sha256": "dd90ddc68d20b5e54dc223ec3048006d3e042e7e26c2fea9661bf44950319fd5",
+    "source_files_sha256": {
+      "internal/core/http_batch_projection.go": "6ece187cf6bf70c36e7c5db13f482beacf77166ed81e283b5fcac40973a93185",
+      "internal/core/http_batch_projection_bench_test.go": "dd3ac40600ac6cdd7688b520b4d3a2876dfe78f32614747f835f4895299121cb",
+      "internal/core/http_batch_projection_test.go": "6e873afa0c4cde909472f4584e586291213c0f0368e87225ee3c729ea96694ad",
+      "internal/core/messages.go": "2deb6eeb32a7acfcf47a9c6d2dc7e6ad21b6005fc3587ce46ecb951469cd9793"
+    },
+    "image": "qgramm:batchreads-projection",
+    "image_id": "sha256:b77f81e2fd14a9f115bb3f35d691dede0f073389876d9cb85098d33c45666149",
+    "note": "Immutable 20c3932a729e75a5c2a0d2ced6feec05eae0e17a archive with isolated projection experiment overlay, not an exact commit archive; Go1.26.8 cached build; SQLite FULL/autocheckpoint unchanged, PASSIVE off, no profiler tag.",
+    "verified_source_commit": "cf2f1ed"
+  },
+  "prepare": {
+    "server_source_commit": "20c3932a729e75a5c2a0d2ced6feec05eae0e17a",
+    "base_source_commit": "20c3932a729e75a5c2a0d2ced6feec05eae0e17a",
+    "variant": "prepare",
+    "server_source_snapshot_sha256": "a7dd0d8087d5d85e938e60e291358a92044cb32f2916eae21e40e4eed4e018a0",
+    "source_files_sha256": {
+      "internal/core/batch_prepare.go": "c94bcab8e6eb283aa52c55b1dfa50ca4652674e643553aa34ff8c436b6fde7ae",
+      "internal/core/batch_prepare_profile_test.go": "025fa2ab227af37413685dfd763eb7c7325cab4b7c8a0405d33dbbe5ae87aa12",
+      "internal/core/batch_prepare_test.go": "d1e1d71a532db20a326fc7cce41ae533ff2da13691cfa6d11c297002c0560d03",
+      "internal/core/messages.go": "bc59ea245c888674172859e8f8b8c0cfcebe112c79f90f0047986acfbb36cd15"
+    },
+    "image": "qgramm:batchreads-prepare",
+    "image_id": "sha256:91fdca4bd784879a7583e9846997ab66db79f0a38eb0e4d7097176df3ed495f1",
+    "note": "Immutable 20c3932a729e75a5c2a0d2ced6feec05eae0e17a archive with isolated prepare experiment overlay, not an exact commit archive; Go1.26.8 cached build; SQLite FULL/autocheckpoint unchanged, PASSIVE off, no profiler tag."
+  }
+}

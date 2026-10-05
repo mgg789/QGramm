@@ -472,13 +472,10 @@ func (c *Core) batch(w http.ResponseWriter, r *http.Request, id Identity) {
 		pendingIDs[item.OperationID] = true
 	}
 	flush()
-	if !minimal {
-		c.projectBatchResults(r.Context(), id, results)
-	}
 	for i, item := range in.Messages {
 		result := results[i]
 		msg, err := result.message, result.err
-		if err == nil && minimal {
+		if err == nil {
 			msg, err = c.sendResult(r.Context(), id, msg, minimal, result.repeated)
 		}
 		if err != nil {
