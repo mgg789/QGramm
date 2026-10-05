@@ -11,7 +11,7 @@ import (
 func localConfig() Config { c := Defaults(); c.Server.AllowInsecureLoopback = true; return c }
 
 func TestLoadProfiles(t *testing.T) {
-	for _, path := range []string{"../../configs/minimal.toml", "../../configs/full.toml", "../../configs/support.toml", "../../configs/community.toml", "../../configs/ai-openai.toml", "../../configs/ai-anthropic.toml", "../../qgramm.toml"} {
+	for _, path := range []string{"../../configs/minimal.toml", "../../configs/full.toml", "../../configs/support.toml", "../../configs/community.toml", "../../configs/ai-openai.toml", "../../configs/ai-anthropic.toml", "../../configs/ai-network.toml", "../../qgramm.toml"} {
 		t.Run(path, func(t *testing.T) {
 			c, e := Load(path)
 			if e != nil {
@@ -21,6 +21,164 @@ func TestLoadProfiles(t *testing.T) {
 				t.Fatalf("invalid derived capacity: %+v", c.Capacity)
 			}
 		})
+	}
+}
+
+func TestNamedAIProfilesResolveInheritanceAndExplicitZero(t *testing.T) {
+	text := []byte(`
+[server]
+allow_insecure_loopback = true
+[features]
+openai = true
+http_tools = true
+ai_streaming = true
+[ai]
+model = "legacy-model"
+max_output_tokens = 4096
+[[ai.tools]]
+name = "lookup"
+kind = "http"
+url = "https://tools.example.test/lookup"
+methods = ["POST"]
+[ai.endpoints.primary]
+provider = "openai"
+url = "https://provider.example.test/v1"
+model = "endpoint-model"
+key_env = "ENDPOINT_KEY"
+allow_private = true
+streaming = true
+max_steps = 12
+max_output_tokens = 1024
+[ai.bots.safe]
+endpoint = "primary"
+allow_private = false
+streaming = false
+max_steps = 0
+tools = []
+`)
+	if _, err := ParseDetailed(text); err == nil {
+		t.Fatal("accepted zero limit override")
+	}
+	text = []byte(strings.Replace(string(text), "max_steps = 0", "max_steps = 4", 1))
+	d, err := ParseDetailed(text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	effective, provider, err := d.Config.ResolveBot("safe")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if provider != "openai" || effective.OpenAIURL != "https://provider.example.test/v1" || effective.OpenAIKeyEnv != "ENDPOINT_KEY" || effective.Model != "endpoint-model" {
+		t.Fatalf("unexpected resolved endpoint: provider=%q config=%+v", provider, effective)
+	}
+	if effective.AllowPrivate || effective.Streaming || effective.MaxSteps != 4 || effective.MaxOutputTokens != 1024 || len(effective.Tools) != 0 {
+		t.Fatalf("bot overrides did not apply: %+v", effective)
+	}
+}
+
+func TestNamedAIProfilesRejectInvalidReferencesAndURLs(t *testing.T) {
+	for _, text := range []string{
+		`[server]
+allow_insecure_loopback = true
+[features]
+openai = true
+[ai.endpoints.bad]
+provider = "openai"
+url = "https://user:pass@example.test/v1"
+model = "model"
+key_env = "KEY"
+`,
+		`[server]
+allow_insecure_loopback = true
+[features]
+openai = true
+[ai.endpoints.bad]
+provider = "openai"
+url = "https://example.test/v1"
+model = "model"
+key_env = "not-an-env"
+`,
+		`[server]
+allow_insecure_loopback = true
+[features]
+openai = true
+[ai.endpoints.bad]
+provider = "openai"
+url = "https://example.test/v1"
+model = "model"
+key_env = "KEY"
+[ai.bots.bot]
+endpoint = "missing"
+`,
+		`[server]
+allow_insecure_loopback = true
+[features]
+openai = true
+[ai.endpoints.bad]
+provider = "openai"
+url = "https://example.test/v1"
+model = "model"
+key_env = "KEY"
+capabilities = ["future"]
+`,
+		`[server]
+allow_insecure_loopback = true
+[features]
+openai = true
+[ai.endpoints.bad]
+provider = "openai"
+url = "https://example.test/v1"
+model = "model"
+key_env = "KEY"
+capabilities = ["structured"]
+`,
+		`[server]
+allow_insecure_loopback = true
+[features]
+openai = true
+[ai.endpoints.bad]
+provider = "openai"
+url = "https://example.test/v1"
+model = "model"
+key_env = "KEY"
+unknown = true
+`,
+	} {
+		if _, err := ParseDetailed([]byte(text)); err == nil {
+			t.Fatal("accepted invalid named AI profile")
+		}
+	}
+}
+
+func TestNamedAIProfilesRequireDefaultAndSupportPrivateNoAuth(t *testing.T) {
+	withoutDefault := []byte(`[server]
+allow_insecure_loopback = true
+[features]
+openai = true
+[ai]
+[ai.endpoints.local]
+provider = "openai"
+url = "http://127.0.0.1:9000/v1"
+model = "local"
+auth = "none"
+allow_private = true
+[ai.bots.local]
+endpoint = "local"
+`)
+	if _, err := ParseDetailed(withoutDefault); err == nil {
+		t.Fatal("accepted named-only configuration without default_bot")
+	}
+	withDefault := []byte(strings.Replace(string(withoutDefault), "[ai]\n", "[ai]\ndefault_bot = \"local\"\n", 1))
+	d, err := ParseDetailed(withDefault)
+	if err != nil {
+		t.Fatal(err)
+	}
+	effective, provider, err := d.Config.ResolveBot("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if provider != "openai" || effective.Auth != "none" || !effective.AllowPrivate {
+		t.Fatalf("unexpected local endpoint resolution: provider=%q config=%+v", provider, effective)
 	}
 }
 

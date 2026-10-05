@@ -122,23 +122,24 @@ type Security struct {
 	PreviousHPKEKeyEnvs   []string `toml:"previous_hpke_key_envs"`
 }
 type Features struct {
-	Groups    bool `toml:"groups"`
-	Files     bool `toml:"files"`
-	E2EE      bool `toml:"e2ee"`
-	Calls     bool `toml:"calls"`
-	Delete    bool `toml:"delete"`
-	Edit      bool `toml:"edit"`
-	Reply     bool `toml:"reply"`
-	Forward   bool `toml:"forward"`
-	Reactions bool `toml:"reactions"`
-	OpenAI    bool `toml:"openai"`
-	Anthropic bool `toml:"anthropic"`
-	MCP       bool `toml:"mcp"`
-	HTTPTools bool `toml:"http_tools"`
+	Groups      bool `toml:"groups"`
+	Files       bool `toml:"files"`
+	E2EE        bool `toml:"e2ee"`
+	Calls       bool `toml:"calls"`
+	Delete      bool `toml:"delete"`
+	Edit        bool `toml:"edit"`
+	Reply       bool `toml:"reply"`
+	Forward     bool `toml:"forward"`
+	Reactions   bool `toml:"reactions"`
+	OpenAI      bool `toml:"openai"`
+	Anthropic   bool `toml:"anthropic"`
+	AIStreaming bool `toml:"ai_streaming"`
+	MCP         bool `toml:"mcp"`
+	HTTPTools   bool `toml:"http_tools"`
 }
 
 func (f Features) Enabled() []string {
-	names := map[string]bool{"groups": f.Groups, "files": f.Files, "e2ee": f.E2EE, "calls": f.Calls, "delete": f.Delete, "edit": f.Edit, "reply": f.Reply, "forward": f.Forward, "reactions": f.Reactions, "openai": f.OpenAI, "anthropic": f.Anthropic, "mcp": f.MCP, "http_tools": f.HTTPTools}
+	names := map[string]bool{"groups": f.Groups, "files": f.Files, "e2ee": f.E2EE, "calls": f.Calls, "delete": f.Delete, "edit": f.Edit, "reply": f.Reply, "forward": f.Forward, "reactions": f.Reactions, "openai": f.OpenAI, "anthropic": f.Anthropic, "ai_streaming": f.AIStreaming, "mcp": f.MCP, "http_tools": f.HTTPTools}
 	out := []string{}
 	for name, enabled := range names {
 		if enabled {
@@ -169,18 +170,197 @@ type Policy struct {
 	UploadTTLHours      int      `toml:"upload_ttl_hours"`
 }
 type AI struct {
-	OpenAIURL        string `toml:"openai_url"`
-	AnthropicURL     string `toml:"anthropic_url"`
-	OpenAIKeyEnv     string `toml:"openai_key_env"`
-	AnthropicKeyEnv  string `toml:"anthropic_key_env"`
-	Model            string `toml:"model"`
-	MaxSteps         int    `toml:"max_steps"`
-	MaxContextTurns  int    `toml:"max_context_turns"`
-	MaxContextBytes  int    `toml:"max_context_bytes"`
-	TimeoutSeconds   int    `toml:"timeout_seconds"`
-	MaxResponseBytes int    `toml:"max_response_bytes"`
-	Tools            []Tool `toml:"tools"`
+	OpenAIURL        string                `toml:"openai_url"`
+	AnthropicURL     string                `toml:"anthropic_url"`
+	OpenAIKeyEnv     string                `toml:"openai_key_env"`
+	AnthropicKeyEnv  string                `toml:"anthropic_key_env"`
+	Model            string                `toml:"model"`
+	MaxSteps         int                   `toml:"max_steps"`
+	MaxContextTurns  int                   `toml:"max_context_turns"`
+	MaxContextBytes  int                   `toml:"max_context_bytes"`
+	TimeoutSeconds   int                   `toml:"timeout_seconds"`
+	MaxResponseBytes int                   `toml:"max_response_bytes"`
+	MaxOutputTokens  int                   `toml:"max_output_tokens"`
+	AllowPrivate     bool                  `toml:"allow_private"`
+	Streaming        bool                  `toml:"streaming"`
+	Auth             string                `toml:"auth"`
+	SystemPrompt     string                `toml:"system_prompt"`
+	Capabilities     []string              `toml:"capabilities"`
+	Tools            []Tool                `toml:"tools"`
+	Endpoints        map[string]AIEndpoint `toml:"endpoints"`
+	Bots             map[string]AIBot      `toml:"bots"`
+	DefaultBot       string                `toml:"default_bot"`
 }
+
+// AIEndpoint is a named provider connection. Pointer overrides are deliberate:
+// an explicit false or zero is distinct from an omitted value and therefore
+// cannot accidentally inherit the global setting.
+type AIEndpoint struct {
+	Provider         string   `toml:"provider"`
+	URL              string   `toml:"url"`
+	Model            string   `toml:"model"`
+	KeyEnv           string   `toml:"key_env"`
+	Auth             string   `toml:"auth"`
+	AllowPrivate     *bool    `toml:"allow_private"`
+	Streaming        *bool    `toml:"streaming"`
+	Capabilities     []string `toml:"capabilities"`
+	MaxSteps         *int     `toml:"max_steps"`
+	MaxContextTurns  *int     `toml:"max_context_turns"`
+	MaxContextBytes  *int     `toml:"max_context_bytes"`
+	TimeoutSeconds   *int     `toml:"timeout_seconds"`
+	MaxOutputTokens  *int     `toml:"max_output_tokens"`
+	MaxResponseBytes *int     `toml:"max_response_bytes"`
+}
+
+// AIBot names an AI participant configuration and points at one endpoint.
+// Tools is nil when all configured global tools are allowed; an explicit empty
+// array is a useful, safe way to deny tools for a bot.
+type AIBot struct {
+	Endpoint         string   `toml:"endpoint"`
+	SystemPrompt     string   `toml:"system_prompt"`
+	Tools            []string `toml:"tools"`
+	AllowPrivate     *bool    `toml:"allow_private"`
+	Streaming        *bool    `toml:"streaming"`
+	MaxSteps         *int     `toml:"max_steps"`
+	MaxContextTurns  *int     `toml:"max_context_turns"`
+	MaxContextBytes  *int     `toml:"max_context_bytes"`
+	TimeoutSeconds   *int     `toml:"timeout_seconds"`
+	MaxOutputTokens  *int     `toml:"max_output_tokens"`
+	MaxResponseBytes *int     `toml:"max_response_bytes"`
+}
+
+// ResolveBot returns a legacy-compatible AI settings value and its provider.
+// Named bots are resolved only after Parse/Load validation, but the method
+// still checks references so callers cannot accidentally run an unconfigured
+// profile. An empty name resolves default_bot when configured, otherwise the
+// existing global AI settings with no provider override.
+func (c Config) ResolveBot(name string) (AI, string, error) {
+	settings, provider, err := c.AI.resolveBot(name)
+	if err != nil {
+		return AI{}, "", err
+	}
+	if provider == "openai" && !c.Features.OpenAI {
+		return AI{}, "", fmt.Errorf("AI bot provider openai is not enabled")
+	}
+	if provider == "anthropic" && !c.Features.Anthropic {
+		return AI{}, "", fmt.Errorf("AI bot provider anthropic is not enabled")
+	}
+	if settings.Streaming && !c.Features.AIStreaming {
+		return AI{}, "", fmt.Errorf("AI bot streaming requires ai_streaming feature")
+	}
+	return settings, provider, nil
+}
+
+// ResolveBot is also available directly on AI for runtimes that already hold
+// the AI section of Config.
+func (a AI) ResolveBot(name string) (AI, string, error) {
+	return a.resolveBot(name)
+}
+
+func (a AI) resolveBot(name string) (AI, string, error) {
+	if name == "" {
+		name = a.DefaultBot
+		if name == "" {
+			if strings.TrimSpace(a.Model) == "" && len(a.Endpoints) > 0 {
+				return AI{}, "", fmt.Errorf("AI default_bot is required when named endpoints are configured without a global model")
+			}
+			return a, "", nil
+		}
+	}
+	bot, ok := a.Bots[name]
+	if !ok {
+		return AI{}, "", fmt.Errorf("AI bot %q is not configured", name)
+	}
+	ep, ok := a.Endpoints[bot.Endpoint]
+	if !ok {
+		return AI{}, "", fmt.Errorf("AI bot %q references unknown endpoint %q", name, bot.Endpoint)
+	}
+	out := a
+	// The resolved value is intentionally still an AI, so existing adapters can
+	// consume it without a second provider-specific configuration path.
+	if ep.Provider == "openai" {
+		out.OpenAIURL = ep.URL
+		out.OpenAIKeyEnv = ep.KeyEnv
+	} else if ep.Provider == "anthropic" {
+		out.AnthropicURL = ep.URL
+		out.AnthropicKeyEnv = ep.KeyEnv
+	}
+	out.Model = ep.Model
+	out.Auth = ep.Auth
+	if out.Auth == "" {
+		out.Auth = "bearer"
+	}
+	out.Capabilities = append([]string(nil), ep.Capabilities...)
+	if ep.Capabilities != nil && !containsAICapability(ep.Capabilities, "tool") {
+		out.Tools = []Tool{}
+	}
+	if ep.AllowPrivate != nil {
+		out.AllowPrivate = *ep.AllowPrivate
+	}
+	if ep.Streaming != nil {
+		out.Streaming = *ep.Streaming
+	}
+	if ep.MaxSteps != nil {
+		out.MaxSteps = *ep.MaxSteps
+	}
+	if ep.MaxContextTurns != nil {
+		out.MaxContextTurns = *ep.MaxContextTurns
+	}
+	if ep.MaxContextBytes != nil {
+		out.MaxContextBytes = *ep.MaxContextBytes
+	}
+	if ep.TimeoutSeconds != nil {
+		out.TimeoutSeconds = *ep.TimeoutSeconds
+	}
+	if ep.MaxOutputTokens != nil {
+		out.MaxOutputTokens = *ep.MaxOutputTokens
+	}
+	if ep.MaxResponseBytes != nil {
+		out.MaxResponseBytes = *ep.MaxResponseBytes
+	}
+	if bot.SystemPrompt != "" {
+		out.SystemPrompt = bot.SystemPrompt
+	}
+	if bot.AllowPrivate != nil {
+		out.AllowPrivate = *bot.AllowPrivate
+	}
+	if bot.Streaming != nil {
+		out.Streaming = *bot.Streaming
+	}
+	if bot.MaxSteps != nil {
+		out.MaxSteps = *bot.MaxSteps
+	}
+	if bot.MaxContextTurns != nil {
+		out.MaxContextTurns = *bot.MaxContextTurns
+	}
+	if bot.MaxContextBytes != nil {
+		out.MaxContextBytes = *bot.MaxContextBytes
+	}
+	if bot.TimeoutSeconds != nil {
+		out.TimeoutSeconds = *bot.TimeoutSeconds
+	}
+	if bot.MaxOutputTokens != nil {
+		out.MaxOutputTokens = *bot.MaxOutputTokens
+	}
+	if bot.MaxResponseBytes != nil {
+		out.MaxResponseBytes = *bot.MaxResponseBytes
+	}
+	if bot.Tools != nil {
+		allowed := make(map[string]bool, len(bot.Tools))
+		for _, name := range bot.Tools {
+			allowed[name] = true
+		}
+		tools := make([]Tool, 0, len(bot.Tools))
+		for _, tool := range a.Tools {
+			if allowed[tool.Name] {
+				tools = append(tools, tool)
+			}
+		}
+		out.Tools = tools
+	}
+	return out, ep.Provider, nil
+}
+
 type Tool struct {
 	Name             string         `toml:"name"`
 	Kind             string         `toml:"kind"`
@@ -204,7 +384,7 @@ func Defaults() Config {
 		Security: Security{Issuer: "qgramm", Audience: "qgramm", TokenPublicKeyEnv: "QGRAMM_TOKEN_PUBLIC_KEY", ManagementSecretEnv: "QGRAMM_MANAGEMENT_SECRET", MasterKeyEnv: "QGRAMM_MASTER_KEY", HPKEKeyEnv: "QGRAMM_HPKE_KEY"},
 		Capacity: Capacity{ExpectedConcurrentUsers: 100},
 		Policy:   Policy{History: "since_join", DeleteMode: "global", ReactionTypes: []string{"👍", "❤️", "👎"}, EventRetentionHours: 720, DedupRetentionHours: 24, MaxMessageBytes: 65536, MaxBatch: 100, MaxFileBytes: 67108864, MaxChunkBytes: 1048576, MaxStorageBytes: 10737418240, UploadTTLHours: 24},
-		AI:       AI{OpenAIURL: "https://api.openai.com/v1", AnthropicURL: "https://api.anthropic.com/v1", MaxSteps: 8, MaxContextTurns: 20, MaxContextBytes: 262144, TimeoutSeconds: 45, MaxResponseBytes: 1048576},
+		AI:       AI{OpenAIURL: "https://api.openai.com/v1", AnthropicURL: "https://api.anthropic.com/v1", MaxSteps: 8, MaxContextTurns: 20, MaxContextBytes: 262144, TimeoutSeconds: 45, MaxResponseBytes: 1048576, MaxOutputTokens: 2048, Auth: "bearer"},
 		Calls:    Calls{CredentialTTLSeconds: 600},
 	}
 }
@@ -309,13 +489,22 @@ func parseDetailed(data []byte, resources Resources) (ConfigDetails, error) {
 }
 
 func validateAIPresetModel(c Config, explicit map[string]bool, preset string) error {
-	if (c.Features.OpenAI || c.Features.Anthropic) && (!explicit["ai.model"] || strings.TrimSpace(c.AI.Model) == "") {
+	if (c.Features.OpenAI || c.Features.Anthropic) && strings.TrimSpace(c.AI.Model) == "" && (len(c.AI.Endpoints) == 0 || c.AI.DefaultBot == "") {
 		if strings.HasPrefix(preset, "ai-") {
-			return fmt.Errorf("AI preset requires explicit ai.model")
+			return fmt.Errorf("AI preset requires explicit ai.model or ai.default_bot")
 		}
-		return fmt.Errorf("AI requires an explicit ai.model")
+		return fmt.Errorf("AI requires an explicit ai.model or ai.default_bot")
 	}
 	return nil
+}
+
+func hasAIEndpointProvider(endpoints map[string]AIEndpoint, provider string) bool {
+	for _, endpoint := range endpoints {
+		if endpoint.Provider == provider {
+			return true
+		}
+	}
+	return false
 }
 
 func sortedKeys(values map[string]bool) []string {
@@ -472,6 +661,11 @@ func SecretReferences(c Config) []string {
 	if c.AI.AnthropicKeyEnv != "" {
 		refs = append(refs, c.AI.AnthropicKeyEnv)
 	}
+	for _, endpoint := range c.AI.Endpoints {
+		if endpoint.KeyEnv != "" {
+			refs = append(refs, endpoint.KeyEnv)
+		}
+	}
 	if c.Calls.TURNSecretEnv != "" {
 		refs = append(refs, c.Calls.TURNSecretEnv)
 	}
@@ -510,6 +704,206 @@ func endpoint(name, raw string) error {
 	}
 	return nil
 }
+
+var aiProfileName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`)
+
+const maxAIOutputTokens = 65536
+
+func validateAIOverride(name string, value *int, min, max int) error {
+	if value == nil {
+		return nil
+	}
+	if *value < min || *value > max {
+		return fmt.Errorf("%s must be %d..%d", name, min, max)
+	}
+	return nil
+}
+
+func validateAIOverrides(prefix string, profile AIEndpoint) error {
+	if err := validateAIOverride(prefix+".max_steps", profile.MaxSteps, 1, 64); err != nil {
+		return err
+	}
+	if err := validateAIOverride(prefix+".max_context_turns", profile.MaxContextTurns, 1, 20); err != nil {
+		return err
+	}
+	if err := validateAIOverride(prefix+".max_context_bytes", profile.MaxContextBytes, 1, 262144); err != nil {
+		return err
+	}
+	if err := validateAIOverride(prefix+".timeout_seconds", profile.TimeoutSeconds, 1, 45); err != nil {
+		return err
+	}
+	if err := validateAIOverride(prefix+".max_output_tokens", profile.MaxOutputTokens, 1, maxAIOutputTokens); err != nil {
+		return err
+	}
+	return validateAIOverride(prefix+".max_response_bytes", profile.MaxResponseBytes, 1, 1048576)
+}
+
+func validateAIBotOverrides(prefix string, profile AIBot) error {
+	if err := validateAIOverride(prefix+".max_steps", profile.MaxSteps, 1, 64); err != nil {
+		return err
+	}
+	if err := validateAIOverride(prefix+".max_context_turns", profile.MaxContextTurns, 1, 20); err != nil {
+		return err
+	}
+	if err := validateAIOverride(prefix+".max_context_bytes", profile.MaxContextBytes, 1, 262144); err != nil {
+		return err
+	}
+	if err := validateAIOverride(prefix+".timeout_seconds", profile.TimeoutSeconds, 1, 45); err != nil {
+		return err
+	}
+	if err := validateAIOverride(prefix+".max_output_tokens", profile.MaxOutputTokens, 1, maxAIOutputTokens); err != nil {
+		return err
+	}
+	return validateAIOverride(prefix+".max_response_bytes", profile.MaxResponseBytes, 1, 1048576)
+}
+
+func validateAIProfileName(kind, name string) error {
+	if !aiProfileName.MatchString(name) {
+		return fmt.Errorf("AI %s name must match %s", kind, aiProfileName.String())
+	}
+	return nil
+}
+
+func validateAICapabilities(name string, capabilities []string) error {
+	seen := make(map[string]bool, len(capabilities))
+	for _, capability := range capabilities {
+		if capability != "basic_text" && capability != "tool" {
+			return fmt.Errorf("%s has unsupported capability %q", name, capability)
+		}
+		if seen[capability] {
+			return fmt.Errorf("%s capabilities must be unique", name)
+		}
+		seen[capability] = true
+	}
+	return nil
+}
+
+func containsAICapability(capabilities []string, wanted string) bool {
+	for _, capability := range capabilities {
+		if capability == wanted {
+			return true
+		}
+	}
+	return false
+}
+
+func validateAIAuth(name, auth string, allowPrivate bool) error {
+	if auth == "" {
+		auth = "bearer"
+	}
+	if auth != "bearer" && auth != "none" {
+		return fmt.Errorf("%s.auth must be bearer or none", name)
+	}
+	if auth == "none" && !allowPrivate {
+		return fmt.Errorf("%s.auth=none requires allow_private", name)
+	}
+	return nil
+}
+
+func (c Config) validateAINamedProfiles() error {
+	for name, profile := range c.AI.Endpoints {
+		if err := validateAIProfileName("endpoint", name); err != nil {
+			return err
+		}
+		switch profile.Provider {
+		case "openai":
+			if !c.Features.OpenAI {
+				return fmt.Errorf("AI endpoint %q requires the openai feature", name)
+			}
+		case "anthropic":
+			if !c.Features.Anthropic {
+				return fmt.Errorf("AI endpoint %q requires the anthropic feature", name)
+			}
+		default:
+			return fmt.Errorf("AI endpoint %q provider must be openai or anthropic", name)
+		}
+		if profile.URL == "" {
+			return fmt.Errorf("ai.endpoints.%s.url is required", name)
+		}
+		if err := endpoint("ai.endpoints."+name+".url", profile.URL); err != nil {
+			return err
+		}
+		allowPrivate := c.AI.AllowPrivate
+		if profile.AllowPrivate != nil {
+			allowPrivate = *profile.AllowPrivate
+		}
+		if err := validateAIAuth("ai.endpoints."+name, profile.Auth, allowPrivate); err != nil {
+			return err
+		}
+		if profile.Auth == "none" && profile.KeyEnv != "" {
+			return fmt.Errorf("ai.endpoints.%s.key_env must be empty when auth is none", name)
+		}
+		urlAllowsPrivate := allowPrivate
+		if !urlAllowsPrivate {
+			for _, bot := range c.AI.Bots {
+				if bot.Endpoint == name && bot.AllowPrivate != nil && *bot.AllowPrivate {
+					urlAllowsPrivate = true
+					break
+				}
+			}
+		}
+		if parsed, _ := url.Parse(profile.URL); parsed.Scheme == "http" && !urlAllowsPrivate {
+			return fmt.Errorf("ai.endpoints.%s.http URL requires allow_private", name)
+		}
+		if strings.TrimSpace(profile.Model) == "" {
+			return fmt.Errorf("ai.endpoints.%s.model is required", name)
+		}
+		if err := secretRef("ai.endpoints."+name+".key_env", profile.KeyEnv, profile.Auth != "none"); err != nil {
+			return err
+		}
+		if profile.Streaming != nil && *profile.Streaming && !c.Features.AIStreaming {
+			return fmt.Errorf("ai.endpoints.%s.streaming requires ai_streaming feature", name)
+		}
+		if err := validateAIOverrides("ai.endpoints."+name, profile); err != nil {
+			return err
+		}
+		if err := validateAICapabilities("ai.endpoints."+name, profile.Capabilities); err != nil {
+			return err
+		}
+	}
+	for name, bot := range c.AI.Bots {
+		if err := validateAIProfileName("bot", name); err != nil {
+			return err
+		}
+		if bot.Endpoint == "" {
+			return fmt.Errorf("ai.bots.%s.endpoint is required", name)
+		}
+		if _, ok := c.AI.Endpoints[bot.Endpoint]; !ok {
+			return fmt.Errorf("AI bot %q references unknown endpoint %q", name, bot.Endpoint)
+		}
+		ep := c.AI.Endpoints[bot.Endpoint]
+		if len(bot.Tools) > 0 && ep.Capabilities != nil && !containsAICapability(ep.Capabilities, "tool") {
+			return fmt.Errorf("ai.bots.%s.tools require endpoint capability tool", name)
+		}
+		if bot.Streaming != nil && *bot.Streaming && !c.Features.AIStreaming {
+			return fmt.Errorf("ai.bots.%s.streaming requires ai_streaming feature", name)
+		}
+		if err := validateAIBotOverrides("ai.bots."+name, bot); err != nil {
+			return err
+		}
+		knownTools := make(map[string]bool, len(c.AI.Tools))
+		for _, tool := range c.AI.Tools {
+			knownTools[tool.Name] = true
+		}
+		seenTools := make(map[string]bool, len(bot.Tools))
+		for _, tool := range bot.Tools {
+			if tool == "" || !knownTools[tool] {
+				return fmt.Errorf("ai.bots.%s.tools references unknown tool %q", name, tool)
+			}
+			if seenTools[tool] {
+				return fmt.Errorf("ai.bots.%s.tools must be unique", name)
+			}
+			seenTools[tool] = true
+		}
+	}
+	if c.AI.DefaultBot != "" {
+		if _, ok := c.AI.Bots[c.AI.DefaultBot]; !ok {
+			return fmt.Errorf("ai.default_bot references unknown bot %q", c.AI.DefaultBot)
+		}
+	}
+	return nil
+}
+
 func (c Config) Validate() error {
 	host, port, err := net.SplitHostPort(c.Server.Listen)
 	if err != nil || port == "" {
@@ -567,7 +961,7 @@ func (c Config) Validate() error {
 	for _, r := range []struct {
 		name, value string
 		required    bool
-	}{{"security.token_public_key_env", c.Security.TokenPublicKeyEnv, true}, {"security.management_secret_env", c.Security.ManagementSecretEnv, true}, {"security.master_key_env", c.Security.MasterKeyEnv, true}, {"security.hpke_key_env", c.Security.HPKEKeyEnv, true}, {"ai.openai_key_env", c.AI.OpenAIKeyEnv, c.Features.OpenAI}, {"ai.anthropic_key_env", c.AI.AnthropicKeyEnv, c.Features.Anthropic}, {"calls.turn_secret_env", c.Calls.TURNSecretEnv, c.Features.Calls}} {
+	}{{"security.token_public_key_env", c.Security.TokenPublicKeyEnv, true}, {"security.management_secret_env", c.Security.ManagementSecretEnv, true}, {"security.master_key_env", c.Security.MasterKeyEnv, true}, {"security.hpke_key_env", c.Security.HPKEKeyEnv, true}, {"ai.openai_key_env", c.AI.OpenAIKeyEnv, c.Features.OpenAI && c.AI.Auth != "none" && !hasAIEndpointProvider(c.AI.Endpoints, "openai")}, {"ai.anthropic_key_env", c.AI.AnthropicKeyEnv, c.Features.Anthropic && c.AI.Auth != "none" && !hasAIEndpointProvider(c.AI.Endpoints, "anthropic")}, {"calls.turn_secret_env", c.Calls.TURNSecretEnv, c.Features.Calls}} {
 		if err := secretRef(r.name, r.value, r.required); err != nil {
 			return err
 		}
@@ -617,12 +1011,27 @@ func (c Config) Validate() error {
 		}
 	}
 	if c.Features.OpenAI || c.Features.Anthropic {
-		if c.AI.Model == "" || c.AI.MaxSteps < 1 || c.AI.MaxSteps > 64 {
-			return fmt.Errorf("AI requires a model and max_steps 1..64")
+		if err := validateAIAuth("ai", c.AI.Auth, c.AI.AllowPrivate); err != nil {
+			return err
 		}
-		if c.AI.MaxContextTurns < 1 || c.AI.MaxContextTurns > 20 || c.AI.MaxContextBytes < 1 || c.AI.MaxContextBytes > 262144 || c.AI.TimeoutSeconds < 1 || c.AI.TimeoutSeconds > 45 || c.AI.MaxResponseBytes < 1 || c.AI.MaxResponseBytes > 1048576 {
-			return fmt.Errorf("AI limits require context turns 1..20, context bytes 1..262144, timeout seconds 1..45, response bytes 1..1048576")
+		if c.AI.Auth == "none" && (c.AI.OpenAIKeyEnv != "" || c.AI.AnthropicKeyEnv != "") {
+			return fmt.Errorf("ai key_env values must be empty when auth is none")
 		}
+		if (c.AI.Model == "" && (len(c.AI.Endpoints) == 0 || c.AI.DefaultBot == "")) || c.AI.MaxSteps < 1 || c.AI.MaxSteps > 64 {
+			return fmt.Errorf("AI requires a model (or named endpoints with default_bot) and max_steps 1..64")
+		}
+		if c.AI.MaxContextTurns < 1 || c.AI.MaxContextTurns > 20 || c.AI.MaxContextBytes < 1 || c.AI.MaxContextBytes > 262144 || c.AI.TimeoutSeconds < 1 || c.AI.TimeoutSeconds > 45 || c.AI.MaxResponseBytes < 1 || c.AI.MaxResponseBytes > 1048576 || c.AI.MaxOutputTokens < 1 || c.AI.MaxOutputTokens > maxAIOutputTokens {
+			return fmt.Errorf("AI limits require context turns 1..20, context bytes 1..262144, timeout seconds 1..45, response bytes 1..1048576, output tokens 1..%d", maxAIOutputTokens)
+		}
+		if c.AI.Streaming && !c.Features.AIStreaming {
+			return fmt.Errorf("ai.streaming requires ai_streaming feature")
+		}
+	}
+	if err := validateAICapabilities("ai", c.AI.Capabilities); err != nil {
+		return err
+	}
+	if err := c.validateAINamedProfiles(); err != nil {
+		return err
 	}
 	seen = map[string]bool{}
 	for _, tool := range c.AI.Tools {
