@@ -115,6 +115,7 @@ func startTimeline(dir string) {
 				"heap_alloc_bytes": diagnostics["heap_alloc_bytes"], "total_alloc_bytes": diagnostics["total_alloc_bytes"],
 				"mallocs": diagnostics["mallocs"], "gc_cycles": diagnostics["gc_cycles"], "gc_pause_total_ns": diagnostics["gc_pause_total_ns"],
 				"diagnostics": diagnostics, "message_writer": c.WriterStats(),
+				"http_admission": c.AdmissionStats(),
 			})
 		}
 		for {

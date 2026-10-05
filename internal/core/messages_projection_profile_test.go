@@ -32,8 +32,8 @@ func TestProjectionReadCounts(t *testing.T) {
 	if events, err := f.c.Events(ctx, id, "chat", 0, 200); err != nil || len(events) != 1 {
 		t.Fatal(events, err)
 	}
-	if reads := f.c.diagnostics.reads.Load() - before; reads != 2 {
-		t.Fatalf("nonempty event helper reads=%d want2", reads)
+	if reads := f.c.diagnostics.reads.Load() - before; reads != 1 {
+		t.Fatalf("single event helper reads=%d want1", reads)
 	}
 	before = f.c.diagnostics.reads.Load()
 	if events, err := f.c.Events(ctx, id, "chat", m.Seq, 200); err != nil || len(events) != 0 {
