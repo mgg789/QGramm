@@ -122,8 +122,7 @@ undo already-sent external effects or guarantee that a provider stops billing.
 
 ## Following stages
 
-Stage 2 adds signed invocation grants, per-tool approvals, encrypted usage/budget
-records and events before plaintext leaves the configured protected contour.
+Stage 2 is implemented by the optional [AI policy module](ai-policy.md): signed invocation grants, per-tool approvals, encrypted usage/budget records and events before external plaintext requests.
 Stage 3 adds LLM/tool crypto sidecars and scoped file/RAG/GraphRAG storage with
 explicit key ownership. These are planned contracts, not current capabilities.
 An inference/retrieval process necessarily handles plaintext within its trusted

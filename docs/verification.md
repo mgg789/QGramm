@@ -77,3 +77,26 @@ ratchet. These are local runtime/contract checks, not a new load measurement.
 - No independent cryptographic audit, production deployment, horizontal cluster or guarantee of deleting downloaded/provider/backed-up copies.
 
 These gates prevent claiming the entire requested production release has passed acceptance. Functioning modules and reproducible checks expose their current limitations.
+
+## Stage-2 policy evidence
+
+The optional [AI policy module](ai-policy.md) introduces signed grants, sealed resumable continuations, encrypted usage/budget accounts and pre-egress events. The generated contract now covers 51 exact source routes and both policy event shapes. Documentation checks verify local links, UTF-8 and JSON syntax; these are contract-maintenance checks, not proof of runtime or external-provider acceptance. Stage-2 runtime evidence must be read with its exact tested profile and commands. Prior live DeepSeek evidence remains a separate result.
+
+Stage-2 checks on 2026-10-05 passed:
+
+```sh
+go test -race ./... -timeout=120s
+go test -race -tags qg_groups,qg_files,qg_e2ee,qg_calls,qg_delete,qg_edit,qg_reply,qg_forward,qg_reactions,qg_openai,qg_anthropic,qg_ai_streaming,qg_ai_policy,qg_mcp,qg_http_tools ./... -timeout=180s
+go vet -tags qg_groups,qg_files,qg_e2ee,qg_calls,qg_delete,qg_edit,qg_reply,qg_forward,qg_reactions,qg_openai,qg_anthropic,qg_ai_streaming,qg_ai_policy,qg_mcp,qg_http_tools ./...
+sh scripts/build-matrix.sh
+go test -tags qg_ai_policy,qg_openai,qg_http_tools ./internal/modules -run '^$' -fuzz '^FuzzAIPolicyCanonicalArguments$' -fuzztime=5s -parallel=2
+go run -race ./examples/basic
+python3 scripts/generate-contract.py
+python3 scripts/check-docs.py
+go run ./cmd/qgramm-licenses -out THIRD_PARTY_LICENSES.txt -check
+git diff --check
+```
+
+The matrix passed 41 valid build/runtime selections and 12 invalid configurations, including policy/stream/provider exclusion. The fuzz run completed 66,560 executions. Local real HTTP handlers verified a provider → approved tool → provider sequence, committed notice before each request, encrypted checkpoint, recreation of the policy runtime before resume, one tool invocation and one final reply. Estimated cost settled to 34 microunits in that fixture. Other regressions cover provider gating, legacy MLS pause/resume and final decrypt, TTL queue release, revocation, concurrent budget admission, rollback across all three scopes, unknown usage, duplicate settlement and restart with an uncertain dispatched effect. Independent inspection reported READY after corrections.
+
+These checks use local test providers/HTTP servers and persisted SQLite fixtures; they are not new live API calls, an OS-process kill test, a performance benchmark or independent cryptographic audit. Protected LLM/tool sidecars and scoped RAG/GraphRAG storage remain stage 3.

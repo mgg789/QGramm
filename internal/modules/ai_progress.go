@@ -51,7 +51,7 @@ INSERT OR IGNORE INTO ai_progress_versions VALUES(1);`); err != nil {
 		return err
 	}
 	c.AddRoute("GET /v1/chats/{chat}/ai/jobs/{job}/progress", func(w http.ResponseWriter, r *http.Request, id core.Identity) { readAIProgress(c, w, r, id) })
-	c.AddRoute("POST /v1/chats/{chat}/ai/jobs/{job}/cancel", func(w http.ResponseWriter, r *http.Request, id core.Identity) { cancelAIProgress(c, w, r, id) })
+	c.AddRoute("POST /v1/chats/{chat}/ai/jobs/{job}/cancel", func(w http.ResponseWriter, r *http.Request, id core.Identity) { cancelAIJob(c, w, r, id) })
 	c.OnDelete = append(c.OnDelete, func(ctx context.Context, tx *sql.Tx, message string) error {
 		_, err := tx.ExecContext(ctx, `DELETE FROM ai_progress WHERE chat_id=(SELECT chat_id FROM messages WHERE id=?)`, message)
 		return err
@@ -180,12 +180,6 @@ func writeAIProgress(ctx context.Context, c *core.Core, job, kind string, payloa
 	return err
 }
 
-func aiProgressMember(ctx context.Context, tx *sql.Tx, task aiTaskIdentity, id core.Identity) (string, error) {
-	var key string
-	err := tx.QueryRowContext(ctx, `SELECT d.public_key FROM members member JOIN devices d ON d.user_id=member.user_id JOIN users u ON u.id=member.user_id JOIN messages source ON source.chat_id=member.chat_id WHERE member.chat_id=? AND member.user_id=? AND d.id=? AND member.active=1 AND d.revoked=0 AND u.disabled=0 AND source.id=? AND source.seq>=member.joined_seq AND source.deleted=0`, task.Chat, id.UserID, id.DeviceID, task.SourceMessage).Scan(&key)
-	return key, err
-}
-
 func readAIProgress(c *core.Core, w http.ResponseWriter, r *http.Request, id core.Identity) {
 	after, err := strconv.Atoi(r.URL.Query().Get("after"))
 	if r.URL.Query().Get("after") == "" {
@@ -273,54 +267,4 @@ func readAIProgress(c *core.Core, w http.ResponseWriter, r *http.Request, id cor
 		return
 	}
 	core.JSON(w, 200, map[string]any{"job_id": r.PathValue("job"), "status": task.Status, "chunks": items})
-}
-
-func cancelAIProgress(c *core.Core, w http.ResponseWriter, r *http.Request, id core.Identity) {
-	tx, err := c.DB.BeginTx(r.Context(), nil)
-	if err != nil {
-		core.Error(w, 503, "storage unavailable")
-		return
-	}
-	defer tx.Rollback()
-	job := r.PathValue("job")
-	task, err := aiTaskLookup(r.Context(), tx, job)
-	if err != nil || task.Chat != r.PathValue("chat") {
-		core.Error(w, 404, "AI job unavailable")
-		return
-	}
-	if _, err = aiProgressMember(r.Context(), tx, task, id); err != nil {
-		core.Error(w, 403, "membership required")
-		return
-	}
-	var role string
-	if err = tx.QueryRowContext(r.Context(), `SELECT role FROM members WHERE chat_id=? AND user_id=? AND active=1`, task.Chat, id.UserID).Scan(&role); err != nil || (task.SourceUser != id.UserID && role != "owner" && role != "admin") {
-		core.Error(w, 403, "job owner or administrator required")
-		return
-	}
-	if task.Status == "queued" || task.Status == "running" {
-		res, e := tx.ExecContext(r.Context(), `UPDATE ai_jobs SET status='cancelled',updated_at=? WHERE id=? AND status IN('queued','running')`, time.Now().Unix(), job)
-		if e != nil {
-			core.Error(w, 503, "storage unavailable")
-			return
-		}
-		n, _ := res.RowsAffected()
-		if n == 0 {
-			if err = aiNamedSetStatus(r.Context(), tx, job, "cancelled"); err != nil {
-				core.Error(w, 503, "storage unavailable")
-				return
-			}
-		}
-		if _, err = c.Append(r.Context(), tx, task.Chat, "ai.job.cancelled", "", map[string]string{"job_id": job}); err != nil {
-			core.Error(w, 503, "storage unavailable")
-			return
-		}
-		task.Status = "cancelled"
-	}
-	if err = tx.Commit(); err != nil {
-		core.Error(w, 503, "storage unavailable")
-		return
-	}
-	aiCancelActive(c, job)
-	c.Wake(task.Chat)
-	core.JSON(w, 200, map[string]string{"job_id": job, "status": task.Status})
 }

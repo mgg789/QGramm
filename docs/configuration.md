@@ -34,7 +34,7 @@ For automatic capacity fields, `sources` reports the final value as `derived`; `
 | `server` | `listen`, TLS certificate/key paths, `allow_insecure_loopback`, `trusted_proxy`, allowed browser `origins` |
 | `storage` | SQLite `path`, encrypted chunk directory `files`, optional `checkpoint_interval_ms` and `wal_checkpoint_bytes`; container paths should be beneath `/data` |
 | `security` | JWT `issuer`/`audience`; references `token_public_key_env`, `management_secret_env`, `master_key_env`, `hpke_key_env`; bounded retired-key reference lists `previous_master_key_envs`, `previous_hpke_key_envs` |
-| `features` | Boolean `groups`, `files`, `e2ee`, `calls`, `delete`, `edit`, `reply`, `forward`, `reactions`, `openai`, `anthropic`, `ai_streaming`, `mcp`, `http_tools` |
+| `features` | Boolean `groups`, `files`, `e2ee`, `calls`, `delete`, `edit`, `reply`, `forward`, `reactions`, `openai`, `anthropic`, `ai_streaming`, `ai_policy`, `mcp`, `http_tools` |
 | `capacity` | `expected_concurrent_users`; optional explicit `max_connections`, `queue_depth`, `workers` |
 | `policy` | `history` since_join/all; `delete_mode` global/author_only; reaction type dictionary; event/dedup/upload retention; message/batch/file/chunk/storage limits |
 | `ai` | Legacy provider URLs/key references plus `model`, `max_steps`, `max_context_turns`, `max_context_bytes`, `timeout_seconds`, `max_response_bytes`, `max_output_tokens`, `tools`; named profiles use `endpoints`, `bots` and `default_bot` |
@@ -42,7 +42,11 @@ For automatic capacity fields, `sources` reports the final value as `derived`; `
 
 The authoritative field definitions/defaults are in `internal/config/config.go`; examples are in `configs/`. Secret references must be environment variable identifiers, never credentials. Calls require external TURN settings. Tools require an enabled AI provider, and each configured connector must have its feature compiled.
 
-Each `[[ai.tools]]` defines `name`, `kind`, `url`, `methods`, `secret_env`, `allow_private`, `schema`, `timeout_seconds`, `max_response_bytes`. Zero tool limits inherit globals; positive values narrow them. See [AI bounds and schema vocabulary](ai.md). AI defaults: 20 turns, 262144 context bytes, 45 seconds and 1048576 response bytes. These are also absolute safety ceilings.
+Each `[[ai.tools]]` defines `name`, `kind`, `url`, `methods`, `secret_env`, `allow_private`, `schema`, `timeout_seconds`, `max_response_bytes`, `require_approval`, `cost_microunits`. Zero tool limits inherit globals; positive values narrow them. See [AI bounds and schema vocabulary](ai.md). AI defaults: 20 turns, 262144 context bytes, 45 seconds and 1048576 response bytes. These are also absolute safety ceilings.
+
+### AI approvals and budgets
+
+`[ai_policy]` configures `grant_public_key_env`, `issuer`, `audience`, `approval_ttl_seconds`, `require_provider_approval`, `provider_reserve_microunits`, `global_daily_budget_microunits`, `per_bot_daily_budget_microunits`, `per_user_daily_budget_microunits`, `currency`. `[ai]` and endpoint profiles configure input/output prices per million tokens. Tools select approval and fixed cost independently. See [all defaults/ranges and accounting limits](ai-policy.md) and [example](../configs/ai-policy.toml). A signed grant is required only where configured; every effect still receives a durable reservation and egress notice when the module is enabled.
 
 ### Named AI endpoints and bots
 

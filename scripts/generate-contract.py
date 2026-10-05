@@ -75,7 +75,7 @@ C["MLSRosterProof"] = obj({"version": {"const": 1}, "chat_id": S, "group_id": BA
 C["MLSRosterProof"]["description"] = "Exact declaration field order shown here; sort roster by device_id, use Go encoding/json escaping. commit_hash is empty for initialization, otherwise SHA256 wire commit. context_hash=SHA256 binary GroupContext."
 C["CallSignalInput"] = obj({"type": enum("accept", "reject", "end", "offer", "answer", "ice"), "operation_id": S, "to_device": S, "envelope": {"anyOf": [ref("Envelope"), {"type": "null"}]}, "mls": BASE64, "epoch": N}, ["type", "operation_id"])
 C["CallSignalPlaintext"] = obj({"sdp": S, "candidate": S, "sdp_mid": S, "sdp_mline_index": {"anyOf": [N, {"type": "null"}]}}, [])
-C["AIJob"] = obj({"id": S, "message_id": S, "status": enum("queued", "running", "succeeded", "failed", "uncertain", "cancelled"), "result_id": S, "created_at": I, "updated_at": I})
+C["AIJob"] = obj({"id": S, "message_id": S, "status": enum("queued", "running", "awaiting_approval", "succeeded", "failed", "uncertain", "cancelled"), "result_id": S, "created_at": I, "updated_at": I})
 C["AITask"] = obj({**C["AIJob"]["properties"], "chat_id": S, "agent_id": S})
 C["AIProgressChunk"] = obj({"chunk": N, "kind": enum("text.delta", "tool.started", "tool.arguments.delta"), "operation_id": S, "sender": S, "device_id": S, "mode": enum("basic", "e2ee"), "epoch": N, "envelope": ref("Envelope"), "mls": BASE64}, ["chunk", "kind", "operation_id", "sender", "device_id", "mode", "epoch"])
 C["AIProgressChunk"]["description"] = "BASIC envelope or MLS ciphertext; Binding(chat,sender,device,operation_id). operation_id=ai-progress-{job}-{chunk}. Parts are previews; final message/job status establishes completion."
@@ -86,8 +86,21 @@ C["Event"]["oneOf"] += [obj({"type": {"const": kind}, "seq": N, "chat_id": S, "d
     "ai.job.cancelled": obj({"job_id": S}),
 }.items()]
 
+C["AIPolicyRequest"] = obj({"request_id": S, "job_id": S, "chat_id": S, "source_user": S, "source_device": S, "ai_user": S, "ai_device": S, "epoch": N, "session_version": N, "action": enum("provider", "tool"), "name": S, "request_hash": HASH, "destination_hash": HASH, "destination_origin": S, "required": B, "reserve_microunits": N, "status": S, "expires_at": I, "created_at": I})
+C["AIPolicyRequest"]["description"] = "Metadata only; prompt, arguments and sealed continuation are never returned. Bind the typed backend-signed grant to this request."
+C["AIPolicyUsage"] = obj({"id": N, "request_id": S, "job_id": S, "scope": enum("global", "bot", "source_user"), "scope_id": S, "day": S, "reserved_microunits": N, "cost_microunits": N, "input_tokens": N, "output_tokens": N, "cache_read_tokens": N, "cache_write_tokens": N, "usage_known": B, "currency": S, "invocations": {"const": 1}, "status": S, "created_at": I})
+C["AIPolicyUsage"]["description"] = "Estimated accounting, not reconciled invoices. One invocation appears in several scopes; filter one scope rather than summing all rows. Missing usage retains the reserve."
+C["Event"]["oneOf"] += [obj({"type": {"const": kind}, "seq": N, "chat_id": S, "data": data}) for kind, data in {
+    "ai.approval.required": obj({"job": S, "request_id": S, "action": {"const": "approval_required"}}),
+    "ai.egress.notice": obj({"job": S, "request_id": S, "action": enum("provider", "tool"), "name": S, "destination_origin": S, "confidentiality": {"const": "external_plaintext"}}),
+}.items()]
+
 # route -> (request schema or None, success response schema, success codes)
 ROUTES = {
+"POST /management/v1/ai/approvals": (obj({"token": S}), obj({"grant": S, "status": {"const": "approved"}, "idempotent": B}, ["grant", "status"]), [200]),
+"DELETE /management/v1/ai/grants/{grant}": (None, obj({"grant": S, "revoked": B}), [200]),
+"GET /management/v1/ai/requests/{request}": (None, ref("AIPolicyRequest"), [200]),
+"GET /management/v1/ai/usage": (None, obj({"items": arr(ref("AIPolicyUsage")), "next_cursor": S}, ["items"]), [200]),
 "GET /healthz": (None, obj({"status": {"const": "ok"}}), [200]),
 "GET /readyz": (None, obj({"status": {"const": "ready"}}), [200]),
 "GET /v1/capabilities": (None, obj({"protocol_version": {"const": 1}, "features": arr(S), "server_key": BASE64, "server_key_id": HASH, "hpke_suite": {"const": "X25519-HKDF-SHA256-AES128GCM"}, "delivery": {"const": "at-least-once"}, "event_retention_hours": I, "dedup_retention_hours": I, "history": enum("all", "since_join"), "delete_mode": enum("global", "author_only"), "reaction_types": arr(S), "max_batch": I, "ai_trust_boundary": S}, required=["protocol_version", "features", "server_key", "server_key_id", "hpke_suite", "delivery", "event_retention_hours", "dedup_retention_hours", "history", "delete_mode", "reaction_types", "max_batch", "ai_trust_boundary"]), [200]),
@@ -156,6 +169,8 @@ def main():
         params = [parameter(name, "path", N if name == "index" else S, True) for name in re.findall(r"{([^}]+)}", path)]
         if path.endswith("/messages") and method == "GET": params += [parameter("after", "query", N), parameter("limit", "query", {**N, "minimum": 1, "maximum": 200})]
         if path.endswith("/events"): params += [parameter("after", "query", N, True)]
+        if path == "/management/v1/ai/usage":
+            params += [parameter("limit", "query", {**N, "minimum": 1, "maximum": 100}), parameter("cursor", "query", S), parameter("user", "query", S), parameter("bot", "query", S)]
         if path.endswith("/progress"): params += [parameter("after", "query", N)]
         if path.endswith("/mls/inbox"): params += [parameter("after_welcome", "query", S), parameter("after_commit", "query", S)]
         if path == "/v1/ws": params += [parameter("ticket", "query", S, True), parameter("Origin", "header", S)]

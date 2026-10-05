@@ -177,7 +177,7 @@ CREATE INDEX IF NOT EXISTS ai_tasks_session ON ai_tasks(chat_id,agent_id,status,
 				return err
 			}
 		}
-		_, err = tx.ExecContext(ctx, `UPDATE ai_tasks SET status='cancelled',updated_at=? WHERE chat_id=? AND status IN ('queued','running')`, time.Now().Unix(), chat)
+		_, err = tx.ExecContext(ctx, `UPDATE ai_tasks SET status='cancelled',updated_at=? WHERE chat_id=? AND status IN ('queued','running','awaiting_approval')`, time.Now().Unix(), chat)
 		return err
 	})
 
@@ -434,7 +434,7 @@ func aiQueueNamedTasks(c *core.Core, w http.ResponseWriter, r *http.Request, id 
 	insertedAgents := make([]string, 0, len(in.Agents))
 	for _, agent := range in.Agents {
 		var existing int
-		if err = tx.QueryRowContext(r.Context(), `SELECT count(*) FROM ai_tasks WHERE chat_id=? AND agent_id=? AND status IN ('queued','running')`, chat, agent).Scan(&existing); err != nil {
+		if err = tx.QueryRowContext(r.Context(), `SELECT count(*) FROM ai_tasks WHERE chat_id=? AND agent_id=? AND status IN ('queued','running','awaiting_approval')`, chat, agent).Scan(&existing); err != nil {
 			core.Error(w, 503, "AI task storage unavailable")
 			return
 		}
@@ -452,7 +452,7 @@ func aiQueueNamedTasks(c *core.Core, w http.ResponseWriter, r *http.Request, id 
 				return
 			}
 			var globalExisting int
-			if err = tx.QueryRowContext(r.Context(), `SELECT count(*) FROM ai_tasks WHERE status IN ('queued','running')`).Scan(&globalExisting); err != nil {
+			if err = tx.QueryRowContext(r.Context(), `SELECT count(*) FROM ai_tasks WHERE status IN ('queued','running','awaiting_approval')`).Scan(&globalExisting); err != nil {
 				core.Error(w, 503, "AI task storage unavailable")
 				return
 			}
@@ -547,7 +547,7 @@ AND src.seq>=m.joined_seq AND (m.role IN ('owner','admin') OR src.sender=?))`, i
 		core.Error(w, 404, "AI task not found")
 		return
 	}
-	if current != "queued" && current != "running" {
+	if current != "queued" && current != "running" && current != "awaiting_approval" {
 		core.JSON(w, 200, map[string]any{"task_id": r.PathValue("task"), "status": current})
 		return
 	}
@@ -588,13 +588,16 @@ JOIN devices ad ON ad.id=a.device_id AND ad.user_id=au.id
 WHERE t.status='queued' AND c.mode='basic' AND c.pending=0 AND src.deleted=0
 AND src.seq>=sm.joined_seq AND sm.active=1 AND sm.can_send=1 AND su.disabled=0 AND sd.revoked=0
 AND a.disabled=0 AND a.revoked=0 AND am.active=1 AND am.can_send=1 AND au.disabled=0 AND ad.revoked=0
-AND NOT EXISTS(SELECT 1 FROM ai_tasks active WHERE active.chat_id=t.chat_id AND active.agent_id=t.agent_id AND active.status='running')
-ORDER BY t.created_at,t.id LIMIT 1`).Scan(&task.ID, &task.ChatID, &task.MessageID, &task.AgentID, &task.Status, &task.ResultID, &task.CreatedAt, &task.UpdatedAt)
+AND NOT EXISTS(SELECT 1 FROM ai_tasks active WHERE active.chat_id=t.chat_id AND active.agent_id=t.agent_id AND active.status IN ('running','awaiting_approval'))
+ORDER BY src.seq,t.created_at,t.id LIMIT 1`).Scan(&task.ID, &task.ChatID, &task.MessageID, &task.AgentID, &task.Status, &task.ResultID, &task.CreatedAt, &task.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return aiNamedTask{}, false, nil
 	}
 	if err != nil {
 		return aiNamedTask{}, false, err
+	}
+	if _, active := aiActive.Load(aiActiveKey{c, task.ID}); active {
+		return aiNamedTask{}, false, nil
 	}
 	now := time.Now().Unix()
 	result, err := tx.ExecContext(ctx, `UPDATE ai_tasks SET status='running',updated_at=? WHERE id=? AND status='queued'`, now, task.ID)
@@ -735,10 +738,10 @@ func aiNamedTaskIdentity(ctx context.Context, tx *sql.Tx, job string) (aiTaskIde
 // deletion or management revocation wins over a late provider completion.
 func aiNamedSetStatus(ctx context.Context, tx *sql.Tx, job, status string) error {
 	status = strings.TrimSpace(status)
-	if status != "queued" && status != "running" && status != "succeeded" && status != "failed" && status != "uncertain" && status != "cancelled" {
+	if status != "queued" && status != "running" && status != "succeeded" && status != "failed" && status != "uncertain" && status != "cancelled" && status != "awaiting_approval" {
 		return errors.New("invalid AI task status")
 	}
-	_, err := tx.ExecContext(ctx, `UPDATE ai_tasks SET status=?,updated_at=? WHERE id=? AND status IN ('queued','running')`, status, time.Now().Unix(), job)
+	_, err := tx.ExecContext(ctx, `UPDATE ai_tasks SET status=?,updated_at=? WHERE id=? AND status IN ('queued','running','awaiting_approval')`, status, time.Now().Unix(), job)
 	return err
 }
 
@@ -861,6 +864,9 @@ AND src.deleted=0 AND src.seq>=sm.joined_seq)`, identity.User, identity.Device, 
 	providerCtx := context.WithValue(ctx, aiSettingsKey{}, settings)
 	answer, err := aiConversationWith(providerCtx, c, task.ID, provider, turns, tools, aiRequest)
 	if err != nil {
+		if errors.Is(err, ErrAIApprovalPending) {
+			return
+		}
 		aiNamedFinishStatus(c, task.ID, "uncertain")
 		return
 	}

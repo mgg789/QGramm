@@ -15,6 +15,11 @@ import (
 func init() { aiOpenAIStreamFn = aiOpenAIStream }
 
 func aiOpenAIStream(ctx context.Context, c config.Config, turns []aiTurn, tools []config.Tool, callback aiStreamCallback) (aiAnswer, error) {
+	if c.Features.AIPolicy {
+		if err := aiAssertPolicyEffect(ctx, true); err != nil {
+			return aiAnswer{}, err
+		}
+	}
 	headers, headerErr := aiProviderHeaders(c.AI, "openai")
 	if headerErr != nil {
 		return aiAnswer{}, headerErr
@@ -38,6 +43,9 @@ func aiOpenAIStream(ctx context.Context, c config.Config, turns []aiTurn, tools 
 		messages = append(messages, m)
 	}
 	body := map[string]any{"model": c.AI.Model, "messages": messages, "max_tokens": aiMaxOutputTokens(c.AI), "stream": true}
+	if c.Features.AIPolicy {
+		body["stream_options"] = map[string]any{"include_usage": true}
+	}
 	if len(tools) > 0 {
 		defs := make([]map[string]any, 0, len(tools))
 		for _, t := range tools {
@@ -74,6 +82,7 @@ func aiOpenAIStream(ctx context.Context, c config.Config, turns []aiTurn, tools 
 		}
 		var wire struct {
 			Error   json.RawMessage `json:"error"`
+			Usage   json.RawMessage `json:"usage"`
 			Choices []struct {
 				FinishReason *string `json:"finish_reason"`
 				Delta        struct {
@@ -95,6 +104,17 @@ func aiOpenAIStream(ctx context.Context, c config.Config, turns []aiTurn, tools 
 		}
 		if len(wire.Error) > 0 && string(wire.Error) != "null" {
 			return false, errors.New("provider stream error")
+		}
+		if c.Features.AIPolicy && aiReadUsage != nil {
+			finalUsage := len(wire.Choices) == 0
+			if len(wire.Choices) > 0 && wire.Choices[0].FinishReason != nil {
+				finalUsage = true
+			}
+			var usageErr error
+			answer.Usage, usageErr = aiReadUsage("openai", []byte(event.Data), answer.Usage, finalUsage)
+			if usageErr != nil {
+				return false, usageErr
+			}
 		}
 		if len(wire.Choices) == 0 {
 			return false, nil // provider usage/metadata event

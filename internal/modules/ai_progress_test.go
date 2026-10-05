@@ -131,7 +131,7 @@ func TestProgressCancelRetainsStatusAndRejectsPendingFlush(t *testing.T) {
 	r.SetPathValue("chat", chat)
 	r.SetPathValue("job", "progress-job")
 	w := httptest.NewRecorder()
-	cancelAIProgress(c, w, r, core.Identity{UserID: "human", DeviceID: "phone"})
+	cancelAIJob(c, w, r, core.Identity{UserID: "human", DeviceID: "phone"})
 	if w.Code != 200 {
 		t.Fatal(w.Code, w.Body.String())
 	}
@@ -167,7 +167,7 @@ func TestProgressCancellationRacesFinalCommit(t *testing.T) {
 			r := httptest.NewRequest("POST", "/", nil)
 			r.SetPathValue("chat", chat)
 			r.SetPathValue("job", "progress-job")
-			cancelAIProgress(c, w, r, core.Identity{UserID: "human", DeviceID: "phone"})
+			cancelAIJob(c, w, r, core.Identity{UserID: "human", DeviceID: "phone"})
 		}()
 		close(start)
 		wg.Wait()

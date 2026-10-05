@@ -15,6 +15,11 @@ import (
 func init() { aiAnthropicStreamFn = aiAnthropicStream }
 
 func aiAnthropicStream(ctx context.Context, c config.Config, turns []aiTurn, tools []config.Tool, callback aiStreamCallback) (aiAnswer, error) {
+	if c.Features.AIPolicy {
+		if err := aiAssertPolicyEffect(ctx, true); err != nil {
+			return aiAnswer{}, err
+		}
+	}
 	headers, headerErr := aiProviderHeaders(c.AI, "anthropic")
 	if headerErr != nil {
 		return aiAnswer{}, headerErr
@@ -86,9 +91,18 @@ func aiAnthropicStream(ctx context.Context, c config.Config, turns []aiTurn, too
 				PartialJSON string  `json:"partial_json"`
 				StopReason  *string `json:"stop_reason"`
 			} `json:"delta"`
+			Usage json.RawMessage `json:"usage"`
 		}
 		if err := aiJSONEvent(event.Data, &header); err != nil {
 			return false, err
+		}
+		if c.Features.AIPolicy && aiReadUsage != nil {
+			finalUsage := header.Type == "message_delta"
+			var usageErr error
+			answer.Usage, usageErr = aiReadUsage("anthropic", []byte(event.Data), answer.Usage, finalUsage)
+			if usageErr != nil {
+				return false, usageErr
+			}
 		}
 		switch header.Type {
 		case "content_block_start":

@@ -7,12 +7,12 @@ go build -o "$scratch/qgramm-build" ./cmd/qgramm-build
 python3 - "$scratch" <<'PY'
 import pathlib, sys
 root=pathlib.Path(sys.argv[1])
-features='groups files e2ee calls delete edit reply forward reactions openai anthropic ai_streaming mcp http_tools'.split()
+features='groups files e2ee calls delete edit reply forward reactions openai anthropic ai_streaming ai_policy mcp http_tools'.split()
 profiles={'minimal':set(), 'full':set(features)}
 for feature in features:
     profiles['without-'+feature]=set(features)-{feature}
     minimum={feature}
-    if feature in ('mcp','http_tools','ai_streaming'): minimum.add('openai')
+    if feature in ('mcp','http_tools','ai_streaming','ai_policy'): minimum.add('openai')
     profiles['only-'+feature]=minimum
 base='''[server]
 listen="127.0.0.1:8080"
@@ -51,6 +51,9 @@ with (root/'profiles').open('w') as manifest:
     name='named-ai-network'
     (root/(name+'.toml')).write_text(pathlib.Path('configs/ai-network.toml').read_text())
     manifest.write(name+'|qg_ai_streaming,qg_groups,qg_openai\n')
+    name='named-ai-policy'
+    (root/(name+'.toml')).write_text(pathlib.Path('configs/ai-policy.toml').read_text())
+    manifest.write(name+'|qg_ai_policy,qg_http_tools,qg_openai\n')
 invalid=root/'invalid';invalid.mkdir()
 cases={
     'mcp-without-provider':base+'[features]\nmcp=true\n',
@@ -63,6 +66,8 @@ cases={
     'unknown-preset':'preset="nonexistent"\n'+base,
     'ai-preset-without-model':'preset="ai-openai"\n'+base.replace('model="test-model"\n',''),
     'stream-without-provider':base+'[features]\nai_streaming=true\n',
+    'policy-without-provider':base+'[features]\nai_policy=true\n',
+    'approval-without-policy':base+'[features]\nopenai=true\nhttp_tools=true\n[[ai.tools]]\nname="approved"\nkind="http"\nurl="https://tools.example.test"\nmethods=["POST"]\nrequire_approval=true\n',
 }
 for name, config in cases.items(): (invalid/(name+'.toml')).write_text(config)
 PY
@@ -76,7 +81,7 @@ while IFS='|' read -r profile tags; do
 import os,pathlib
 root=pathlib.Path(os.environ['SCRATCH']);profile=os.environ['PROFILE'];tags=set(os.environ['TAGS'].split(','))
 files=set((root/(profile+'-files')).read_text().splitlines())
-names={'groups':'groups','files':'files','calls':'calls','delete':'delete','edit':'edit','reply':'reply','forward':'forward','reactions':'reactions','openai':'ai_openai','anthropic':'ai_anthropic','ai_streaming':'ai_stream_register','mcp':'ai_mcp','http_tools':'ai_http_tools','e2ee':'e2ee'}
+names={'groups':'groups','files':'files','calls':'calls','delete':'delete','edit':'edit','reply':'reply','forward':'forward','reactions':'reactions','openai':'ai_openai','anthropic':'ai_anthropic','ai_streaming':'ai_stream_register','ai_policy':'ai_policy_runtime','mcp':'ai_mcp','http_tools':'ai_http_tools','e2ee':'e2ee'}
 for feature,filename in names.items():
     assert ((filename+'.go') in files)==(('qg_'+feature) in tags), (profile,feature,'compiled file selection mismatch')
 deps=(root/(profile+'-deps')).read_text()
@@ -86,5 +91,5 @@ PY
 done < "$scratch/profiles"
 QGRAMM_MATRIX_INVALID_DIR="$scratch/invalid" go test ./cmd/qgramm-build -run '^TestMatrixInvalidConfigurations$' -count=1
 go test ./internal/config ./cmd/qgramm-build
-go test -tags qg_groups,qg_files,qg_e2ee,qg_calls,qg_delete,qg_edit,qg_reply,qg_forward,qg_reactions,qg_openai,qg_anthropic,qg_ai_streaming,qg_mcp,qg_http_tools ./...
-echo '38 build/runtime selections and 10 invalid configurations passed; no calibrated capacity claim'
+go test -tags qg_groups,qg_files,qg_e2ee,qg_calls,qg_delete,qg_edit,qg_reply,qg_forward,qg_reactions,qg_openai,qg_anthropic,qg_ai_streaming,qg_ai_policy,qg_mcp,qg_http_tools ./...
+echo '41 build/runtime selections and 12 invalid configurations passed; no calibrated capacity claim'

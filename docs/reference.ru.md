@@ -36,7 +36,7 @@ AI-preset требует явного `ai.model`; provider/model не угады
 | `server` | `listen`: адрес; `tls_cert`, `tls_key`: пути TLS; `allow_insecure_loopback`: только разработка на loopback; `trusted_proxy`: доверять HTTPS-заголовку из изолированного ingress; `origins`: разрешенные browser origins |
 | `storage` | `path`: SQLite; `files`: каталог зашифрованных частей файлов |
 | `security` | `issuer`, `audience`: JWT authority; `token_public_key_env`: base64 Ed25519 32-byte verification key; `management_secret_env`: отдельный bearer минимум 32 символа; `master_key_env`: AES-256 32-byte key; `hpke_key_env`: X25519 32-byte private key; `previous_master_key_envs`, `previous_hpke_key_envs`: до четырех старых ключей каждого вида |
-| `features` | Независимые boolean: `groups`, `files`, `e2ee`, `calls`, `delete`, `edit`, `reply`, `forward`, `reactions`, `openai`, `anthropic`, `ai_streaming`, `mcp`, `http_tools` |
+| `features` | Независимые boolean: `groups`, `files`, `e2ee`, `calls`, `delete`, `edit`, `reply`, `forward`, `reactions`, `openai`, `anthropic`, `ai_streaming`, `ai_policy`, `mcp`, `http_tools` |
 | `capacity` | `expected_concurrent_users`: одновременно подключенные люди; `max_connections`, `queue_depth`, `workers`: явные пределы, 0 — расчет |
 | `policy` | `history`: `since_join` либо `all` с явным grant внешнего backend; `delete_mode`: `global` либо `author_only`; `reaction_types`: словарь числовых типов с 0; `event_retention_hours`, `dedup_retention_hours`, `upload_ttl_hours`: сроки; `max_message_bytes`, `max_batch`, `max_file_bytes`, `max_chunk_bytes`, `max_storage_bytes`: размеры и квоты |
 | `ai` | Legacy `openai_url`, `anthropic_url` и имена ключей; `model`, `max_steps`, `max_context_turns`, `max_context_bytes`, `timeout_seconds`, `max_response_bytes`, `max_output_tokens`, `tools`; именованные профили используют `endpoints`, `bots`, `default_bot` |
@@ -60,6 +60,10 @@ endpoint: plaintext отправляется в него. Значения се�
 постоянная user/device identity; в stage 1 он подключается только к BASIC
 личным и групповым чатам и запускается явным заданием после обычного сообщения.
 Подключение именованного бота к MLS E2EE отклоняется. Подробности — [AI-сеть](ai-network.ru.md).
+
+## AI policy второго этапа
+
+`[ai_policy]` задает `grant_public_key_env`, `issuer`, `audience`, `approval_ttl_seconds`, `require_provider_approval`, `provider_reserve_microunits`, `global_daily_budget_microunits`, `per_bot_daily_budget_microunits`, `per_user_daily_budget_microunits`, `currency`. `[ai]` и endpoints задают input/output цены за миллион токенов. Каждый tool получает `require_approval` и фиксированный `cost_microunits`. [Полный reference с defaults/ranges](ai-policy.ru.md), [пример](../configs/ai-policy.toml). При отключенном approval gateway все равно сохраняет резерв и egress notice. Это расчетный учет, не гарантия суммы счета внешнего провайдера.
 
 Secret reference — только имя переменной:
 

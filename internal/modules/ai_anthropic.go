@@ -14,6 +14,11 @@ import (
 
 func init() { aiProviders["anthropic"] = aiAnthropic; core.Register("anthropic", installAI) }
 func aiAnthropic(ctx context.Context, c config.Config, turns []aiTurn, tools []config.Tool, request aiRequester) (aiAnswer, error) {
+	if c.Features.AIPolicy {
+		if err := aiAssertPolicyEffect(ctx, true); err != nil {
+			return aiAnswer{}, err
+		}
+	}
 	if callback := aiStreamCallbackFromContext(ctx); callback != nil {
 		if aiAnthropicStreamFn == nil {
 			return aiAnswer{}, errors.New("provider streaming unavailable")
@@ -64,6 +69,7 @@ func aiAnthropic(ctx context.Context, c config.Config, turns []aiTurn, tools []c
 		return aiAnswer{}, e
 	}
 	var response struct {
+		Usage   json.RawMessage `json:"usage"`
 		Content []struct {
 			Type  string          `json:"type"`
 			Text  string          `json:"text"`
@@ -75,7 +81,15 @@ func aiAnthropic(ctx context.Context, c config.Config, turns []aiTurn, tools []c
 	if json.Unmarshal(data, &response) != nil {
 		return aiAnswer{}, errors.New("invalid provider response")
 	}
-	a := aiAnswer{}
+	var usage aiUsage
+	if c.Features.AIPolicy && aiReadUsage != nil {
+		var err error
+		usage, err = aiReadUsage("anthropic", data, usage, true)
+		if err != nil {
+			return aiAnswer{}, err
+		}
+	}
+	a := aiAnswer{Usage: usage}
 	for _, block := range response.Content {
 		switch block.Type {
 		case "text":

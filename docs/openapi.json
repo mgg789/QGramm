@@ -6,6 +6,263 @@
     "description": "All compiled-feature routes. A binary exposes only selected modules; query capabilities. Schemas are maintained maps checked for exact source route coverage. Deployment policy sets runtime size/retention limits."
   },
   "paths": {
+    "/management/v1/ai/approvals": {
+      "post": {
+        "operationId": "POST_management_v1_ai_approvals",
+        "summary": "POST /management/v1/ai/approvals",
+        "x-source": "internal/modules/ai_policy.go",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "grant": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "const": "approved"
+                    },
+                    "idempotent": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "grant",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "token"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/management/v1/ai/grants/{grant}": {
+      "delete": {
+        "operationId": "DELETE_management_v1_ai_grants_grant",
+        "summary": "DELETE /management/v1/ai/grants/{grant}",
+        "x-source": "internal/modules/ai_policy.go",
+        "parameters": [
+          {
+            "name": "grant",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "grant": {
+                      "type": "string"
+                    },
+                    "revoked": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "grant",
+                    "revoked"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ]
+      }
+    },
+    "/management/v1/ai/requests/{request}": {
+      "get": {
+        "operationId": "GET_management_v1_ai_requests_request",
+        "summary": "GET /management/v1/ai/requests/{request}",
+        "x-source": "internal/modules/ai_policy.go",
+        "parameters": [
+          {
+            "name": "request",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIPolicyRequest"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ]
+      }
+    },
+    "/management/v1/ai/usage": {
+      "get": {
+        "operationId": "GET_management_v1_ai_usage",
+        "summary": "GET /management/v1/ai/usage",
+        "x-source": "internal/modules/ai_policy.go",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "bot",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AIPolicyUsage"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ]
+      }
+    },
     "/healthz": {
       "get": {
         "operationId": "GET_healthz",
@@ -3415,6 +3672,7 @@
                       "enum": [
                         "queued",
                         "running",
+                        "awaiting_approval",
                         "succeeded",
                         "failed",
                         "uncertain",
@@ -3498,6 +3756,7 @@
                       "enum": [
                         "queued",
                         "running",
+                        "awaiting_approval",
                         "succeeded",
                         "failed",
                         "uncertain",
@@ -3578,6 +3837,7 @@
                       "enum": [
                         "queued",
                         "running",
+                        "awaiting_approval",
                         "succeeded",
                         "failed",
                         "uncertain",
@@ -4859,6 +5119,108 @@
               "data"
             ],
             "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "ai.approval.required"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "job": {
+                    "type": "string"
+                  },
+                  "request_id": {
+                    "type": "string"
+                  },
+                  "action": {
+                    "const": "approval_required"
+                  }
+                },
+                "required": [
+                  "job",
+                  "request_id",
+                  "action"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "ai.egress.notice"
+              },
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "chat_id": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "job": {
+                    "type": "string"
+                  },
+                  "request_id": {
+                    "type": "string"
+                  },
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "provider",
+                      "tool"
+                    ]
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "destination_origin": {
+                    "type": "string"
+                  },
+                  "confidentiality": {
+                    "const": "external_plaintext"
+                  }
+                },
+                "required": [
+                  "job",
+                  "request_id",
+                  "action",
+                  "name",
+                  "destination_origin",
+                  "confidentiality"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "type",
+              "seq",
+              "chat_id",
+              "data"
+            ],
+            "additionalProperties": false
           }
         ]
       },
@@ -5297,6 +5659,7 @@
             "enum": [
               "queued",
               "running",
+              "awaiting_approval",
               "succeeded",
               "failed",
               "uncertain",
@@ -5339,6 +5702,7 @@
             "enum": [
               "queued",
               "running",
+              "awaiting_approval",
               "succeeded",
               "failed",
               "uncertain",
@@ -5431,6 +5795,202 @@
         ],
         "additionalProperties": false,
         "description": "BASIC envelope or MLS ciphertext; Binding(chat,sender,device,operation_id). operation_id=ai-progress-{job}-{chunk}. Parts are previews; final message/job status establishes completion."
+      },
+      "AIPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "chat_id": {
+            "type": "string"
+          },
+          "source_user": {
+            "type": "string"
+          },
+          "source_device": {
+            "type": "string"
+          },
+          "ai_user": {
+            "type": "string"
+          },
+          "ai_device": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "session_version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "provider",
+              "tool"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "request_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "destination_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "destination_origin": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "reserve_microunits": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "created_at": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "request_id",
+          "job_id",
+          "chat_id",
+          "source_user",
+          "source_device",
+          "ai_user",
+          "ai_device",
+          "epoch",
+          "session_version",
+          "action",
+          "name",
+          "request_hash",
+          "destination_hash",
+          "destination_origin",
+          "required",
+          "reserve_microunits",
+          "status",
+          "expires_at",
+          "created_at"
+        ],
+        "additionalProperties": false,
+        "description": "Metadata only; prompt, arguments and sealed continuation are never returned. Bind the typed backend-signed grant to this request."
+      },
+      "AIPolicyUsage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "global",
+              "bot",
+              "source_user"
+            ]
+          },
+          "scope_id": {
+            "type": "string"
+          },
+          "day": {
+            "type": "string"
+          },
+          "reserved_microunits": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "cost_microunits": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "input_tokens": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "output_tokens": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "cache_read_tokens": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "cache_write_tokens": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "usage_known": {
+            "type": "boolean"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "invocations": {
+            "const": 1
+          },
+          "status": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "id",
+          "request_id",
+          "job_id",
+          "scope",
+          "scope_id",
+          "day",
+          "reserved_microunits",
+          "cost_microunits",
+          "input_tokens",
+          "output_tokens",
+          "cache_read_tokens",
+          "cache_write_tokens",
+          "usage_known",
+          "currency",
+          "invocations",
+          "status",
+          "created_at"
+        ],
+        "additionalProperties": false,
+        "description": "Estimated accounting, not reconciled invoices. One invocation appears in several scopes; filter one scope rather than summing all rows. Missing usage retains the reserve."
       }
     },
     "securitySchemes": {

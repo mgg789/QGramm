@@ -14,6 +14,11 @@ import (
 
 func init() { aiProviders["openai"] = aiOpenAI; core.Register("openai", installAI) }
 func aiOpenAI(ctx context.Context, c config.Config, turns []aiTurn, tools []config.Tool, request aiRequester) (aiAnswer, error) {
+	if c.Features.AIPolicy {
+		if err := aiAssertPolicyEffect(ctx, true); err != nil {
+			return aiAnswer{}, err
+		}
+	}
 	if callback := aiStreamCallbackFromContext(ctx); callback != nil {
 		if aiOpenAIStreamFn == nil {
 			return aiAnswer{}, errors.New("provider streaming unavailable")
@@ -59,6 +64,7 @@ func aiOpenAI(ctx context.Context, c config.Config, turns []aiTurn, tools []conf
 		return aiAnswer{}, e
 	}
 	var response struct {
+		Usage   json.RawMessage `json:"usage"`
 		Choices []struct {
 			Message struct {
 				Content   string `json:"content"`
@@ -75,8 +81,16 @@ func aiOpenAI(ctx context.Context, c config.Config, turns []aiTurn, tools []conf
 	if json.Unmarshal(data, &response) != nil || len(response.Choices) != 1 {
 		return aiAnswer{}, errors.New("invalid provider response")
 	}
+	var usage aiUsage
+	if c.Features.AIPolicy && aiReadUsage != nil {
+		var err error
+		usage, err = aiReadUsage("openai", data, usage, true)
+		if err != nil {
+			return aiAnswer{}, err
+		}
+	}
 	m := response.Choices[0].Message
-	a := aiAnswer{Text: m.Content}
+	a := aiAnswer{Text: m.Content, Usage: usage}
 	for _, call := range m.ToolCalls {
 		if call.ID == "" || !json.Valid([]byte(call.Function.Arguments)) {
 			return aiAnswer{}, errors.New("invalid provider tool call")

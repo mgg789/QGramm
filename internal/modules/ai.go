@@ -36,10 +36,38 @@ type aiTurn struct {
 	Calls      []aiCall `json:"calls,omitempty"`
 	ToolCallID string   `json:"tool_call_id,omitempty"`
 }
+type aiUsage struct {
+	InputTokens, OutputTokens, CacheReadTokens, CacheWriteTokens int64
+	Known, InputKnown, OutputKnown                               bool
+}
 type aiAnswer struct {
 	Text  string
 	Calls []aiCall
+	Usage aiUsage
 }
+type aiPolicyEffect struct {
+	ID, Job, Action, Name, Destination, RequestHash                                                string
+	Required                                                                                       bool
+	Epoch, SessionVersion                                                                          int64
+	ReserveMicrounits, InputPriceMicrounitsPerMillionTokens, OutputPriceMicrounitsPerMillionTokens int64
+}
+
+var ErrAIApprovalPending = errors.New("AI approval pending")
+var aiPolicyInstall func(*core.Core) error
+var aiPolicyConversation func(context.Context, *core.Core, string, aiProvider, []aiTurn, []config.Tool, aiRequester) (string, error)
+var aiSavedContinuation func(context.Context, *sql.Tx, *core.Core, string) ([]byte, error)
+var aiReadUsage func(string, []byte, aiUsage, bool) (aiUsage, error)
+var aiPolicyActive func(context.Context) bool
+
+func aiAssertPolicyEffect(ctx context.Context, enabled bool) error {
+	if enabled && (aiPolicyActive == nil || !aiPolicyActive(ctx)) {
+		return errors.New("AI policy gateway required")
+	}
+	return nil
+}
+
+type aiProgressFlushKey struct{}
+
 type aiProvider func(context.Context, config.Config, []aiTurn, []config.Tool, aiRequester) (aiAnswer, error)
 type aiToolRunner func(context.Context, config.Tool, json.RawMessage, aiRequester) (string, error)
 
@@ -123,6 +151,17 @@ CREATE TABLE IF NOT EXISTS ai_audit(id INTEGER PRIMARY KEY,job_id TEXT NOT NULL,
 			return e
 		}
 	}
+	if c.Config.Features.AIPolicy {
+		if aiPolicyInstall == nil {
+			return errors.New("AI policy module unavailable")
+		}
+		if e = aiPolicyInstall(c); e != nil {
+			return e
+		}
+	}
+	if c.Config.Features.AIPolicy && !c.Config.Features.AIStreaming {
+		c.AddRoute("POST /v1/chats/{chat}/ai/jobs/{job}/cancel", func(w http.ResponseWriter, r *http.Request, id core.Identity) { cancelAIJob(c, w, r, id) })
+	}
 	// In-flight external effects have unknown outcomes after a restart. Never
 	// reissue them automatically, including provider calls or side-effect tools.
 	if _, e = c.DB.Exec(`UPDATE ai_jobs SET status='uncertain',updated_at=? WHERE status='running'`, time.Now().Unix()); e != nil {
@@ -146,7 +185,7 @@ CREATE TABLE IF NOT EXISTS ai_audit(id INTEGER PRIMARY KEY,job_id TEXT NOT NULL,
 		if _, err = tx.ExecContext(ctx, `UPDATE ai_chats SET context=? WHERE chat_id=?`, blob, chat); err != nil {
 			return err
 		}
-		_, err = tx.ExecContext(ctx, `UPDATE ai_jobs SET status='failed',updated_at=? WHERE chat_id=? AND status IN ('queued','running')`, time.Now().Unix(), chat)
+		_, err = tx.ExecContext(ctx, `UPDATE ai_jobs SET status='failed',updated_at=? WHERE chat_id=? AND status IN ('queued','running','awaiting_approval')`, time.Now().Unix(), chat)
 		return err
 	})
 	c.InTransaction = append(c.InTransaction, func(ctx context.Context, tx *sql.Tx, id core.Identity, chat string, m core.Message) error {
@@ -162,7 +201,7 @@ CREATE TABLE IF NOT EXISTS ai_audit(id INTEGER PRIMARY KEY,job_id TEXT NOT NULL,
 			return nil
 		}
 		var count int
-		if e = tx.QueryRowContext(ctx, `SELECT count(*) FROM ai_jobs WHERE chat_id=? AND status IN ('queued','running')`, chat).Scan(&count); e != nil {
+		if e = tx.QueryRowContext(ctx, `SELECT count(*) FROM ai_jobs WHERE chat_id=? AND status IN ('queued','running','awaiting_approval')`, chat).Scan(&count); e != nil {
 			return e
 		}
 		if count >= 64 {
@@ -434,9 +473,19 @@ func aiNextWith(c *core.Core, conversation aiConversationRunner) {
 	var job, chat, message, user, device, provider, mode, sender, sourceDevice, operation string
 	var state, contextBlob, allowedBlob, payload []byte
 	var epoch int64
-	e = tx.QueryRowContext(ctx, `SELECT j.id,j.chat_id,j.message_id,a.user_id,a.device_id,a.provider,a.tools,a.context,a.state,ch.mode,ch.epoch,m.payload,m.sender,m.device_id,m.operation_id FROM ai_jobs j JOIN ai_chats a ON a.chat_id=j.chat_id JOIN chats ch ON ch.id=j.chat_id JOIN messages m ON m.id=j.message_id WHERE j.status='queued' AND NOT EXISTS(SELECT 1 FROM ai_jobs active WHERE active.chat_id=j.chat_id AND active.status='running') ORDER BY m.seq,j.created_at LIMIT 1`).Scan(&job, &chat, &message, &user, &device, &provider, &allowedBlob, &contextBlob, &state, &mode, &epoch, &payload, &sender, &sourceDevice, &operation)
+	e = tx.QueryRowContext(ctx, `SELECT j.id,j.chat_id,j.message_id,a.user_id,a.device_id,a.provider,a.tools,a.context,a.state,ch.mode,ch.epoch,m.payload,m.sender,m.device_id,m.operation_id FROM ai_jobs j JOIN ai_chats a ON a.chat_id=j.chat_id JOIN chats ch ON ch.id=j.chat_id JOIN messages m ON m.id=j.message_id WHERE j.status='queued' AND NOT EXISTS(SELECT 1 FROM ai_jobs active WHERE active.chat_id=j.chat_id AND active.status IN ('running','awaiting_approval')) ORDER BY m.seq,j.created_at LIMIT 1`).Scan(&job, &chat, &message, &user, &device, &provider, &allowedBlob, &contextBlob, &state, &mode, &epoch, &payload, &sender, &sourceDevice, &operation)
 	if e != nil {
 		return
+	}
+	if _, active := aiActive.Load(aiActiveKey{c, job}); active {
+		return
+	}
+	var resume []byte
+	if c.Config.Features.AIPolicy && aiSavedContinuation != nil {
+		resume, e = aiSavedContinuation(ctx, tx, c, job)
+		if e != nil {
+			return
+		}
 	}
 	if defaultProvider != "" && provider != defaultProvider {
 		aiFailTx(ctx, tx, job, "failed")
@@ -449,46 +498,63 @@ func aiNextWith(c *core.Core, conversation aiConversationRunner) {
 		_ = tx.Commit()
 		return
 	}
-	plain, e := c.Engine.Open(payload, []byte("message/"+message))
-	if e != nil {
-		aiFailTx(ctx, tx, job, "failed")
-		_ = tx.Commit()
-		return
-	}
-	if mode == "e2ee" {
-		if aiOpenMLS == nil {
-			aiFailTx(ctx, tx, job, "failed")
-			_ = tx.Commit()
+	var turns []aiTurn
+	if len(resume) > 0 {
+		var saved struct {
+			Turns []aiTurn `json:"turns"`
+		}
+		if e = json.Unmarshal(resume, &saved); e != nil {
 			return
 		}
-		plain, state, e = aiOpenMLS(c, chat, state, plain, cryptoenc.Binding(chat, sender, sourceDevice, operation))
+		// The execution loop restores tool continuations separately. Persisted
+		// conversation history keeps the same user/final-answer contract as a
+		// fresh job, without incomplete assistant tool-call previews.
+		for _, turn := range saved.Turns {
+			if turn.Role != "tool" && len(turn.Calls) == 0 {
+				turns = append(turns, turn)
+			}
+		}
+	} else {
+		plain, e := c.Engine.Open(payload, []byte("message/"+message))
 		if e != nil {
 			aiFailTx(ctx, tx, job, "failed")
 			_ = tx.Commit()
 			return
 		}
-	}
-	contextRaw, e := c.Engine.Open(contextBlob, []byte("ai/context/"+chat))
-	var turns []aiTurn
-	if e != nil || json.Unmarshal(contextRaw, &turns) != nil {
-		aiFailTx(ctx, tx, job, "failed")
-		_ = tx.Commit()
-		return
-	}
-	// Payloads are UTF-8 application text. Attachments and opaque structures are
-	// not automatically fetched or interpreted as instructions to tools.
-	if !utf8.Valid(plain) {
-		aiFailTx(ctx, tx, job, "failed")
-		_ = tx.Commit()
-		return
-	}
-	turns = append(turns, aiTurn{Role: "user", Content: string(plain)})
-	turns = aiBoundContext(turns, settings)
-	raw, _ := json.Marshal(turns)
-	if len(raw) > settings.MaxContextBytes {
-		aiFailTx(ctx, tx, job, "failed")
-		_ = tx.Commit()
-		return
+		if mode == "e2ee" && len(resume) == 0 {
+			if aiOpenMLS == nil {
+				aiFailTx(ctx, tx, job, "failed")
+				_ = tx.Commit()
+				return
+			}
+			plain, state, e = aiOpenMLS(c, chat, state, plain, cryptoenc.Binding(chat, sender, sourceDevice, operation))
+			if e != nil {
+				aiFailTx(ctx, tx, job, "failed")
+				_ = tx.Commit()
+				return
+			}
+		}
+		contextRaw, e := c.Engine.Open(contextBlob, []byte("ai/context/"+chat))
+		if e != nil || json.Unmarshal(contextRaw, &turns) != nil {
+			aiFailTx(ctx, tx, job, "failed")
+			_ = tx.Commit()
+			return
+		}
+		// Payloads are UTF-8 application text. Attachments and opaque structures are
+		// not automatically fetched or interpreted as instructions to tools.
+		if !utf8.Valid(plain) {
+			aiFailTx(ctx, tx, job, "failed")
+			_ = tx.Commit()
+			return
+		}
+		turns = append(turns, aiTurn{Role: "user", Content: string(plain)})
+		turns = aiBoundContext(turns, settings)
+		raw, _ := json.Marshal(turns)
+		if len(raw) > settings.MaxContextBytes {
+			aiFailTx(ctx, tx, job, "failed")
+			_ = tx.Commit()
+			return
+		}
 	}
 	// Commit received MLS state before external access, but retain only the
 	// last successful conversation context. Failed/cancelled input must not
@@ -514,6 +580,9 @@ func aiNextWith(c *core.Core, conversation aiConversationRunner) {
 	}
 	answer, e := conversation(ctx, c, job, provider, turns, tools)
 	if e != nil {
+		if errors.Is(e, ErrAIApprovalPending) {
+			return
+		}
 		aiFinishError(c, job, "uncertain")
 		return
 	}
@@ -581,7 +650,7 @@ func aiTaskLookup(ctx context.Context, tx *sql.Tx, job string) (aiTaskIdentity, 
 
 func aiTaskAuthorized(ctx context.Context, tx *sql.Tx, task aiTaskIdentity) bool {
 	var valid bool
-	err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM messages m JOIN members a ON a.chat_id=m.chat_id AND a.user_id=? JOIN devices ad ON ad.user_id=a.user_id AND ad.id=? JOIN users au ON au.id=a.user_id JOIN members s ON s.chat_id=m.chat_id AND s.user_id=m.sender JOIN devices sd ON sd.id=m.device_id AND sd.user_id=s.user_id JOIN users su ON su.id=s.user_id JOIN chats ch ON ch.id=m.chat_id WHERE m.id=? AND m.deleted=0 AND m.seq>=a.joined_seq AND a.active=1 AND a.can_send=1 AND ad.revoked=0 AND au.disabled=0 AND s.active=1 AND s.can_send=1 AND sd.revoked=0 AND su.disabled=0 AND ch.pending=0 AND ch.epoch=?)`, task.User, task.Device, task.SourceMessage, task.Epoch).Scan(&valid)
+	err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM messages m JOIN members a ON a.chat_id=m.chat_id AND a.user_id=? JOIN devices ad ON ad.user_id=a.user_id AND ad.id=? JOIN users au ON au.id=a.user_id JOIN members s ON s.chat_id=m.chat_id AND s.user_id=m.sender JOIN devices sd ON sd.id=m.device_id AND sd.user_id=s.user_id JOIN users su ON su.id=s.user_id JOIN chats ch ON ch.id=m.chat_id WHERE m.id=? AND m.deleted=0 AND m.seq>=a.joined_seq AND a.active=1 AND a.can_send=1 AND ad.revoked=0 AND au.disabled=0 AND m.seq>=s.joined_seq AND s.active=1 AND s.can_send=1 AND sd.revoked=0 AND su.disabled=0 AND ch.pending=0 AND ch.epoch=?)`, task.User, task.Device, task.SourceMessage, task.Epoch).Scan(&valid)
 	return err == nil && valid
 }
 
@@ -609,12 +678,19 @@ func aiConversationWith(ctx context.Context, c *core.Core, job string, fn aiProv
 	if settings.Streaming && aiProgressPrepare != nil {
 		var flush func() error
 		ctx, flush = aiProgressPrepare(ctx, c, job)
+		ctx = context.WithValue(ctx, aiProgressFlushKey{}, flush)
 		// Flush is also called on errors; partial output remains explicitly partial.
 		defer func() {
 			if flushErr := flush(); flushErr != nil && err == nil {
 				answer, err = "", flushErr
 			}
 		}()
+	}
+	if c.Config.Features.AIPolicy {
+		if aiPolicyConversation == nil {
+			return "", errors.New("AI policy module unavailable")
+		}
+		return aiPolicyConversation(ctx, c, job, fn, turns, tools, request)
 	}
 	request = aiBoundRequester(request)
 	turns = aiBoundContext(turns, settings)
@@ -624,10 +700,6 @@ func aiConversationWith(ctx context.Context, c *core.Core, job string, fn aiProv
 	}
 	if fn == nil {
 		return "", errors.New("provider unavailable")
-	}
-	allowed := map[string]config.Tool{}
-	for _, t := range tools {
-		allowed[t.Name] = t
 	}
 	for step := 0; step < settings.MaxSteps; step++ {
 		if e := ctx.Err(); e != nil {
@@ -649,59 +721,83 @@ func aiConversationWith(ctx context.Context, c *core.Core, job string, fn aiProv
 			return "", errors.New("too many tool calls")
 		}
 		turns = append(turns, aiTurn{Role: "assistant", Content: a.Text, Calls: a.Calls})
+
 		for _, call := range a.Calls {
-			tool, ok := allowed[call.Name]
-			if !ok {
-				aiAudit(c, job, "tool", "", "denied")
-				return "", errors.New("tool permission denied")
-			}
-			if len(call.Arguments) > 65536 {
-				return "", errors.New("tool arguments too large")
-			}
-			// Recheck the current management allowlist immediately before every
-			// external tool effect. Revocation cannot cancel an already sent call.
-			if !aiEffectsAllowed(ctx, c, job) {
-				return "", errors.New("AI job access revoked")
-			}
-			var current []byte
-			if c.DB.QueryRowContext(ctx, `SELECT a.tools FROM ai_chats a JOIN ai_jobs j ON j.chat_id=a.chat_id WHERE j.id=? UNION ALL SELECT s.tools FROM ai_sessions s JOIN ai_tasks t ON t.chat_id=s.chat_id AND t.agent_id=s.agent_id WHERE t.id=?`, job, job).Scan(&current) != nil {
-				return "", errors.New("tool permission unavailable")
-			}
-			var names []string
-			permitted := false
-			if json.Unmarshal(current, &names) == nil {
-				for _, name := range names {
-					if name == call.Name {
-						permitted = true
-					}
-				}
-			}
-			if !permitted {
-				return "", errors.New("tool permission revoked")
-			}
-			if e := aiCheckArguments(tool.Schema, call.Arguments); e != nil {
-				aiAudit(c, job, "tool", tool.Name, "denied")
-				return "", e
-			}
-			toolCtx, cancel := aiToolContext(ctx, tool)
-			result, e := aiTools[tool.Kind](toolCtx, tool, call.Arguments, request)
-			cancel()
-			if e == nil && len(result) > min(65536, aiContextLimits(toolCtx).response) {
-				e = errors.New("tool response too large")
-			}
+			tool, e := aiAuthorizedTool(ctx, c, job, call, tools)
 			if e != nil {
-				aiAudit(c, job, "tool", tool.Name, "uncertain")
 				return "", e
 			}
-			aiAudit(c, job, "tool", tool.Name, "succeeded")
+			result, e := aiExecuteTool(ctx, c, job, tool, call, request)
+			if e != nil {
+				return "", e
+			}
 			turns = append(turns, aiTurn{Role: "tool", Content: result, ToolCallID: call.ID})
 		}
+
 		raw, _ := json.Marshal(turns)
 		if len(raw) > settings.MaxContextBytes || len(turns) > settings.MaxContextTurns {
 			return "", errors.New("AI context exhausted")
 		}
 	}
 	return "", errors.New("AI step limit reached")
+}
+
+func aiAuthorizedTool(ctx context.Context, c *core.Core, job string, call aiCall, tools []config.Tool) (config.Tool, error) {
+	var tool config.Tool
+	found := false
+	for _, candidate := range tools {
+		if candidate.Name == call.Name {
+			tool = candidate
+			found = true
+			break
+		}
+	}
+	if !found || aiTools[tool.Kind] == nil {
+		return tool, errors.New("tool permission denied")
+	}
+	if len(call.Arguments) > 65536 {
+		return tool, errors.New("tool arguments too large")
+	}
+	if !aiEffectsAllowed(ctx, c, job) {
+		return tool, errors.New("AI job access revoked")
+	}
+	var current []byte
+	if c.DB.QueryRowContext(ctx, `SELECT a.tools FROM ai_chats a JOIN ai_jobs j ON j.chat_id=a.chat_id WHERE j.id=? UNION ALL SELECT s.tools FROM ai_sessions s JOIN ai_tasks t ON t.chat_id=s.chat_id AND t.agent_id=s.agent_id WHERE t.id=?`, job, job).Scan(&current) != nil {
+		return tool, errors.New("tool permission unavailable")
+	}
+	var names []string
+	permitted := false
+	if json.Unmarshal(current, &names) == nil {
+		for _, name := range names {
+			if name == call.Name {
+				permitted = true
+			}
+		}
+	}
+	if !permitted {
+		return tool, errors.New("tool permission revoked")
+	}
+	if err := aiCheckArguments(tool.Schema, call.Arguments); err != nil {
+		return tool, err
+	}
+	return tool, nil
+}
+func aiExecuteTool(ctx context.Context, c *core.Core, job string, tool config.Tool, call aiCall, request aiRequester) (string, error) {
+	if err := aiAssertPolicyEffect(ctx, c.Config.Features.AIPolicy); err != nil {
+		return "", err
+	}
+	toolCtx, cancel := aiToolContext(ctx, tool)
+	defer cancel()
+	result, err := aiTools[tool.Kind](toolCtx, tool, call.Arguments, request)
+	if err == nil && len(result) > min(65536, aiContextLimits(toolCtx).response) {
+		err = errors.New("tool response too large")
+	}
+	outcome := "succeeded"
+	if err != nil {
+		outcome = "uncertain"
+	}
+	aiAudit(c, job, "tool", tool.Name, outcome)
+	return result, err
 }
 
 func aiComplete(ctx context.Context, c *core.Core, job, chat, user, device, mode string, epoch int64, state []byte, turns []aiTurn, answer string) {
@@ -774,4 +870,60 @@ func aiComplete(ctx context.Context, c *core.Core, job, chat, user, device, mode
 	if tx.Commit() == nil {
 		c.Wake(chat)
 	}
+}
+
+func aiProgressMember(ctx context.Context, tx *sql.Tx, task aiTaskIdentity, id core.Identity) (string, error) {
+	var key string
+	err := tx.QueryRowContext(ctx, `SELECT d.public_key FROM members member JOIN devices d ON d.user_id=member.user_id JOIN users u ON u.id=member.user_id JOIN messages source ON source.chat_id=member.chat_id WHERE member.chat_id=? AND member.user_id=? AND d.id=? AND member.active=1 AND d.revoked=0 AND u.disabled=0 AND source.id=? AND source.seq>=member.joined_seq AND source.deleted=0`, task.Chat, id.UserID, id.DeviceID, task.SourceMessage).Scan(&key)
+	return key, err
+}
+
+func cancelAIJob(c *core.Core, w http.ResponseWriter, r *http.Request, id core.Identity) {
+	tx, err := c.DB.BeginTx(r.Context(), nil)
+	if err != nil {
+		core.Error(w, 503, "storage unavailable")
+		return
+	}
+	defer tx.Rollback()
+	job := r.PathValue("job")
+	task, err := aiTaskLookup(r.Context(), tx, job)
+	if err != nil || task.Chat != r.PathValue("chat") {
+		core.Error(w, 404, "AI job unavailable")
+		return
+	}
+	if _, err = aiProgressMember(r.Context(), tx, task, id); err != nil {
+		core.Error(w, 403, "membership required")
+		return
+	}
+	var role string
+	if err = tx.QueryRowContext(r.Context(), `SELECT role FROM members WHERE chat_id=? AND user_id=? AND active=1`, task.Chat, id.UserID).Scan(&role); err != nil || (task.SourceUser != id.UserID && role != "owner" && role != "admin") {
+		core.Error(w, 403, "job owner or administrator required")
+		return
+	}
+	if task.Status == "queued" || task.Status == "running" || task.Status == "awaiting_approval" {
+		res, e := tx.ExecContext(r.Context(), `UPDATE ai_jobs SET status='cancelled',updated_at=? WHERE id=? AND status IN('queued','running','awaiting_approval')`, time.Now().Unix(), job)
+		if e != nil {
+			core.Error(w, 503, "storage unavailable")
+			return
+		}
+		n, _ := res.RowsAffected()
+		if n == 0 {
+			if err = aiNamedSetStatus(r.Context(), tx, job, "cancelled"); err != nil {
+				core.Error(w, 503, "storage unavailable")
+				return
+			}
+		}
+		if _, err = c.Append(r.Context(), tx, task.Chat, "ai.job.cancelled", "", map[string]string{"job_id": job}); err != nil {
+			core.Error(w, 503, "storage unavailable")
+			return
+		}
+		task.Status = "cancelled"
+	}
+	if err = tx.Commit(); err != nil {
+		core.Error(w, 503, "storage unavailable")
+		return
+	}
+	aiCancelActive(c, job)
+	c.Wake(task.Chat)
+	core.JSON(w, 200, map[string]string{"job_id": job, "status": task.Status})
 }
