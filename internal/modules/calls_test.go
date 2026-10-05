@@ -52,6 +52,10 @@ func TestCallsHTTPEncryptedSignalingAndState(t *testing.T) {
 	cfg.AI.Model = "test"
 	cfg.AI.OpenAIKeyEnv = "CALL_TEST_AI"
 	cfg.AI.AnthropicKeyEnv = "CALL_TEST_AI"
+	cfg.AIStorage.GrantPublicKeyEnv = "CALL_TEST_STORAGE_GRANT"
+	t.Setenv(cfg.AIStorage.GrantPublicKeyEnv, base64.StdEncoding.EncodeToString(public))
+	cfg.AIPolicy.GrantPublicKeyEnv = "CALL_TEST_AI_GRANT"
+	t.Setenv(cfg.AIPolicy.GrantPublicKeyEnv, base64.StdEncoding.EncodeToString(public))
 	t.Setenv(cfg.Security.TokenPublicKeyEnv, base64.StdEncoding.EncodeToString(public))
 	t.Setenv(cfg.Security.MasterKeyEnv, base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32)))
 	t.Setenv(cfg.Security.HPKEKeyEnv, base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{2}, 32)))

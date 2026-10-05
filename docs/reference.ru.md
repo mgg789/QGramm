@@ -2,6 +2,31 @@
 
 Ядро предоставляет HTTP-команды и WebSocket-события. Ваше приложение отвечает за учетные записи, интерфейс, ключи устройств, MLS и WebRTC. Контракты полей: [OpenAPI](openapi.json), [WebSocket JSON Schema](websocket.schema.json), [интеграция](integration.ru.md). Все сообщения пользователю и AI принимаются зашифрованными; AI-провайдер получает plaintext.
 
+## Быстрый старт конфигурации
+
+```sh
+go run ./cmd/qgramm-build init -preset minimal -target local -users 100 -out app-qgramm.toml
+go run ./cmd/qgramm-build validate -config app-qgramm.toml
+go run ./cmd/qgramm-build explain -config app-qgramm.toml
+go run ./cmd/qgramm-build build -config app-qgramm.toml -out bin/qgramm
+```
+
+`init` проверяет сгенерированный TOML до записи, создает новый файл с `0600` и отказывается заменять существующий путь или symlink. Для `-target container` используются `0.0.0.0:8080`, `/data/qgramm.db`, `/data/files` и `trusted_proxy = true`; HTTPS должен завершаться на обратном прокси. `compose` сохраняет loopback-маппинг `127.0.0.1:8080:8080`.
+
+Top-level `preset` необязателен. Порядок разрешения: defaults → preset → явные ключи TOML. Явные `false`, `0` и пустые списки отключают или заменяют preset.
+
+| Preset | Эффект |
+|---|---|
+| `minimal` | без optional features |
+| `support` | `groups`, `files`, `delete`, `edit`, `reply`, `reactions` |
+| `community` | `support` плюс `forward` |
+| `ai-openai` | только `openai` и `ai.openai_key_env = "QGRAMM_OPENAI_KEY"` |
+| `ai-anthropic` | только `anthropic` и `ai.anthropic_key_env = "QGRAMM_ANTHROPIC_KEY"` |
+
+AI-preset требует явного `ai.model`; provider/model не угадываются. Calls, includes и env interpolation не включаются неявно. `validate` проверяет только TOML-схему и семантику, без чтения секретов (`secrets_presence=not_checked`). `explain` выводит effective config, источник каждого поля (`default`/`preset`/`explicit`/`derived`), feature tags, входы ресурсов, capacity и только имена secret references; это не проверка readiness.
+
+Для автоматических лимитов `sources` показывает итоговое значение как `derived`, а `declared_sources` различает явный `0` и отсутствующее поле. `declared_capacity` и `derived_capacity` показывают оба значения. CLI использует CPU/RAM машины, где выполняется команда; при запуске сервис пересчитывает лимиты внутри своего контейнера.
+
 ## Полный TOML reference
 
 Неизвестные поля и недопустимые сочетания отклоняются. `.env` содержит значения секретов; TOML — только имена переменных. Сервис самостоятельно не читает `.env`; значения передает процесс запуска либо Compose. Примеры: `qgramm.toml`, `configs/minimal.toml`, `configs/full.toml`, `configs/container.toml`.
@@ -11,24 +36,84 @@
 | `server` | `listen`: адрес; `tls_cert`, `tls_key`: пути TLS; `allow_insecure_loopback`: только разработка на loopback; `trusted_proxy`: доверять HTTPS-заголовку из изолированного ingress; `origins`: разрешенные browser origins |
 | `storage` | `path`: SQLite; `files`: каталог зашифрованных частей файлов |
 | `security` | `issuer`, `audience`: JWT authority; `token_public_key_env`: base64 Ed25519 32-byte verification key; `management_secret_env`: отдельный bearer минимум 32 символа; `master_key_env`: AES-256 32-byte key; `hpke_key_env`: X25519 32-byte private key; `previous_master_key_envs`, `previous_hpke_key_envs`: до четырех старых ключей каждого вида |
-| `features` | Независимые boolean: `groups`, `files`, `e2ee`, `calls`, `delete`, `edit`, `reply`, `forward`, `reactions`, `openai`, `anthropic`, `mcp`, `http_tools` |
+| `features` | Независимые boolean: `groups`, `files`, `e2ee`, `calls`, `delete`, `edit`, `reply`, `forward`, `reactions`, `openai`, `anthropic`, `ai_streaming`, `ai_policy`, `ai_storage`, `ai_endpoint`, `mcp`, `http_tools` |
 | `capacity` | `expected_concurrent_users`: одновременно подключенные люди; `max_connections`, `queue_depth`, `workers`: явные пределы, 0 — расчет |
 | `policy` | `history`: `since_join` либо `all` с явным grant внешнего backend; `delete_mode`: `global` либо `author_only`; `reaction_types`: словарь числовых типов с 0; `event_retention_hours`, `dedup_retention_hours`, `upload_ttl_hours`: сроки; `max_message_bytes`, `max_batch`, `max_file_bytes`, `max_chunk_bytes`, `max_storage_bytes`: размеры и квоты |
-| `ai` | `openai_url`, `anthropic_url`: provider base URL; `openai_key_env`, `anthropic_key_env`: имена секретов; `model`: модель; `max_steps`: предел вызовов инструментов; `max_context_turns`, `max_context_bytes`: контекст; `timeout_seconds`, `max_response_bytes`: сетевые пределы; `tools`: массив разрешенных коннекторов |
+| `ai` | Legacy `openai_url`, `anthropic_url` и имена ключей; `model`, `max_steps`, `max_context_turns`, `max_context_bytes`, `timeout_seconds`, `max_response_bytes`, `max_output_tokens`, `tools`; именованные профили используют `endpoints`, `bots`, `default_bot` |
 | `calls` | `turn_urls`: внешний TURN; `turn_secret_env`: имя shared secret; `credential_ttl_seconds`: срок credentials |
 
-Каждый `[[ai.tools]]` задает `name`, `kind` (`http`/`mcp`), `url`, `methods`, `secret_env`, `allow_private`, `schema`, `timeout_seconds`, `max_response_bytes`. Последние два поля при 0 наследуют AI-пределы, положительные значения только сужают их. Defaults AI: 20 turns, 262144 context bytes, 45 секунд, 1048576 response bytes; увеличивать сверх этих safety ceilings нельзя. Точный допустимый поднабор JSON Schema описан в [AI reference](ai.md): неизвестные ограничения не игнорируются. Инструменты требуют AI-provider, соответствующий connector — включенной build-фичи; звонки требуют TURN-настроек. Значения и ограничения проверяет `internal/config/config.go`.
+Каждый `[[ai.tools]]` задает `name`, `kind` (`http`/`mcp`/`storage`), `url`, `methods`, `secret_env`, `allow_private`, `schema`, `timeout_seconds`, `max_response_bytes`, `require_approval`, `cost_microunits`. Для `storage` задаются также `resource` и `storage_action`; URL/secret/methods/allow_private для него запрещены. Последние два поля при 0 наследуют AI-пределы, положительные значения только сужают их. Defaults AI: 20 turns, 262144 context bytes, 45 секунд, 1048576 response bytes; увеличивать сверх этих safety ceilings нельзя. Точный допустимый поднабор JSON Schema описан в [AI reference](ai.md): неизвестные ограничения не игнорируются. Инструменты требуют AI-provider, соответствующий connector — включенной build-фичи; звонки требуют TURN-настроек. Значения и ограничения проверяет `internal/config/config.go`.
+
+Именованный stage-1 профиль разрешается последовательно: глобальная `[ai]` →
+`[ai.endpoints.NAME]` → `[ai.bots.NAME]`. Если глобальная модель отсутствует,
+нужен корректный `default_bot`. Endpoint выбирает `provider` (`openai` или
+`anthropic`), URL, модель, `key_env`, `auth`, `allow_private`, streaming,
+capabilities и ограниченные overrides. Бот выбирает endpoint и может только
+сузить инструменты и лимиты. `max_output_tokens` — от 1 до 65536;
+capabilities сейчас ограничены `basic_text` и `tool`. Мультимодальность и
+другие capability names этим контрактом не поддерживаются.
+
+Для локального приватного OpenAI-compatible endpoint допустим `auth="none"`
+только вместе с `allow_private=true` и без `key_env`. Это явное доверие к
+endpoint: plaintext отправляется в него. Значения секретов остаются в окружении
+процесса и не записываются в TOML, профили или логи. Именованный бот —
+постоянная user/device identity; в stage 1 он подключается только к BASIC
+личным и групповым чатам и запускается явным заданием после обычного сообщения.
+Подключение именованного бота к MLS E2EE отклоняется. Подробности — [AI-сеть](ai-network.ru.md).
+
+## Зашифрованное AI-хранилище по scope
+
+`features.ai_storage` требует `features.ai_policy` и provider feature. Секция
+`[ai_storage]` содержит `grant_public_key_env`, `issuer`, отдельный storage
+`audience`, `grant_ttl_seconds`, `max_resources`,
+`max_documents_per_resource`, `max_item_bytes`, `max_vector_dimensions`,
+`max_results`, `max_graph_depth`. Storage audience отличается от
+`security.audience` и `ai_policy.audience`: approval policy и независимый
+resource grant — разные контракты. Пределы должны быть положительными и
+укладываться в package ceilings; encrypted store добавляет свои bounds.
+
+Storage tool имеет `kind="storage"`, фиксированный `resource`,
+`storage_action` (`read`, `search`, `graph`) и `require_approval=true`. Нельзя
+задавать для него HTTP URL, secret, methods или `allow_private`. Private
+`user`/`bot` resource разрешен соответствующему участнику только в direct-чате
+из двух участников; `shared` требует явного разрешения. См. [этап 3](ai-stage3.ru.md)
+и [пример](../configs/ai-storage.toml).
+
+## Реестр внешних MLS endpoint
+
+`features.ai_endpoint` требует `features.e2ee` и регистрирует внешние endpoint
+devices с `kind="llm"`, `"tools"` или `"storage"`. Registry не владеет private
+MLS state endpoint; внешний worker владеет зашифрованным singleton state и
+прикрепленным составом участников. См. [этап 3](ai-stage3.ru.md) и
+[configs/ai-endpoint-relay.toml](../configs/ai-endpoint-relay.toml).
+
+## AI policy второго этапа
+
+`[ai_policy]` задает `grant_public_key_env`, `issuer`, `audience`, `approval_ttl_seconds`, `require_provider_approval`, `provider_reserve_microunits`, `global_daily_budget_microunits`, `per_bot_daily_budget_microunits`, `per_user_daily_budget_microunits`, `currency`. `[ai]` и endpoints задают input/output цены за миллион токенов. Каждый tool получает `require_approval` и фиксированный `cost_microunits`. [Полный reference с defaults/ranges](ai-policy.ru.md), [пример](../configs/ai-policy.toml). При отключенном approval gateway все равно сохраняет резерв и egress notice. Это расчетный учет, не гарантия суммы счета внешнего провайдера.
+
+Secret reference — только имя переменной:
+
+```toml
+[security]
+master_key_env = "QGRAMM_MASTER_KEY"
+```
+
+```text
+имя reference в TOML -> значение переменной процесса -> key material
+```
+
+`validate` и `explain` показывают имя, но не читают значение.
 
 ## Сборка и развертывание
 
 ```sh
-go run ./cmd/qgramm-build build -config qgramm.toml -out bin/qgramm
+go run ./cmd/qgramm-build build -config app-qgramm.toml -out bin/qgramm
 go run ./cmd/qgramm-build plan -config qgramm.toml
 go run ./cmd/qgramm-build compose -config configs/container.toml -out compose.yaml
 docker compose --env-file .env up --build -d
 ```
 
-Отключенные модули исключены Go build tags: нет их маршрутов, таблиц и workers в новой БД. Старые таблицы более полной установки не удаляются автоматически. Состав TOML сверяется с манифестом бинарника; смена функций требует сборки, обычных настроек — перезапуска. Docker работает UID 10001, с persistent `/data`, healthcheck и graceful shutdown. SQLite WAL/FULL рассчитан на один экземпляр; горизонтальный кластер не реализован.
+Отключенные модули исключены Go build tags: нет их маршрутов, таблиц и workers в новой БД. Пересобирайте только при изменении итогового набора features; обычные настройки, capacity, policy, URL и имена secret references требуют перезапуска. Старые таблицы более полной установки не удаляются автоматически. Docker работает UID 10001, с persistent `/data`, healthcheck и graceful shutdown. SQLite WAL/FULL рассчитан на один экземпляр; горизонтальный кластер не реализован.
 
 Расчет ресурсов учитывает CPU/cgroup/RAM, ограничивает очереди и параллельность; Compose задает CPU/RAM limits, но не резервирует хост. Одно число пользователей не описывает поток сообщений, размеры файлов или fan-out. Текущие рекомендации консервативны и не являются гарантией производительности. [Измерения и ограничения](benchmark.md).
 
@@ -50,7 +135,18 @@ Basic доверяет контейнеру: у него private HPKE/master key
 
 Для ротации замените primary ключи, внесите имена старых секретов в `previous_*_key_envs`, перезапустите. Новые записи используют primary, старые читаются только при сохранении нужных ключей. Удаление retired master делает его данные нечитаемыми; автоматического перешифрования нет. Backup требует всех применимых ключей. Это не криптографический аудит и не автоматическая forward secrecy.
 
-AI — явный отдельный участник личного чата. Он владеет только своими MLS-ключами; OpenAI/Anthropic получают plaintext. Durable jobs не создают повторный ответ при replay. Неопределенный внешний исход помечается `uncertain` и не повторяется бесконечно с оплатой. Global delete сбрасывает весь сохраненный AI context этого чата и отменяет queued/running jobs; поздний ответ не восстанавливает контекст. Уже отправленные провайдеру/инструменту запросы отозвать нельзя. Инструменты разрешает backend; URL/методы/размеры/timeout/шаги ограничены. Redirects запрещены, DNS dial закреплен, private addresses требуют явного разрешения. Модель не расширяет права. State шифруется; snapshots/backups могут сохранять прежние ключи. [AI contract](ai.md).
+Старый прямой AI-участник личного MLS-чата сохраняется и владеет только
+своими MLS-ключами; OpenAI/Anthropic получают plaintext. Именованные stage-1
+боты — постоянные пользователи/устройства для BASIC-чата, с отдельным
+контекстом на пару bot/chat и явным запуском через [AI network API](ai-network.ru.md).
+Durable jobs не создают повторный ответ при replay. Неопределенный внешний исход
+помечается `uncertain` и не повторяется бесконечно с оплатой. Global delete
+сбрасывает сохраненный AI context и отменяет queued/running jobs; поздний ответ
+не восстанавливает контекст. Уже отправленные провайдеру/инструменту запросы
+отозвать нельзя. Инструменты разрешает backend; URL/методы/размеры/timeout/шаги
+ограничены. Redirects запрещены, DNS dial закреплен, private addresses требуют
+явного разрешения. Модель не расширяет права. State шифруется; snapshots/backups
+могут сохранять прежние ключи. [AI contract](ai.md).
 
 ## Backup/restore и приемка
 

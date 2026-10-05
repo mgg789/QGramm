@@ -32,6 +32,61 @@ CREATE TABLE IF NOT EXISTS cursors(device_id TEXT NOT NULL,chat_id TEXT NOT NULL
 CREATE TABLE IF NOT EXISTS tickets(hash TEXT PRIMARY KEY,device_id TEXT NOT NULL,user_id TEXT NOT NULL,expires INTEGER NOT NULL);
 INSERT OR IGNORE INTO schema_versions VALUES(1);`
 
+// Retention cleanup removes at most one bounded batch per SQL statement. A
+// short context-aware yield between full batches lets foreground writes use
+// the single writer connection while a large expired backlog is drained.
+const (
+	retentionCleanupBatchSize = 256
+	retentionCleanupYield     = 2 * time.Millisecond
+)
+
+type schemaMigration struct {
+	version    int
+	statements []string
+}
+
+var schemaMigrations = []schemaMigration{
+	{
+		version: 2,
+		statements: []string{
+			`CREATE INDEX IF NOT EXISTS tickets_expires ON tickets(expires)`,
+			`CREATE INDEX IF NOT EXISTS operations_created_at ON operations(created_at)`,
+			`CREATE INDEX IF NOT EXISTS events_created_at ON events(created_at)`,
+		},
+	},
+}
+
+func applyMigrations(ctx context.Context, db *sql.DB) error {
+	var current int
+	if err := db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version),0) FROM schema_versions`).Scan(&current); err != nil {
+		return err
+	}
+	for _, migration := range schemaMigrations {
+		if migration.version <= current {
+			continue
+		}
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		for _, statement := range migration.statements {
+			if _, err = tx.ExecContext(ctx, statement); err != nil {
+				_ = tx.Rollback()
+				return err
+			}
+		}
+		if _, err = tx.ExecContext(ctx, `INSERT INTO schema_versions(version) VALUES(?)`, migration.version); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		if err = tx.Commit(); err != nil {
+			return err
+		}
+		current = migration.version
+	}
+	return nil
+}
+
 func Open(cfg config.Config, compiled []string) (*Core, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -115,6 +170,10 @@ func Open(cfg config.Config, compiled []string) (*Core, error) {
 		db.Close()
 		return nil, err
 	}
+	if err = applyMigrations(context.Background(), db); err != nil {
+		db.Close()
+		return nil, err
+	}
 	if err = os.Chmod(cfg.Storage.Path, 0600); err != nil {
 		db.Close()
 		return nil, err
@@ -153,6 +212,10 @@ func Open(cfg config.Config, compiled []string) (*Core, error) {
 		return nil, err
 	}
 	c.writer = newMessageWriter(c)
+	if err := c.startCheckpointer(); err != nil {
+		c.Close()
+		return nil, err
+	}
 	go c.replayLoop()
 	go c.cleanupLoop()
 	go c.connectionAuthLoop()
@@ -202,6 +265,10 @@ func (c *Core) Close() error {
 	c.cancel()
 	if c.writer != nil {
 		c.writer.close()
+	}
+	if c.checkpoint != nil {
+		<-c.checkpoint.done
+		c.checkpoint.db.Close()
 	}
 	c.readStatements.close()
 	c.writeStatements.close()
@@ -265,13 +332,78 @@ func (c *Core) cleanupLoop() {
 			return
 		case <-ticker.C:
 			ctx, cancel := context.WithTimeout(c.Context, 20*time.Second)
-			_, _ = c.DB.ExecContext(ctx, `DELETE FROM tickets WHERE expires<?`, time.Now().Unix())
-			_, _ = c.DB.ExecContext(ctx, `DELETE FROM operations WHERE created_at<?`, time.Now().Add(-time.Duration(c.Config.Policy.DedupRetentionHours)*time.Hour).Unix())
-			_, _ = c.DB.ExecContext(ctx, `DELETE FROM events WHERE created_at<?`, time.Now().Add(-time.Duration(c.Config.Policy.EventRetentionHours)*time.Hour).Unix())
+			now := time.Now()
+			_ = cleanupRetention(ctx, c.DB, []retentionCleanup{
+				{spec: retentionCleanupSpec{table: "tickets", column: "expires", index: "tickets_expires"}, cutoff: now.Unix()},
+				{spec: retentionCleanupSpec{table: "operations", column: "created_at", index: "operations_created_at"}, cutoff: now.Add(-time.Duration(c.Config.Policy.DedupRetentionHours) * time.Hour).Unix()},
+				{spec: retentionCleanupSpec{table: "events", column: "created_at", index: "events_created_at"}, cutoff: now.Add(-time.Duration(c.Config.Policy.EventRetentionHours) * time.Hour).Unix()},
+			})
 			for _, fn := range c.Cleanup {
 				_ = fn(ctx)
 			}
 			cancel()
+		}
+	}
+}
+
+type retentionCleanupSpec struct {
+	table  string
+	column string
+	index  string
+}
+
+type retentionCleanup struct {
+	spec   retentionCleanupSpec
+	cutoff int64
+}
+
+func retentionDeleteSQL(spec retentionCleanupSpec) string {
+	return fmt.Sprintf(`DELETE FROM %s WHERE rowid IN (SELECT rowid FROM %s INDEXED BY %s WHERE %s<? LIMIT ?)`, spec.table, spec.table, spec.index, spec.column)
+}
+
+func deleteRetentionBatch(ctx context.Context, db *sql.DB, spec retentionCleanupSpec, cutoff int64, limit int) (int64, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	if limit <= 0 {
+		return 0, nil
+	}
+	result, err := db.ExecContext(ctx, retentionDeleteSQL(spec), cutoff, limit)
+	if err != nil {
+		return 0, err
+	}
+	deleted, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return deleted, nil
+}
+
+func cleanupRetention(ctx context.Context, db *sql.DB, entries []retentionCleanup) error {
+	for {
+		more := false
+		for _, entry := range entries {
+			deleted, err := deleteRetentionBatch(ctx, db, entry.spec, entry.cutoff, retentionCleanupBatchSize)
+			if err != nil {
+				return err
+			}
+			if deleted == retentionCleanupBatchSize {
+				more = true
+			}
+			if deleted > 0 {
+				timer := time.NewTimer(retentionCleanupYield)
+				select {
+				case <-ctx.Done():
+					if !timer.Stop() {
+						<-timer.C
+					}
+					return ctx.Err()
+				case <-timer.C:
+				}
+			}
+		}
+		if !more {
+			return nil
 		}
 	}
 }

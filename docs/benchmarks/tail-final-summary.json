@@ -1,0 +1,377 @@
+{
+  "before_source_commit": "b131b63",
+  "after_source_commit": "bc73c00",
+  "initial_campaign": "tail-summary.json",
+  "final_primary_followup_runs": 4,
+  "comparison_control_runs": 4,
+  "final_followup_accepted_equals_delivered_equals_history_total": 31963,
+  "all_included_primary_runs": 16,
+  "all_included_primary_accepted_total": 127836,
+  "method": "Final fast-path follow-up two repeats standard/subscribed with same frozen runner/generator, quotas and nominal load. Existing fresh b131b63 controls from initial campaign reused; final runs later in time, not interleaved randomized controls. Checkpoint remains disabled. No source checks/builds overlap included primary runs.",
+  "aggregation": "Means of per-run percentiles/resource phase means/sample maxima, not pooled percentile; two repeats not confidence intervals; 100% CPU one core",
+  "runs": [
+    {
+      "file": "tail-before-standard-1.json",
+      "variant": "before",
+      "profile": "standard",
+      "repeat": 1,
+      "accepted": 7986,
+      "steady_accept_p95_ms": 4.359,
+      "steady_accept_p99_ms": 6.257,
+      "steady_delivery_p95_ms": 4.363,
+      "steady_delivery_p99_ms": 6.289,
+      "combined_delivery_p99_ms": 5.756,
+      "steady_cpu_mean_percent_one_core": 13.56,
+      "steady_memory_sample_max_mib": 280.0
+    },
+    {
+      "file": "tail-before-standard-2.json",
+      "variant": "before",
+      "profile": "standard",
+      "repeat": 2,
+      "accepted": 7994,
+      "steady_accept_p95_ms": 5.275,
+      "steady_accept_p99_ms": 7.868,
+      "steady_delivery_p95_ms": 5.319,
+      "steady_delivery_p99_ms": 7.821,
+      "combined_delivery_p99_ms": 7.408,
+      "steady_cpu_mean_percent_one_core": 13.901,
+      "steady_memory_sample_max_mib": 279.5
+    },
+    {
+      "file": "tail-fast-standard-1.json",
+      "variant": "fast",
+      "profile": "standard",
+      "repeat": 1,
+      "accepted": 7994,
+      "steady_accept_p95_ms": 4.946,
+      "steady_accept_p99_ms": 7.769,
+      "steady_delivery_p95_ms": 4.94,
+      "steady_delivery_p99_ms": 7.677,
+      "combined_delivery_p99_ms": 6.514,
+      "steady_cpu_mean_percent_one_core": 13.295,
+      "steady_memory_sample_max_mib": 276.7
+    },
+    {
+      "file": "tail-fast-standard-2.json",
+      "variant": "fast",
+      "profile": "standard",
+      "repeat": 2,
+      "accepted": 7987,
+      "steady_accept_p95_ms": 5.086,
+      "steady_accept_p99_ms": 7.819,
+      "steady_delivery_p95_ms": 5.17,
+      "steady_delivery_p99_ms": 7.693,
+      "combined_delivery_p99_ms": 7.693,
+      "steady_cpu_mean_percent_one_core": 14.419,
+      "steady_memory_sample_max_mib": 271.1
+    },
+    {
+      "file": "tail-before-subscribed-1.json",
+      "variant": "before",
+      "profile": "subscribed",
+      "repeat": 1,
+      "accepted": 7989,
+      "steady_accept_p95_ms": 4.961,
+      "steady_accept_p99_ms": 6.576,
+      "steady_delivery_p95_ms": 4.927,
+      "steady_delivery_p99_ms": 6.427,
+      "combined_delivery_p99_ms": 6.576,
+      "steady_cpu_mean_percent_one_core": 16.365,
+      "steady_memory_sample_max_mib": 324.0
+    },
+    {
+      "file": "tail-before-subscribed-2.json",
+      "variant": "before",
+      "profile": "subscribed",
+      "repeat": 2,
+      "accepted": 7992,
+      "steady_accept_p95_ms": 4.495,
+      "steady_accept_p99_ms": 6.096,
+      "steady_delivery_p95_ms": 4.45,
+      "steady_delivery_p99_ms": 6.071,
+      "combined_delivery_p99_ms": 6.263,
+      "steady_cpu_mean_percent_one_core": 15.075,
+      "steady_memory_sample_max_mib": 337.8
+    },
+    {
+      "file": "tail-fast-subscribed-1.json",
+      "variant": "fast",
+      "profile": "subscribed",
+      "repeat": 1,
+      "accepted": 7990,
+      "steady_accept_p95_ms": 4.837,
+      "steady_accept_p99_ms": 7.648,
+      "steady_delivery_p95_ms": 4.869,
+      "steady_delivery_p99_ms": 7.677,
+      "combined_delivery_p99_ms": 6.905,
+      "steady_cpu_mean_percent_one_core": 16.684,
+      "steady_memory_sample_max_mib": 335.0
+    },
+    {
+      "file": "tail-fast-subscribed-2.json",
+      "variant": "fast",
+      "profile": "subscribed",
+      "repeat": 2,
+      "accepted": 7992,
+      "steady_accept_p95_ms": 4.894,
+      "steady_accept_p99_ms": 7.022,
+      "steady_delivery_p95_ms": 4.956,
+      "steady_delivery_p99_ms": 7.121,
+      "combined_delivery_p99_ms": 6.455,
+      "steady_cpu_mean_percent_one_core": 16.597,
+      "steady_memory_sample_max_mib": 340.2
+    }
+  ],
+  "comparison": {
+    "standard": {
+      "steady_accept_p95_ms": {
+        "per_run": {
+          "before": [
+            4.359,
+            5.275
+          ],
+          "fast": [
+            4.946,
+            5.086
+          ]
+        },
+        "per_run_mean": {
+          "before": 4.817,
+          "fast": 5.016
+        },
+        "fast_change_vs_before_percent": 4.131201992941658
+      },
+      "steady_accept_p99_ms": {
+        "per_run": {
+          "before": [
+            6.257,
+            7.868
+          ],
+          "fast": [
+            7.769,
+            7.819
+          ]
+        },
+        "per_run_mean": {
+          "before": 7.0625,
+          "fast": 7.7940000000000005
+        },
+        "fast_change_vs_before_percent": 10.357522123893803
+      },
+      "steady_delivery_p95_ms": {
+        "per_run": {
+          "before": [
+            4.363,
+            5.319
+          ],
+          "fast": [
+            4.94,
+            5.17
+          ]
+        },
+        "per_run_mean": {
+          "before": 4.841,
+          "fast": 5.055
+        },
+        "fast_change_vs_before_percent": 4.420574261516208
+      },
+      "steady_delivery_p99_ms": {
+        "per_run": {
+          "before": [
+            6.289,
+            7.821
+          ],
+          "fast": [
+            7.677,
+            7.693
+          ]
+        },
+        "per_run_mean": {
+          "before": 7.055,
+          "fast": 7.685
+        },
+        "fast_change_vs_before_percent": 8.929836995038976
+      },
+      "combined_delivery_p99_ms": {
+        "per_run": {
+          "before": [
+            5.756,
+            7.408
+          ],
+          "fast": [
+            6.514,
+            7.693
+          ]
+        },
+        "per_run_mean": {
+          "before": 6.582000000000001,
+          "fast": 7.1035
+        },
+        "fast_change_vs_before_percent": 7.923123670616827
+      },
+      "steady_cpu_mean_percent_one_core": {
+        "per_run": {
+          "before": [
+            13.56,
+            13.901
+          ],
+          "fast": [
+            13.295,
+            14.419
+          ]
+        },
+        "per_run_mean": {
+          "before": 13.7305,
+          "fast": 13.857
+        },
+        "fast_change_vs_before_percent": 0.9213065802410769
+      },
+      "steady_memory_sample_max_mib": {
+        "per_run": {
+          "before": [
+            280.0,
+            279.5
+          ],
+          "fast": [
+            276.7,
+            271.1
+          ]
+        },
+        "per_run_mean": {
+          "before": 279.75,
+          "fast": 273.9
+        },
+        "fast_change_vs_before_percent": -2.0911528150134084
+      }
+    },
+    "subscribed": {
+      "steady_accept_p95_ms": {
+        "per_run": {
+          "before": [
+            4.961,
+            4.495
+          ],
+          "fast": [
+            4.837,
+            4.894
+          ]
+        },
+        "per_run_mean": {
+          "before": 4.728,
+          "fast": 4.8655
+        },
+        "fast_change_vs_before_percent": 2.908206429780047
+      },
+      "steady_accept_p99_ms": {
+        "per_run": {
+          "before": [
+            6.576,
+            6.096
+          ],
+          "fast": [
+            7.648,
+            7.022
+          ]
+        },
+        "per_run_mean": {
+          "before": 6.336,
+          "fast": 7.335
+        },
+        "fast_change_vs_before_percent": 15.767045454545459
+      },
+      "steady_delivery_p95_ms": {
+        "per_run": {
+          "before": [
+            4.927,
+            4.45
+          ],
+          "fast": [
+            4.869,
+            4.956
+          ]
+        },
+        "per_run_mean": {
+          "before": 4.6884999999999994,
+          "fast": 4.9125
+        },
+        "fast_change_vs_before_percent": 4.777647435213828
+      },
+      "steady_delivery_p99_ms": {
+        "per_run": {
+          "before": [
+            6.427,
+            6.071
+          ],
+          "fast": [
+            7.677,
+            7.121
+          ]
+        },
+        "per_run_mean": {
+          "before": 6.249,
+          "fast": 7.399
+        },
+        "fast_change_vs_before_percent": 18.40294447111539
+      },
+      "combined_delivery_p99_ms": {
+        "per_run": {
+          "before": [
+            6.576,
+            6.263
+          ],
+          "fast": [
+            6.905,
+            6.455
+          ]
+        },
+        "per_run_mean": {
+          "before": 6.419499999999999,
+          "fast": 6.68
+        },
+        "fast_change_vs_before_percent": 4.057948438351899
+      },
+      "steady_cpu_mean_percent_one_core": {
+        "per_run": {
+          "before": [
+            16.365,
+            15.075
+          ],
+          "fast": [
+            16.684,
+            16.597
+          ]
+        },
+        "per_run_mean": {
+          "before": 15.719999999999999,
+          "fast": 16.640500000000003
+        },
+        "fast_change_vs_before_percent": 5.855597964376624
+      },
+      "steady_memory_sample_max_mib": {
+        "per_run": {
+          "before": [
+            324.0,
+            337.8
+          ],
+          "fast": [
+            335.0,
+            340.2
+          ]
+        },
+        "per_run_mean": {
+          "before": 330.9,
+          "fast": 337.6
+        },
+        "fast_change_vs_before_percent": 2.024780900574208
+      }
+    }
+  },
+  "limitations": [
+    "Shared Apple M5 Pro/macOS Docker Linux VM,4CPU8GiB,not dedicated LinuxSSD",
+    "One active conversation,10kWS,100/s30s+1000/s5s,10sidle,17byteHPKE,fullresponse,noTLS",
+    "Counts do not prove exact received IDs,recipient decryption or persistent device receipts",
+    "No final fast-path checkpoint campaign; first candidate checkpoint results must not be combined as final fast-path measurements",
+    "Phase-labelled Docker resources approximately2s cadence; sampled maximum not exactRSSpeak"
+  ]
+}

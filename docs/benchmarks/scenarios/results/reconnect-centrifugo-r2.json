@@ -1,0 +1,605 @@
+{
+  "service": "centrifugo",
+  "users": 1000,
+  "chats": 100,
+  "fanout": 1,
+  "payload_bytes": 256,
+  "workers": 256,
+  "integrity_passed": true,
+  "load_pass": false,
+  "started_at": "2026-10-05T04:34:16.391888+03:00",
+  "phases": [
+    {
+      "name": "step-0",
+      "target_messages_per_second": 200,
+      "duration_seconds": 10,
+      "planned": 2000,
+      "scheduled": 2000,
+      "offered": 2000,
+      "accepted": 2000,
+      "rejected": 0,
+      "backpressure": 0,
+      "uncertain": 0,
+      "skipped": 0,
+      "delivered": 2000,
+      "duplicate": 0,
+      "actual_offered_rate": 200,
+      "ack": {
+        "p50_ms": 0.604375,
+        "p95_ms": 0.996291,
+        "p99_ms": 1.800583,
+        "samples": 2000
+      },
+      "delivery": {
+        "p50_ms": 0.608708,
+        "p95_ms": 1.02575,
+        "p99_ms": 1.796541,
+        "samples": 2000
+      },
+      "generator_late": {
+        "p50_ms": 0.502667,
+        "p95_ms": 0.57425,
+        "p99_ms": 0.6085,
+        "samples": 2000
+      },
+      "slo_pass": true
+    },
+    {
+      "name": "step-1",
+      "target_messages_per_second": 200,
+      "duration_seconds": 10,
+      "planned": 2000,
+      "scheduled": 2000,
+      "offered": 2000,
+      "accepted": 2000,
+      "rejected": 0,
+      "backpressure": 0,
+      "uncertain": 0,
+      "skipped": 0,
+      "delivered": 2000,
+      "duplicate": 0,
+      "actual_offered_rate": 200,
+      "ack": {
+        "p50_ms": 0.6475,
+        "p95_ms": 1.04075,
+        "p99_ms": 1.532083,
+        "samples": 2000
+      },
+      "delivery": {
+        "p50_ms": 7.046208,
+        "p95_ms": 4506.568333,
+        "p99_ms": 4913.938042,
+        "samples": 2000
+      },
+      "generator_late": {
+        "p50_ms": 0.495833,
+        "p95_ms": 0.562375,
+        "p99_ms": 0.589291,
+        "samples": 2000
+      },
+      "slo_pass": false
+    },
+    {
+      "name": "step-2",
+      "target_messages_per_second": 200,
+      "duration_seconds": 10,
+      "planned": 2000,
+      "scheduled": 2000,
+      "offered": 2000,
+      "accepted": 2000,
+      "rejected": 0,
+      "backpressure": 0,
+      "uncertain": 0,
+      "skipped": 0,
+      "delivered": 2000,
+      "duplicate": 0,
+      "actual_offered_rate": 200,
+      "ack": {
+        "p50_ms": 0.718667,
+        "p95_ms": 1.068708,
+        "p99_ms": 1.780625,
+        "samples": 2000
+      },
+      "delivery": {
+        "p50_ms": 0.725542,
+        "p95_ms": 1.072542,
+        "p99_ms": 1.784084,
+        "samples": 2000
+      },
+      "generator_late": {
+        "p50_ms": 0.484292,
+        "p95_ms": 0.570083,
+        "p99_ms": 0.594208,
+        "samples": 2000
+      },
+      "slo_pass": true
+    }
+  ],
+  "outstanding": [
+    {
+      "seconds": 1.001110584,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 2.001064959,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 3.001054917,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 4.000596167,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 5.001062959,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 6.001060084,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 7.001052709,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 8.001065667,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 9.00063025,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 10.001054375,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 11.00035675,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 12.000188792,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 13.000380625,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 14.00037325,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 15.000150292,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 16.000379375,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 17.000176,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 18.000383292,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 19.0004475,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 20.000335125,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 21.000301459,
+      "pending_deliveries": 200,
+      "max_age_ms": 997.118167
+    },
+    {
+      "seconds": 22.000238459,
+      "pending_deliveries": 400,
+      "max_age_ms": 1997.055167
+    },
+    {
+      "seconds": 23.000272,
+      "pending_deliveries": 600,
+      "max_age_ms": 2997.088708
+    },
+    {
+      "seconds": 24.000309417,
+      "pending_deliveries": 800,
+      "max_age_ms": 3997.126125
+    },
+    {
+      "seconds": 25.00025575,
+      "pending_deliveries": 1000,
+      "max_age_ms": 4997.072458
+    },
+    {
+      "seconds": 26.000287792,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 27.00028275,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 28.000285667,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 29.00028975,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 30.000248917,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 31.000181542,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 32.000186167,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 33.000174125,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 34.000283334,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 35.000056875,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 36.000212167,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 37.000209042,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 38.000180209,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 39.000163834,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 40.000224667,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 40.106188917,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    }
+  ],
+  "integrity": {
+    "accepted": 6000,
+    "expected_deliveries": 6000,
+    "received": 6000,
+    "missing": 0,
+    "duplicate": 0,
+    "unexpected": 0,
+    "corrupt": 0,
+    "out_of_order": 0,
+    "adapter_errors": 0
+  },
+  "history": {
+    "checked": 6000,
+    "missing": 0,
+    "unexpected": 0,
+    "corrupt": 0,
+    "supported": true
+  },
+  "reconnect": {
+    "receivers": 100,
+    "offline_seconds": 5,
+    "replay_origin_latency": {
+      "p50_ms": 2506.627667,
+      "p95_ms": 4771.712208,
+      "p99_ms": 4958.370083,
+      "samples": 1000
+    },
+    "resume_drain_ms": 29.793,
+    "pending_at_resume": 1000,
+    "completed": true
+  },
+  "highest_tested_slo_rate": 200,
+  "drain_seconds": 0.000276167,
+  "pending_after_drain": 0,
+  "duplicate_policy": "unique delivery integrity allows counted at-least-once duplicates; strict load SLO requires zero",
+  "resource_samples": [
+    {
+      "elapsed_seconds": 1.035,
+      "phase": "idle",
+      "cpu": "17.63%",
+      "memory": "63.92MiB / 7.748GiB",
+      "network_io": "783kB / 558kB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 3.0,
+      "generator_rss_kib": 38352
+    },
+    {
+      "elapsed_seconds": 3.075,
+      "phase": "idle",
+      "cpu": "0.03%",
+      "memory": "63.92MiB / 7.748GiB",
+      "network_io": "784kB / 558kB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 0.0,
+      "generator_rss_kib": 38352
+    },
+    {
+      "elapsed_seconds": 5.111,
+      "phase": "idle",
+      "cpu": "0.01%",
+      "memory": "63.92MiB / 7.748GiB",
+      "network_io": "784kB / 558kB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 0.0,
+      "generator_rss_kib": 38352
+    },
+    {
+      "elapsed_seconds": 7.149,
+      "phase": "idle",
+      "cpu": "0.02%",
+      "memory": "63.93MiB / 7.748GiB",
+      "network_io": "784kB / 558kB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 0.0,
+      "generator_rss_kib": 38352
+    },
+    {
+      "elapsed_seconds": 9.192,
+      "phase": "idle",
+      "cpu": "0.03%",
+      "memory": "63.93MiB / 7.748GiB",
+      "network_io": "784kB / 558kB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 0.0,
+      "generator_rss_kib": 38352
+    },
+    {
+      "elapsed_seconds": 11.229,
+      "phase": "step-0",
+      "cpu": "4.03%",
+      "memory": "66.67MiB / 7.748GiB",
+      "network_io": "884kB / 666kB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 4.2,
+      "generator_rss_kib": 38544
+    },
+    {
+      "elapsed_seconds": 13.257,
+      "phase": "step-0",
+      "cpu": "3.56%",
+      "memory": "67.61MiB / 7.748GiB",
+      "network_io": "1.1MB / 894kB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 5.4,
+      "generator_rss_kib": 40640
+    },
+    {
+      "elapsed_seconds": 15.297,
+      "phase": "step-0",
+      "cpu": "6.11%",
+      "memory": "68.97MiB / 7.748GiB",
+      "network_io": "1.33MB / 1.14MB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 7.1,
+      "generator_rss_kib": 44192
+    },
+    {
+      "elapsed_seconds": 17.338,
+      "phase": "step-0",
+      "cpu": "5.95%",
+      "memory": "70MiB / 7.748GiB",
+      "network_io": "1.65MB / 1.47MB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 4.9,
+      "generator_rss_kib": 45808
+    },
+    {
+      "elapsed_seconds": 19.369,
+      "phase": "step-0",
+      "cpu": "3.16%",
+      "memory": "70.73MiB / 7.748GiB",
+      "network_io": "1.88MB / 1.71MB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 5.0,
+      "generator_rss_kib": 45952
+    },
+    {
+      "elapsed_seconds": 21.402,
+      "phase": "step-1",
+      "cpu": "4.59%",
+      "memory": "71.02MiB / 7.748GiB",
+      "network_io": "2.11MB / 1.86MB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 3.8,
+      "generator_rss_kib": 46256
+    },
+    {
+      "elapsed_seconds": 23.434,
+      "phase": "step-1",
+      "cpu": "4.75%",
+      "memory": "71.78MiB / 7.748GiB",
+      "network_io": "2.31MB / 1.92MB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 3.0,
+      "generator_rss_kib": 46368
+    },
+    {
+      "elapsed_seconds": 25.474,
+      "phase": "step-1",
+      "cpu": "7.17%",
+      "memory": "76.3MiB / 7.748GiB",
+      "network_io": "2.61MB / 2.42MB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 12.1,
+      "generator_rss_kib": 47664
+    },
+    {
+      "elapsed_seconds": 27.509,
+      "phase": "step-1",
+      "cpu": "5.68%",
+      "memory": "77.06MiB / 7.748GiB",
+      "network_io": "2.82MB / 2.64MB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 4.5,
+      "generator_rss_kib": 48176
+    },
+    {
+      "elapsed_seconds": 29.542,
+      "phase": "step-1",
+      "cpu": "3.94%",
+      "memory": "78.79MiB / 7.748GiB",
+      "network_io": "3.04MB / 2.87MB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 4.2,
+      "generator_rss_kib": 49312
+    },
+    {
+      "elapsed_seconds": 31.579,
+      "phase": "step-2",
+      "cpu": "7.65%",
+      "memory": "85.61MiB / 7.748GiB",
+      "network_io": "3.27MB / 3.11MB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 4.4,
+      "generator_rss_kib": 49504
+    },
+    {
+      "elapsed_seconds": 33.619,
+      "phase": "step-2",
+      "cpu": "4.43%",
+      "memory": "85.59MiB / 7.748GiB",
+      "network_io": "3.5MB / 3.36MB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 3.1,
+      "generator_rss_kib": 49520
+    },
+    {
+      "elapsed_seconds": 35.646,
+      "phase": "step-2",
+      "cpu": "4.71%",
+      "memory": "85.65MiB / 7.748GiB",
+      "network_io": "3.73MB / 3.6MB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 4.7,
+      "generator_rss_kib": 50512
+    },
+    {
+      "elapsed_seconds": 37.682,
+      "phase": "step-2",
+      "cpu": "4.92%",
+      "memory": "85.34MiB / 7.748GiB",
+      "network_io": "3.95MB / 3.84MB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 4.8,
+      "generator_rss_kib": 52448
+    },
+    {
+      "elapsed_seconds": 39.723,
+      "phase": "step-2",
+      "cpu": "4.05%",
+      "memory": "85.93MiB / 7.748GiB",
+      "network_io": "4.19MB / 4.1MB",
+      "block_io": "131kB / 0B",
+      "generator_cpu_lifetime_percent": 5.3,
+      "generator_rss_kib": 52656
+    }
+  ],
+  "generator_exit_code": 0,
+  "readiness_seconds": 0.118,
+  "environment": {
+    "host_os": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "host_cpu": "Apple M5 Pro",
+    "host_logical_cpus": 18,
+    "server_kernel": "Linux 5aa164eb93fe 6.12.76-linuxkit #1 SMP Thu Jun 11 15:44:51 UTC 2026 aarch64 Linux",
+    "cpu_limit": 4,
+    "ram_limit_gib": 8,
+    "image": "qgramm-scenario-centrifugo:6.9.7",
+    "image_id": "sha256:fd02a90a7def89119f22f45ecfc1ad48ade2c78706e911c37e9e4871fac6463f",
+    "image_labels": {
+      "scenario.release": "v6.9.7",
+      "scenario.source": "https://github.com/centrifugal/centrifugo/releases/tag/v6.9.7"
+    },
+    "generator_sha256": "e5bcf3983a97fefa916978221f4de31f249d823ba39eaa36b4c89d2cb44887b2",
+    "tooling_commit": "f35f73670796e95bff86e8f203dbf37e1179aac9",
+    "container_oom": false,
+    "isolation": "shared Docker Desktop VM, generator host, noTLS, loopback only",
+    "stats": "docker no-stream+1s (~2s); CPU100%=onecore; generator psCPU lifetime mean, not intervalCPU"
+  },
+  "server_configuration": "{\"health\": {\"enabled\": true}, \"client\": {\"token\": {\"hmac_secret_key\": \"<synthetic-secret>\"}, \"history_max_publication_limit\": 1000000}, \"channel\": {\"without_namespace\": {\"allow_subscribe_for_client\": true, \"allow_publish_for_client\": true, \"allow_history_for_client\": true, \"force_recovery\": true, \"history_size\": 1000000, \"history_ttl\": \"900s\"}}, \"engine\": {\"type\": \"memory\"}}",
+  "contract": {
+    "durability": "Memory history cache1M/channel TTL900s; no restart durability",
+    "crypto": "none; isolated loopback payload",
+    "auth": "distinct HS256 connectionJWT, permissive benchmark channels",
+    "transport": "WebSocket send/receive"
+  },
+  "campaign": {
+    "name": "reconnect-centrifugo-r2",
+    "mode": "comparison",
+    "settings": {
+      "users": 1000,
+      "chats": 100,
+      "fanout": 1,
+      "payload_bytes": 256,
+      "steps": "200:10s,200:10s,200:10s",
+      "reconnect": 100,
+      "offline": "5s"
+    },
+    "runner_exit_code": 0,
+    "cooldown_seconds": 15
+  }
+}

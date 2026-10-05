@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"os"
 	"strings"
 
 	"github.com/mgg789/QGramm/internal/config"
@@ -15,11 +14,25 @@ import (
 
 func init() { aiProviders["openai"] = aiOpenAI; core.Register("openai", installAI) }
 func aiOpenAI(ctx context.Context, c config.Config, turns []aiTurn, tools []config.Tool, request aiRequester) (aiAnswer, error) {
-	key := os.Getenv(c.AI.OpenAIKeyEnv)
-	if key == "" {
-		return aiAnswer{}, errors.New("provider credential unavailable")
+	if c.Features.AIPolicy {
+		if err := aiAssertPolicyEffect(ctx, true); err != nil {
+			return aiAnswer{}, err
+		}
+	}
+	if callback := aiStreamCallbackFromContext(ctx); callback != nil {
+		if aiOpenAIStreamFn == nil {
+			return aiAnswer{}, errors.New("provider streaming unavailable")
+		}
+		return aiOpenAIStreamFn(ctx, c, turns, tools, callback)
+	}
+	headers, headerErr := aiProviderHeaders(c.AI, "openai")
+	if headerErr != nil {
+		return aiAnswer{}, headerErr
 	}
 	messages := []map[string]any{}
+	if c.AI.SystemPrompt != "" {
+		messages = append(messages, map[string]any{"role": "system", "content": c.AI.SystemPrompt})
+	}
 	for _, t := range turns {
 		m := map[string]any{"role": t.Role, "content": t.Content}
 		if t.ToolCallID != "" {
@@ -34,7 +47,7 @@ func aiOpenAI(ctx context.Context, c config.Config, turns []aiTurn, tools []conf
 		}
 		messages = append(messages, m)
 	}
-	body := map[string]any{"model": c.AI.Model, "messages": messages, "max_tokens": 2048, "stream": false}
+	body := map[string]any{"model": c.AI.Model, "messages": messages, "max_tokens": aiMaxOutputTokens(c.AI), "stream": false}
 	if len(tools) > 0 {
 		defs := []map[string]any{}
 		for _, t := range tools {
@@ -46,11 +59,12 @@ func aiOpenAI(ctx context.Context, c config.Config, turns []aiTurn, tools []conf
 		}
 		body["tools"] = defs
 	}
-	data, e := request(ctx, strings.TrimRight(c.AI.OpenAIURL, "/")+"/chat/completions", map[string]string{"Authorization": "Bearer " + key}, body, false)
+	data, e := request(ctx, strings.TrimRight(c.AI.OpenAIURL, "/")+"/chat/completions", headers, body, c.AI.AllowPrivate)
 	if e != nil {
 		return aiAnswer{}, e
 	}
 	var response struct {
+		Usage   json.RawMessage `json:"usage"`
 		Choices []struct {
 			Message struct {
 				Content   string `json:"content"`
@@ -67,8 +81,16 @@ func aiOpenAI(ctx context.Context, c config.Config, turns []aiTurn, tools []conf
 	if json.Unmarshal(data, &response) != nil || len(response.Choices) != 1 {
 		return aiAnswer{}, errors.New("invalid provider response")
 	}
+	var usage aiUsage
+	if c.Features.AIPolicy && aiReadUsage != nil {
+		var err error
+		usage, err = aiReadUsage("openai", data, usage, true)
+		if err != nil {
+			return aiAnswer{}, err
+		}
+	}
 	m := response.Choices[0].Message
-	a := aiAnswer{Text: m.Content}
+	a := aiAnswer{Text: m.Content, Usage: usage}
 	for _, call := range m.ToolCalls {
 		if call.ID == "" || !json.Valid([]byte(call.Function.Arguments)) {
 			return aiAnswer{}, errors.New("invalid provider tool call")

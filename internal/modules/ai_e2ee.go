@@ -21,7 +21,7 @@ func init() {
 			return nil
 		}
 		var active int
-		if e := tx.QueryRowContext(ctx, `SELECT count(*) FROM ai_jobs WHERE chat_id=? AND status IN ('queued','running')`, chat).Scan(&active); e != nil {
+		if e := tx.QueryRowContext(ctx, `SELECT count(*) FROM ai_jobs WHERE chat_id=? AND status IN ('queued','running','awaiting_approval')`, chat).Scan(&active); e != nil {
 			return e
 		}
 		if active > 0 {
@@ -42,7 +42,7 @@ func init() {
 			return e
 		}
 		var active int
-		if e = tx.QueryRowContext(ctx, `SELECT count(*) FROM ai_jobs WHERE chat_id=? AND status='running'`, chat).Scan(&active); e != nil {
+		if e = tx.QueryRowContext(ctx, `SELECT count(*) FROM ai_jobs WHERE chat_id=? AND status IN ('running','awaiting_approval')`, chat).Scan(&active); e != nil {
 			return e
 		}
 		if active > 0 {

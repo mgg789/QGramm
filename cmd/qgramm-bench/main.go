@@ -90,6 +90,7 @@ func run() error {
 	burst := flag.Duration("burst", 5*time.Second, "burst duration")
 	burstRate := flag.Int("burst-rate", 1000, "burst offered messages/sec")
 	out := flag.String("out", "", "JSON evidence path")
+	batchSize := flag.Int("batch-size", 1, "messages per HTTP request; rates count messages, not requests")
 	responseMode := flag.String("response-mode", "full", "message acknowledgement: full or minimal (Prefer: return=minimal)")
 	phaseFile := flag.String("phase-file", "", "private workload phase marker for resource sampling")
 	idle := flag.Duration("idle", 0, "idle connected interval before traffic")
@@ -112,6 +113,9 @@ func run() error {
 	}
 	if *users < 2 || *users > 100000 || *rate < 1 || *burstRate < 1 || *groupSize < 2 || *groupSize > *users || *groupSize > 1000 {
 		return fmt.Errorf("invalid workload")
+	}
+	if *batchSize < 1 || *batchSize > 16 || *rate%*batchSize != 0 || *burstRate%*batchSize != 0 {
+		return fmt.Errorf("batch-size must be 1..16 and divide both message rates")
 	}
 	if *idleSubscriptions && (*groupSize != 2 || *users%2 != 0) {
 		return fmt.Errorf("idle subscriptions require an even number of users and group-size=2")
@@ -411,9 +415,64 @@ func run() error {
 			started.Delete(op)
 		}
 	}
+	sendBatch := func(ops []string, steady bool) {
+		defer wg.Done()
+		defer func() { <-sem }()
+		stamp := time.Now()
+		inputs := make([]map[string]any, len(ops))
+		for i, op := range ops {
+			started.Store(op, sampleStart{stamp, steady})
+			envelope, e := cryptoenc.SealEnvelope(pub, []byte("benchmark payload"), cryptoenc.Binding(chat, names[0], names[0], op))
+			if e != nil {
+				failed.Add(int64(len(ops)))
+				return
+			}
+			inputs[i] = map[string]any{"operation_id": op, "envelope": envelope}
+		}
+		body, status, e := c.request("POST", "/v1/chats/"+chat+"/messages/batch", names[0], map[string]any{"messages": inputs})
+		metricMu.Lock()
+		statusCounts[status]++
+		metricMu.Unlock()
+		if e != nil {
+			failed.Add(int64(len(ops)))
+			return
+		}
+		if status == 429 || status == 503 {
+			rejected.Add(int64(len(ops)))
+			for _, op := range ops {
+				started.Delete(op)
+			}
+			return
+		}
+		if status != 207 {
+			failed.Add(int64(len(ops)))
+			return
+		}
+		statuses, e := validateBatchReply(body, ops, chat, c.responseMode == "minimal")
+		if e != nil {
+			failed.Add(int64(len(ops)))
+			return
+		}
+		elapsed := float64(time.Since(stamp).Microseconds()) / 1000
+		for i, code := range statuses {
+			if code == 201 {
+				accepted.Add(1)
+				metricMu.Lock()
+				latencies = append(latencies, elapsed)
+				metricMu.Unlock()
+			} else {
+				started.Delete(ops[i])
+				if code == 429 || code == 503 {
+					rejected.Add(1)
+				} else {
+					failed.Add(1)
+				}
+			}
+		}
+	}
 	phase := func(d time.Duration, frequency int, steady bool) {
 		timer := time.NewTimer(d)
-		ticker := time.NewTicker(time.Second / time.Duration(frequency))
+		ticker := time.NewTicker(time.Second * time.Duration(*batchSize) / time.Duration(frequency))
 		defer timer.Stop()
 		defer ticker.Stop()
 		for {
@@ -422,13 +481,21 @@ func run() error {
 				wg.Wait()
 				return
 			case <-ticker.C:
-				n := offered.Add(1)
+				n := offered.Add(int64(*batchSize))
 				select {
 				case sem <- struct{}{}:
 					wg.Add(1)
-					go send(fmt.Sprintf("%sop-%d", prefix, n), steady)
+					if *batchSize == 1 {
+						go send(fmt.Sprintf("%sop-%d", prefix, n), steady)
+					} else {
+						ops := make([]string, *batchSize)
+						for i := range ops {
+							ops[i] = fmt.Sprintf("%sop-%d", prefix, n-int64(*batchSize)+int64(i)+1)
+						}
+						go sendBatch(ops, steady)
+					}
 				default:
-					generatorSkipped.Add(1)
+					generatorSkipped.Add(int64(*batchSize))
 				}
 			}
 		}
@@ -480,6 +547,8 @@ func run() error {
 	result := map[string]any{"users_connected": connected.Load(), "offered": offered.Load(), "accepted": accepted.Load(), "steady_accepted": steadyAccepted, "steady_backpressure": steadyRejected, "backpressure": rejected.Load(), "failed": failed.Load(), "status_counts": statusCounts, "generator_skipped": generatorSkipped.Load(), "delivered": delivered.Load(), "history_messages": historyCount, "accept_p95_ms": percentile(latencies, .95), "delivery_p95_ms": percentile(deliveryLatencies, .95), "steady_accept_p95_ms": percentile(steadyLatency, .95), "steady_delivery_p95_ms": percentile(steadyDeliveryLatencies, .95), "steady_seconds": duration.Seconds(), "steady_rate": *rate, "burst_seconds": burst.Seconds(), "burst_rate": *burstRate, "elapsed_seconds": time.Since(loadStart).Seconds(), "limitations": []string{"synthetic payload and shared recipient HPKE fixture key", fmt.Sprintf("%d users; one active %d-member conversation", *users, *groupSize), "HTTP behind isolated trusted proxy header; TLS CPU not measured", "generator runs outside server container; resource stats recorded separately"}}
 	result["group_size"] = *groupSize
 	result["response_mode"] = *responseMode
+	result["batch_size"] = *batchSize
+	result["batch_latency_origin"] = "Before HPKE preparation of the whole ready batch; assembly wait excluded; HTTP acknowledgement shared by elements"
 	result["backpressure_reasons"] = backpressureReasons
 	result["idle_seconds"] = idle.Seconds()
 	result["idle_subscriptions"] = *idleSubscriptions
@@ -510,4 +579,44 @@ func run() error {
 		return fmt.Errorf("load acceptance integrity failed")
 	}
 	return nil
+}
+
+// validateBatchReply checks individual outcomes before acceptance counters advance.
+func validateBatchReply(body []byte, ops []string, chat string, minimal bool) ([]int, error) {
+	var rows []struct {
+		Operation string `json:"operation_id"`
+		Status    int    `json:"status"`
+		Message   struct {
+			ID        string `json:"id"`
+			Chat      string `json:"chat_id"`
+			Operation string `json:"operation_id"`
+			Seq       int64  `json:"seq"`
+		} `json:"message"`
+		Receipt struct {
+			ID        string `json:"message_id"`
+			Chat      string `json:"chat_id"`
+			Operation string `json:"operation_id"`
+			Seq       int64  `json:"seq"`
+		} `json:"receipt"`
+	}
+	if json.Unmarshal(body, &rows) != nil || len(rows) != len(ops) {
+		return nil, fmt.Errorf("invalid batch result count")
+	}
+	statuses := make([]int, len(rows))
+	for i, row := range rows {
+		if row.Operation != ops[i] || row.Status < 100 || row.Status > 599 {
+			return nil, fmt.Errorf("invalid batch element")
+		}
+		if row.Status == 201 {
+			id, ch, op, seq := row.Message.ID, row.Message.Chat, row.Message.Operation, row.Message.Seq
+			if minimal {
+				id, ch, op, seq = row.Receipt.ID, row.Receipt.Chat, row.Receipt.Operation, row.Receipt.Seq
+			}
+			if id == "" || ch != chat || op != ops[i] || seq <= 0 {
+				return nil, fmt.Errorf("invalid accepted batch element")
+			}
+		}
+		statuses[i] = row.Status
+	}
+	return statuses, nil
 }

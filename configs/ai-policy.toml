@@ -1,0 +1,50 @@
+# Stage-2 AI policy example. Set the referenced environment variables in the
+# service environment; this file contains names only, never key material.
+# Tool and token prices below are sample accounting values, not official rates.
+
+[server]
+listen = "127.0.0.1:8080"
+allow_insecure_loopback = true
+
+[features]
+openai = true
+http_tools = true
+ai_policy = true
+
+[ai]
+default_bot = "assistant"
+
+[[ai.tools]]
+name = "http_lookup"
+kind = "http"
+url = "https://tools.example.test/lookup"
+methods = ["POST"]
+secret_env = "QGRAMM_HTTP_TOOL_SECRET"
+require_approval = true
+cost_microunits = 250000
+schema = { query = "string" }
+
+[ai.endpoints.openai]
+provider = "openai"
+url = "https://api.openai.com/v1"
+model = "operator-selected-model"
+key_env = "QGRAMM_OPENAI_KEY"
+capabilities = ["basic_text", "tool"]
+input_price_microunits_per_million_tokens = 1500000
+output_price_microunits_per_million_tokens = 6000000
+
+[ai.bots.assistant]
+endpoint = "openai"
+tools = ["http_lookup"]
+
+[ai_policy]
+grant_public_key_env = "QGRAMM_AI_GRANT_PUBLIC_KEY"
+issuer = "qgramm-backend"
+audience = "qgramm-ai-control"
+approval_ttl_seconds = 300
+require_provider_approval = true
+provider_reserve_microunits = 1000000
+global_daily_budget_microunits = 100000000
+per_bot_daily_budget_microunits = 50000000
+per_user_daily_budget_microunits = 10000000
+currency = "USD"

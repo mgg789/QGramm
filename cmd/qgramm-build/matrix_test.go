@@ -35,7 +35,7 @@ func TestMatrixRuntimeSelection(t *testing.T) {
 	}
 	cfg.Storage.Path = filepath.Join(t.TempDir(), "qgramm.db")
 	cfg.Storage.Files = t.TempDir()
-	for _, name := range []string{cfg.Security.TokenPublicKeyEnv, cfg.Security.MasterKeyEnv, cfg.Security.HPKEKeyEnv} {
+	for _, name := range []string{cfg.Security.TokenPublicKeyEnv, cfg.Security.MasterKeyEnv, cfg.Security.HPKEKeyEnv, cfg.AIPolicy.GrantPublicKeyEnv, cfg.AIStorage.GrantPublicKeyEnv} {
 		t.Setenv(name, base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{7}, 32)))
 	}
 	t.Setenv(cfg.Security.ManagementSecretEnv, strings.Repeat("m", 32))
@@ -48,7 +48,7 @@ func TestMatrixRuntimeSelection(t *testing.T) {
 	for _, name := range expected {
 		enabled[name] = true
 	}
-	routes := map[string]string{"groups": "POST /management/v1/chats/groups", "files": "POST /v1/chats/example/uploads", "e2ee": "POST /v1/mls/keypackages", "calls": "GET /v1/calls/turn", "delete": "DELETE /v1/chats/example/messages/example", "edit": "PATCH /v1/chats/example/messages/example", "reactions": "GET /v1/chats/example/messages/example/reactions", "ai": "POST /management/v1/ai/participants"}
+	routes := map[string]string{"groups": "POST /management/v1/chats/groups", "files": "POST /v1/chats/example/uploads", "e2ee": "POST /v1/mls/keypackages", "calls": "GET /v1/calls/turn", "delete": "DELETE /v1/chats/example/messages/example", "edit": "PATCH /v1/chats/example/messages/example", "reactions": "GET /v1/chats/example/messages/example/reactions", "ai": "POST /management/v1/ai/participants", "ai_streaming": "GET /v1/chats/example/ai/jobs/example/progress", "ai_policy": "POST /management/v1/ai/approvals", "ai_storage": "POST /management/v1/ai/storage/grants", "ai_endpoint": "PUT /management/v1/ai/endpoints/example"}
 	for feature, route := range routes {
 		want := enabled[feature]
 		if feature == "ai" {
@@ -60,7 +60,7 @@ func TestMatrixRuntimeSelection(t *testing.T) {
 			t.Errorf("route %s present=%v want=%v", route, pattern != "", want)
 		}
 	}
-	tables := map[string][]string{"files": {"uploads", "upload_chunks", "upload_messages"}, "calls": {"calls", "call_operations"}, "e2ee": {"mls_groups", "mls_roster", "mls_keypackages", "mls_controls", "mls_transitions"}, "delete": {"hidden_messages"}, "reactions": {"reactions"}, "ai": {"ai_chats", "ai_jobs", "ai_audit"}}
+	tables := map[string][]string{"files": {"uploads", "upload_chunks", "upload_messages"}, "calls": {"calls", "call_operations"}, "e2ee": {"mls_groups", "mls_roster", "mls_keypackages", "mls_controls", "mls_transitions"}, "delete": {"hidden_messages"}, "reactions": {"reactions"}, "ai": {"ai_chats", "ai_jobs", "ai_audit", "ai_agents", "ai_sessions", "ai_tasks"}, "ai_streaming": {"ai_progress", "ai_progress_heads", "ai_progress_versions"}, "ai_storage": {"aivault_schema", "aivault_resources", "aivault_documents", "aivault_edges", "ai_storage_schema", "ai_storage_grants", "ai_storage_revocations"}, "ai_endpoint": {"ai_endpoint_schema", "ai_endpoints"}, "ai_policy": {"ai_policy_schema", "ai_policy_requests", "ai_policy_grants", "ai_policy_revocations", "ai_policy_accounts", "ai_policy_ledger"}}
 	for feature, names := range tables {
 		want := enabled[feature]
 		if feature == "ai" {

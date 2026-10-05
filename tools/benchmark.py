@@ -21,6 +21,44 @@ def command(*args, capture=False):
                           stdout=subprocess.PIPE if capture else None).stdout
 
 
+def timeline_clock_pair(name, timeline):
+    """Bound the host/container offset using a requested signal snapshot."""
+    def latest_signal():
+        if not timeline.exists():
+            return None
+        with timeline.open('rb') as stream:
+            stream.seek(max(0, timeline.stat().st_size - 131072))
+            lines = stream.read().splitlines()
+        for line in reversed(lines):
+            try:
+                row = json.loads(line)
+                if row.get('snapshot_reason') == 'signal':
+                    return row
+            except json.JSONDecodeError:
+                pass  # concurrent trailing write or first partial line
+        return None
+    previous = latest_signal()
+    sequence = previous['signal_sequence'] if previous else 0
+    begin = time.time_ns()
+    command('docker', 'kill', '--signal', 'USR1', name, capture=True)
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        row = latest_signal()
+        if row and row['signal_sequence'] > sequence:
+            end = time.time_ns()
+            return {'host_start_unix_ns': begin, 'host_end_unix_ns': end,
+                    'container_unix_ns': row['at_unix_ns'],
+                    'offset_host_minus_container_ns': (begin+end)//2-row['at_unix_ns'],
+                    'uncertainty_ns': (end-begin)//2, 'signal_sequence': row['signal_sequence']}
+        time.sleep(.01)
+    raise RuntimeError('timeline clock synchronization marker timeout')
+
+
+def checkpoint_metadata(interval_ms, threshold_bytes):
+    return {'interval_ms': interval_ms, 'wal_threshold_bytes': (threshold_bytes or 4194304) if interval_ms else None,
+            'threshold_defaulted': bool(interval_ms and not threshold_bytes), 'automatic_checkpoint_retained': True, 'synchronous': 'FULL'}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--out', required=True)
@@ -34,12 +72,20 @@ def main():
     parser.add_argument('--rate', type=int, default=100)
     parser.add_argument('--burst', default='5s')
     parser.add_argument('--burst-rate', type=int, default=1000)
+    parser.add_argument('--batch-size', type=int, default=1, help='messages per request; rates remain messages/sec')
     parser.add_argument('--response-mode', choices=['full', 'minimal'], default='full')
     parser.add_argument('--idle', default='10s', help='connected idle interval before steady traffic')
     parser.add_argument('--idle-subscriptions', action='store_true', help='all sockets subscribe to paired direct chats; requires an even user count and group-size 2')
     parser.add_argument('--generator-binary', help='reuse a frozen benchmark generator executable')
     parser.add_argument('--profile-dir', help='requires benchmark-tag image; captures private pprof files separately from comparable timing runs')
+    parser.add_argument('--timeline-only', action='store_true', help='private 100ms diagnostic timeline; no forced GC or sampling profilers; requires --profile-dir')
+    parser.add_argument('--checkpoint-interval-ms', type=int, default=0, help='optional background PASSIVE checkpoint; zero keeps SQLite automatic checkpoint only')
+    parser.add_argument('--checkpoint-bytes', type=int, default=4194304, help='minimum WAL bytes for the optional background checkpoint')
     args = parser.parse_args()
+    if args.timeline_only and not args.profile_dir:
+        parser.error('--timeline-only requires --profile-dir')
+    if args.checkpoint_interval_ms < 0 or args.checkpoint_bytes < 0:
+        parser.error('checkpoint settings must be nonnegative')
     name = 'qgramm-load-' + uuid.uuid4().hex[:12]
     image = args.image or name + ':test'
     out = pathlib.Path(args.out).resolve()
@@ -57,14 +103,19 @@ def main():
     samples = []
     stopped = threading.Event()
     sampler = None
+    phase_watcher = None
+    diagnostic_phase_markers = []
+    clock_pairs = {'before': [], 'after': []}
     try:
         with tempfile.TemporaryDirectory(prefix=name) as directory:
             temp = pathlib.Path(directory)
             binary, env, result = temp/'bench', temp/'secrets.env', temp/'result.json'
             phase_file = temp/'phase'
             config = temp/'benchmark.toml'
+            checkpoint_config = (f'checkpoint_interval_ms={args.checkpoint_interval_ms}\nwal_checkpoint_bytes={args.checkpoint_bytes}\n'
+                                 if args.checkpoint_interval_ms else '')
             config.write_text('[server]\nlisten="0.0.0.0:8080"\ntrusted_proxy=true\n'
-                              '[storage]\npath="/data/qgramm.db"\nfiles="/data/files"\n'
+                              '[storage]\npath="/data/qgramm.db"\nfiles="/data/files"\n' + checkpoint_config +
                               f'[capacity]\nexpected_concurrent_users={args.users}\n'
                               f'max_connections={max(args.users+1000,12000)}\n'
                               f'[features]\ngroups={str(args.group_size>2).lower()}\n')
@@ -100,6 +151,8 @@ def main():
                 if any(profile_output.iterdir()):
                     raise RuntimeError('profile output directory must be empty')
                 profile_args = ['--env','QGRAMM_BENCH_PROFILE_DIR=/profiles','--mount','type=bind,src='+str(profile_dir)+',dst=/profiles']
+                if args.timeline_only:
+                    profile_args.extend(['--env', 'QGRAMM_BENCH_TIMELINE_ONLY=1'])
             command('docker','run','-d','--name',name,'--cpus','4','--memory','8g',
                     '--ulimit','nofile=65536:65536','--env-file',str(container_env),
                     '-p','127.0.0.1::8080','-v',name+':/data',
@@ -119,6 +172,24 @@ def main():
             else:
                 raise RuntimeError('temporary service readiness timeout')
             start = time.monotonic()
+            if args.timeline_only:
+                clock_pairs['before'] = [timeline_clock_pair(name, profile_dir/'timeline.jsonl') for _ in range(3)]
+
+            def watch_phases():
+                last = None
+                while not stopped.is_set():
+                    try:
+                        phase = phase_file.read_text()
+                        if phase in ('setup', 'idle', 'steady', 'burst', 'drain', 'history') and phase != last:
+                            diagnostic_phase_markers.append({'at_unix_ns': time.time_ns(), 'phase': phase})
+                            last = phase
+                    except OSError:
+                        pass
+                    stopped.wait(.1)
+
+            if args.timeline_only:
+                phase_watcher = threading.Thread(target=watch_phases, daemon=True)
+                phase_watcher.start()
 
             def sample():
                 last_phase = None
@@ -127,7 +198,7 @@ def main():
                         value = command('docker','stats','--no-stream','--format','{{json .}}',name,capture=True)
                         row = json.loads(value)
                         phase = phase_file.read_text() if phase_file.exists() else 'starting'
-                        samples.append({'elapsed_seconds': round(time.monotonic()-start,2),
+                        samples.append({'at_unix_ns': time.time_ns(), 'elapsed_seconds': round(time.monotonic()-start,2),
                                         'phase':phase,'cpu':row['CPUPerc'],'memory':row['MemUsage']})
                         if args.profile_dir and phase != last_phase:
                             command('docker','kill','--signal','USR1',name,capture=True)
@@ -141,12 +212,16 @@ def main():
             load = subprocess.run([str(binary),'-env',str(env),'-url','http://'+address,
                     '-users',str(args.users),'-group-size',str(args.group_size),
                     '-duration',args.duration,'-rate',str(args.rate),'-burst',args.burst,
-                    '-burst-rate',str(args.burst_rate),'-response-mode',args.response_mode,
+                    '-burst-rate',str(args.burst_rate),'-response-mode',args.response_mode,'-batch-size',str(args.batch_size),
                     '-idle',args.idle,'-phase-file',str(phase_file),'-out',str(result),
                     *(['-idle-subscriptions'] if args.idle_subscriptions else [])], cwd=ROOT)
             stopped.set()
             sampler.join(timeout=10)
+            if phase_watcher:
+                phase_watcher.join(timeout=10)
             if args.profile_dir:
+                if args.timeline_only:
+                    clock_pairs['after'] = [timeline_clock_pair(name, profile_dir/'timeline.jsonl') for _ in range(3)]
                 command('docker','kill','--signal','USR1',name,capture=True)
                 command('docker','kill','--signal','USR2',name,capture=True)
                 time.sleep(1)
@@ -183,8 +258,14 @@ def main():
                 'isolation':'Container quotas on shared host; generator on host; loopback port only'
             }
             evidence['resource_samples'] = samples
-            evidence['resource_sampling'] = 'docker stats approximately every 2 seconds including setup; sampled maxima'
+            evidence['resource_sampling'] = 'docker stats command duration plus1s wait including setup; actual elapsed cadence recorded; sampled maxima'
             evidence['instrumented'] = bool(args.profile_dir)
+            evidence['diagnostic_mode'] = ('timeline-no-forced-gc' if args.timeline_only else 'pprof-forced-gc') if args.profile_dir else None
+            if args.timeline_only:
+                evidence['diagnostic_phase_markers'] = diagnostic_phase_markers
+                evidence['diagnostic_phase_sampling'] = 'host observes frozen generator phase file every100ms; host/container wall clocks; transition precision approximately100ms'
+                evidence['diagnostic_clock_pairs'] = clock_pairs
+            evidence['storage_checkpoint'] = checkpoint_metadata(args.checkpoint_interval_ms, args.checkpoint_bytes)
             out.write_text(json.dumps(evidence,indent=2)+'\n')
             if load.returncode:
                 raise RuntimeError('load acceptance failed; diagnostic evidence saved')
@@ -192,6 +273,8 @@ def main():
         stopped.set()
         if sampler:
             sampler.join(timeout=10)
+        if phase_watcher:
+            phase_watcher.join(timeout=10)
         cleanup = [('docker','rm','-f',name),('docker','volume','rm',name)]
         if not args.image:
             cleanup.append(('docker','image','rm',image))

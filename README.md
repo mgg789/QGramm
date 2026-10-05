@@ -20,6 +20,20 @@ Choose QGramm when your application already owns users and UI, and needs persist
 
 These are different scopes, not comparative performance measurements. Matrix and Zulip provide broader communication platforms; Centrifugo and NATS provide infrastructure. QGramm packages chat persistence and protocol semantics for integration, with [explicit acceptance limits](docs/verification.md).
 
+### Active conversations, groups and recovery
+
+The expanded campaign measures 2,000 connections across 1,000 independent chats, 4 KiB payloads, 100-recipient groups, reconnect, 10,000 idle connections, five-minute load and concurrent attachments. Two-repeat ranges on the shared M5 Pro / Docker Desktop host, 4 CPU / 8 GiB quotas:
+
+| Service/profile | 1,000 chats, 500/s: delivery p99, ms | 100 recipients × 100/s: delivery p99, ms | RAM at 500/s, MiB |
+|---|---:|---:|---:|
+| QGramm, HPKE + SQLite FULL | 4.89–5.56 | 13.43–16.09 | 89–97 |
+| NATS 2.15.0, FILE stream/FILE consumers | 9.11–51.99 | 3,960–4,598 | 262–265 |
+| Centrifugo 6.9.7, memory history | 1.26–1.74 | 3.77–3.79 | 129–170 |
+
+Separate NATS control: FILE stream/MEMORY consumers gives group p99 **3.16–3.28 ms**, retaining disk-synchronized publications but changing consumer-state restart guarantees. QGramm's fixture does not persist device delivery receipts. These are different crypto/ACK/storage contracts, not a universal protocol ranking. Five-minute results preserve admission failures/skips; Centrifugo 4 KiB history OOM and QGramm's initial 10k setup failure remain visible. [Method, p95/p99, all attempts, resource windows and files](docs/scenario-benchmark.md).
+
+QGramm-only follow-up retains indexed, bounded retention cleanup: final 500/s ×300s had zero server rejections,149859 accepted and141 generator skips; all accepted data verified. Mean CPU rose31.4→35.3%. Replay query fusion was reverted after group-tail regression. Final group p99 varied11.31–79.20ms; no universal CPU/latency gain is claimed. [Final, rejected and refreshed-control runs](docs/performance-retention-fanout.md).
+
 ### Measured latency and resources
 
 Two repetitions on Apple M5 Pro / Docker Desktop Linux arm64, 4 CPU / 8 GiB limits, 10,000 sockets and one active chat. The table shows ranges across the two runs: steady-phase delivery latency, mean sampled CPU and phase sampled maximum RAM. Load: 100/s for 30 seconds, then 1,000/s for five seconds.
@@ -36,7 +50,13 @@ Two repetitions on Apple M5 Pro / Docker Desktop Linux arm64, 4 CPU / 8 GiB limi
 
 Previous iteration: with all 10,000 sockets subscribed, the first three further changes reduced steady CPU 77% and RAM 34%; whole-run delivery p99 was6.5–7.4 ms. Same-container Redis showed no repeatable gain and has been removed. [Two-repeat comparison, limits and raw data](docs/performance-iteration.md).
 
-Current commit/GC/SQL iteration: Redis removed. Diagnostic read-helper calls/accepted fell27.5% and allocations/accepted3%; primary CPU fell2–4%, but p95 rose slightly and one subscribed burst tail worsened. [Before/after results and limits](docs/performance-sql-gc.md).
+Previous commit/GC/SQL iteration: Redis removed. Diagnostic read-helper calls/accepted fell27.5% and allocations/accepted3%; primary CPU fell2–4%, but p95 rose slightly and one subscribed burst tail worsened. [Before/after results and limits](docs/performance-sql-gc.md).
+
+Experimental replay/WAL work on dev adds one-query history, bounded single-event replay and a request-scoped parsed HPKE key. PASSIVE checkpoint is opt-in; FULL and automatic checkpoint remain. Local replay improved8.1%, but final steady p99 rose8.9%/18.4%; the candidate remains on dev. Initial SQL regression, correction and natural-GC diagnostics are published separately. [Measurements and limitations](docs/performance-tail.md).
+
+Next three experiments (dev): bounded HTTP batch commits and optional compact ACK together lowered ready-batch steady p99 by27.2% and CPU13.3%, with RAM3.4% higher. Idle-buffer reuse was reverted after a38.8% whole-run p99 regression; single-message speed gains were not consistent. [All18 runs, controls and selection](docs/performance-three.md).
+
+Further isolated batch-read experiments did not show a convincing gain: grouped full responses had steady p99+3.8%/CPU+2.8%; preliminary reads CPU−2.3% but p99+2.3%. Neither was retained; no conditional combination was run. [Six controlled runs and archived experiments](docs/performance-batch-reads.md).
 
 ## Small integration example
 
@@ -49,6 +69,16 @@ The executable example starts a disposable loopback core, issues Ed25519 tokens,
 ## Deployment
 
 Requires Go 1.26 to build locally, or Docker to build the image. One instance serves one application. SQLite and encrypted file chunks live in a persistent volume. No PostgreSQL, Redis, registration server or bundled TURN is required.
+
+Start with a compact TOML preset and override only what your application needs:
+
+```sh
+go run ./cmd/qgramm-build init -preset support -target local -users 1000 -out my-qgramm.toml
+go run ./cmd/qgramm-build validate -config my-qgramm.toml
+go run ./cmd/qgramm-build explain -config my-qgramm.toml
+```
+
+Presets are `minimal`, `support`, `community`, `ai-openai` and `ai-anthropic`. Explicit TOML values override the preset, including `false` to exclude a module. `explain` reports the effective settings, their sources, derived limits and secret environment-variable names; it never reads secret values. These commands validate configuration offline; startup still checks secrets and the compiled feature manifest. See the [configuration guide](docs/configuration.md) and [Russian reference](docs/reference.ru.md).
 
 ```sh
 go run ./cmd/qgramm-build plan -config qgramm.toml
@@ -73,7 +103,15 @@ Compose binds the host port to loopback. Supply your own HTTPS reverse proxy and
 - HPKE client-to-container envelopes and encrypted storage; optional MLS E2EE with client-owned keys.
 - Optional groups and per-user send permissions, resumable attachment batches, edit/delete/reply/forward and numeric reactions.
 - Optional 1:1 WebRTC signaling and external TURN credentials. Clients supply media and peer verification.
-- Optional OpenAI/Anthropic participants and explicitly permitted remote MCP/HTTP tools. AI recipients decrypt inside the container; providers receive plaintext.
+- Optional OpenAI/Anthropic participants and explicitly permitted remote MCP/HTTP tools. The [named AI network](docs/ai-network.md) gives each bot a permanent user/device identity for BASIC chats, while the legacy direct MLS AI path remains available. AI recipients decrypt inside the container; providers receive plaintext. Optional [stage-2 AI policy](docs/ai-policy.md) adds backend-signed approvals, per-tool permissions, encrypted usage/budgets and durable notices before external calls. Optional [stage-3 scoped storage](docs/ai-stage3.md) adds bounded encrypted resource/document/graph retrieval and a separate external MLS endpoint contract; local LLM runtime acceptance remains pending.
+
+The integrated vault stores resource payloads, document text/files/vectors and
+graph edges encrypted at rest in the trusted container. Retrieval uses supplied
+vectors or bounded lexical scans; it does not start an embedding model or ANN
+service. Storage tools require both the generic AI policy approval and an
+independent resource grant bound to the exact request hash, destination,
+resource and action. The administrative storage MCP endpoint uses the
+management bearer and is never a model credential.
 
 Features are selected in `qgramm.toml` **at build time**. Disabled implementations are excluded by Go build tags; changing the feature set requires a rebuild. Runtime rejects a TOML that disagrees with the binary manifest. A full standard profile is provided in `configs/full.toml`.
 
@@ -84,7 +122,7 @@ go test -race ./...
 sh scripts/build-matrix.sh
 ```
 
-This is a pre-release. Race/build matrix, independent OpenMLS for the documented profile, Pion direct/TURN, live DeepSeek and a 10,000-connection load run passed. Linux Chromium decoded audio/video and TURN, plus live DeepSeek with independent MLS and restart/replay, also passed. Dedicated Linux/SSD qualification and independent audit are deferred; other scope limits are documented. See [verification](docs/verification.md) and [benchmarks](docs/benchmark.md) for exact scopes; no audited-cryptography or full production-release claim.
+This is a pre-release. Race/build matrix, independent OpenMLS for the documented profile, Pion direct/TURN, live DeepSeek and a 10,000-connection load run passed. Linux Chromium decoded audio/video and TURN, plus live DeepSeek with independent MLS and restart/replay, also passed. The AI build matrix includes named participants, policy, scoped storage and external endpoints; local HTTP/SSE and Core-to-endpoint evidence is listed separately. Dedicated Linux/SSD qualification and independent audit are deferred; other scope limits are documented. See [verification](docs/verification.md) and [benchmarks](docs/benchmark.md) for exact scopes; no audited-cryptography or full production-release claim.
 
 ## License
 

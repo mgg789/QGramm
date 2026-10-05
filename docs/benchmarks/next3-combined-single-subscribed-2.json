@@ -1,0 +1,313 @@
+{
+  "accept_p95_ms": 3.689,
+  "accept_p99_ms": 5.884,
+  "accept_samples": 7991,
+  "accepted": 7991,
+  "backpressure": 0,
+  "backpressure_reasons": {},
+  "batch_latency_origin": "Before HPKE preparation of the whole ready batch; assembly wait excluded; HTTP acknowledgement shared by elements",
+  "batch_size": 1,
+  "burst_rate": 1000,
+  "burst_seconds": 5,
+  "delivered": 7991,
+  "delivery_p95_ms": 4.136,
+  "delivery_p99_ms": 6.56,
+  "delivery_samples": 7991,
+  "elapsed_seconds": 35.575725208,
+  "empty_subscribed_chats": 4999,
+  "failed": 0,
+  "generator_skipped": 0,
+  "group_size": 2,
+  "history_messages": 7991,
+  "idle_seconds": 10,
+  "idle_subscriptions": true,
+  "limitations": [
+    "synthetic payload and shared recipient HPKE fixture key",
+    "10000 users; one active 2-member conversation",
+    "HTTP behind isolated trusted proxy header; TLS CPU not measured",
+    "generator runs outside server container; resource stats recorded separately"
+  ],
+  "offered": 7991,
+  "percentile_method": "nearest rank: sorted samples[ceil(n*q)-1]; successful requests only; steady deliveries classified by send phase",
+  "response_mode": "minimal",
+  "status_counts": {
+    "201": 7991
+  },
+  "steady_accept_p95_ms": 4.301,
+  "steady_accept_p99_ms": 6.879,
+  "steady_accepted": 2999,
+  "steady_backpressure": 0,
+  "steady_delivery_p95_ms": 4.568,
+  "steady_delivery_p99_ms": 7.364,
+  "steady_delivery_samples": 2999,
+  "steady_rate": 100,
+  "steady_seconds": 30,
+  "subscription_commands_sent": 10000,
+  "unexpected_disconnects": 0,
+  "users_connected": 10000,
+  "websocket_errors": 0,
+  "acceptance_passed": true,
+  "generator_exit_code": 0,
+  "environment": {
+    "date_utc": "2026-10-04T23:55:58Z",
+    "host_os": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "host_cpu": "Apple M5 Pro",
+    "host_logical_cpus": 18,
+    "server_kernel": "Linux e0c877586b1b 6.12.76-linuxkit #1 SMP Thu Jun 11 15:44:51 UTC 2026 aarch64 Linux",
+    "generator_go": "go version go1.26.4 darwin/arm64",
+    "server_go": "go1.26.8",
+    "server_binary_sha256": "cf97daca37918d3582a983e265bd70da2345bbb03d2058f870d6276ff0a48559",
+    "image_id": "sha256:2dc7b4b3925fff2bee1e3b48e87ddfaf461f182905fef092f3881748d4e6cdcd",
+    "cpu_limit": 4,
+    "ram_limit_gib": 8,
+    "generator_source_commit": "6d6610c3470eb8c37e6850dadee19acb5143a665",
+    "server_source_commit": "30eafab315d303b7fd209a06e5e31e8ac30b2774",
+    "server_source_snapshot_sha256": "c17a980476e191608331199a4294843eb8587282d05130ad7347d87a112f4794",
+    "server_source_note": "Immutable 2ce7077 archive plus only batch source/tests from 30eafab315d303b7fd209a06e5e31e8ac30b2774; no idle optimization; Go1.26.8 cached build stage identical across images; checkpoint disabled; SQLite FULL and automatic checkpoint retained; no diagnostic tag.",
+    "generator_tracked_worktree_sha256": "0d19798e826c71a81e2ae7449f92d7d438b66d04b2afdac75102a24f371a14ce",
+    "source_fingerprint_scope": "tracked and untracked Go/mod/sum/TOML/Dockerfile inputs; excludes evidence outputs",
+    "generator_sha256": "2940e8ccbef9a5e50081f17cdff0674375f15c2859680c47ecd409a1fd687a93",
+    "generator_binary_sha256": "e2a03ca5995cdc75bd34c8d93a92e6553df0e96ddb5e85e8c7b61a89c331eef4",
+    "generator_source_changed_during_run": false,
+    "source_dirty": true,
+    "storage": "Docker named volume; VM virtual disk; SSD unqualified",
+    "isolation": "Container quotas on shared host; generator on host; loopback port only"
+  },
+  "resource_samples": [
+    {
+      "at_unix_ns": 1791158099293873000,
+      "elapsed_seconds": 1.02,
+      "phase": "setup",
+      "cpu": "28.78%",
+      "memory": "10.89MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158101319947000,
+      "elapsed_seconds": 3.05,
+      "phase": "setup",
+      "cpu": "36.33%",
+      "memory": "12.27MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158103346858000,
+      "elapsed_seconds": 5.07,
+      "phase": "setup",
+      "cpu": "34.73%",
+      "memory": "13.89MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158105369365000,
+      "elapsed_seconds": 7.1,
+      "phase": "setup",
+      "cpu": "37.45%",
+      "memory": "20.55MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158107393524000,
+      "elapsed_seconds": 9.12,
+      "phase": "setup",
+      "cpu": "61.19%",
+      "memory": "119.2MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158109421129000,
+      "elapsed_seconds": 11.15,
+      "phase": "setup",
+      "cpu": "57.75%",
+      "memory": "186MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158111445596000,
+      "elapsed_seconds": 13.17,
+      "phase": "setup",
+      "cpu": "63.01%",
+      "memory": "267.6MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158113469129000,
+      "elapsed_seconds": 15.2,
+      "phase": "idle",
+      "cpu": "11.37%",
+      "memory": "320.7MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158115517654000,
+      "elapsed_seconds": 17.25,
+      "phase": "idle",
+      "cpu": "1.49%",
+      "memory": "320.8MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158117553083000,
+      "elapsed_seconds": 19.28,
+      "phase": "idle",
+      "cpu": "1.84%",
+      "memory": "321MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158119590663000,
+      "elapsed_seconds": 21.32,
+      "phase": "idle",
+      "cpu": "1.90%",
+      "memory": "320.8MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158121631887000,
+      "elapsed_seconds": 23.36,
+      "phase": "idle",
+      "cpu": "2.10%",
+      "memory": "320.9MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158123661768000,
+      "elapsed_seconds": 25.39,
+      "phase": "steady",
+      "cpu": "13.09%",
+      "memory": "319.6MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158125695232000,
+      "elapsed_seconds": 27.42,
+      "phase": "steady",
+      "cpu": "12.25%",
+      "memory": "319.4MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158127727995000,
+      "elapsed_seconds": 29.46,
+      "phase": "steady",
+      "cpu": "13.68%",
+      "memory": "320.8MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158129764626000,
+      "elapsed_seconds": 31.49,
+      "phase": "steady",
+      "cpu": "13.97%",
+      "memory": "321.7MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158131798318000,
+      "elapsed_seconds": 33.53,
+      "phase": "steady",
+      "cpu": "17.54%",
+      "memory": "322.2MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158133827463000,
+      "elapsed_seconds": 35.55,
+      "phase": "steady",
+      "cpu": "17.11%",
+      "memory": "322.1MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158135858302000,
+      "elapsed_seconds": 37.59,
+      "phase": "steady",
+      "cpu": "18.49%",
+      "memory": "321.9MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158137894571000,
+      "elapsed_seconds": 39.62,
+      "phase": "steady",
+      "cpu": "15.71%",
+      "memory": "322MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158139930774000,
+      "elapsed_seconds": 41.66,
+      "phase": "steady",
+      "cpu": "15.91%",
+      "memory": "322.1MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158141962352000,
+      "elapsed_seconds": 43.69,
+      "phase": "steady",
+      "cpu": "14.03%",
+      "memory": "322.5MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158143996173000,
+      "elapsed_seconds": 45.72,
+      "phase": "steady",
+      "cpu": "14.97%",
+      "memory": "322MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158146030409000,
+      "elapsed_seconds": 47.76,
+      "phase": "steady",
+      "cpu": "13.09%",
+      "memory": "321.9MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158148061317000,
+      "elapsed_seconds": 49.79,
+      "phase": "steady",
+      "cpu": "15.17%",
+      "memory": "322.4MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158150091784000,
+      "elapsed_seconds": 51.82,
+      "phase": "steady",
+      "cpu": "14.43%",
+      "memory": "322.6MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158152122409000,
+      "elapsed_seconds": 53.85,
+      "phase": "steady",
+      "cpu": "15.30%",
+      "memory": "322.9MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158154147368000,
+      "elapsed_seconds": 55.87,
+      "phase": "burst",
+      "cpu": "50.01%",
+      "memory": "322.4MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158156172873000,
+      "elapsed_seconds": 57.9,
+      "phase": "burst",
+      "cpu": "55.48%",
+      "memory": "323.4MiB / 7.748GiB"
+    },
+    {
+      "at_unix_ns": 1791158158194537000,
+      "elapsed_seconds": 59.92,
+      "phase": "history",
+      "cpu": "88.01%",
+      "memory": "296.6MiB / 7.748GiB"
+    }
+  ],
+  "resource_sampling": "docker stats command duration plus1s wait including setup; actual elapsed cadence recorded; sampled maxima",
+  "instrumented": false,
+  "diagnostic_mode": null,
+  "storage_checkpoint": {
+    "interval_ms": 0,
+    "wal_threshold_bytes": null,
+    "threshold_defaulted": false,
+    "automatic_checkpoint_retained": true,
+    "synchronous": "FULL"
+  },
+  "comparative_method": {
+    "runner_sha256": "d1c5dcc111e4a915d4c03a8df8b47fc370db7d069f0b90e86755cf9d0e1bfdfb",
+    "run_order_index": 4,
+    "run_order_total": 4,
+    "cooldown_before_seconds": 60,
+    "variant": "combined-single",
+    "profile": "subscribed",
+    "repeat": 2,
+    "matrix": "Selected batch commit plus minimal ACK; idle reuse excluded; compare same-size baseline; two repeats; same message rates",
+    "source_overlay_files_sha256": {
+      "internal/core/messages.go": "2fc51793b6f792183781572305ff31ae991eea6afdbcd354366af6ba58c1d469",
+      "internal/core/writer_queue.go": "685e622fa1ff32b2708967e167db3f029f746ae6659377a3e3d81d01accec912",
+      "internal/core/http_batch_commit_test.go": "4d659a3ed3d503092e4c31822702b827717ef1f783d356c6b17013f67203c8a8"
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "tooling_commit": "f35f73670796e95bff86e8f203dbf37e1179aac9",
+  "server_core_commit": "a16e26b5f316f11f6ff6b111b48350157f04a1a2",
+  "generator_sha256": "e5bcf3983a97fefa916978221f4de31f249d823ba39eaa36b4c89d2cb44887b2",
+  "runner_sha256": "97f5ebd48e3484d97c4f70433806a6cce6422156e2a5f9221b16f8be9af8ec64",
+  "campaign_sha256": "6e2578e72aabc937a9993d6d1b926e10d8896e90d8a6daf62621cd0600d057b2",
+  "host_ram_gib": 48,
+  "docker_vm_ram_bytes": 8319213568,
+  "docker_vm_vcpus": 18,
+  "unrelated_running_container_count_before_campaign": 31,
+  "unrelated_sample_cpu_percent_before_campaign": 20.86,
+  "background_services": "pre-existing unrelated services remain running; no clean-host qualification",
+  "measurement_policy": "sequential services; no builds/tests/profilers during primary workload; 15s cooldown; two repeats are exploratory",
+  "profiles": {
+    "distributed": {
+      "users": 2000,
+      "chats": 1000,
+      "fanout": 1,
+      "payload_bytes": 256,
+      "steps": "500:20s,1500:20s,3000:20s,100:20s"
+    },
+    "payload4k": {
+      "users": 2000,
+      "chats": 100,
+      "fanout": 1,
+      "payload_bytes": 4096,
+      "steps": "500:20s,1500:20s,3000:20s,100:20s"
+    },
+    "fanout100": {
+      "users": 2000,
+      "chats": 10,
+      "fanout": 100,
+      "payload_bytes": 256,
+      "steps": "10:20s,50:20s,100:20s,5:20s"
+    },
+    "reconnect": {
+      "users": 1000,
+      "chats": 100,
+      "fanout": 1,
+      "payload_bytes": 256,
+      "steps": "200:10s,200:10s,200:10s",
+      "reconnect": 100,
+      "offline": "5s"
+    }
+  }
+}

@@ -77,3 +77,5 @@ work/qgramm-bench -env work/load.env -url http://127.0.0.1:8080 \
 ```
 
 The generator exits nonzero for partial socket setup, unexpected send failures or mismatch between acceptance, events and history. It reports HTTP backpressure separately and does not silently count rejected messages as accepted. `-group-size` above two selects the management groups route and subscribes all recipients; the server must have the groups module compiled. Environment files contain test signing/storage/management secrets and must never be committed.
+
+Replay/WAL follow-up: [method, first SQL regression and correction, optional checkpoint and natural-GC timeline](performance-tail.md) / [RU](performance-tail.ru.md). The deferred sustained saturation workload is unchanged.

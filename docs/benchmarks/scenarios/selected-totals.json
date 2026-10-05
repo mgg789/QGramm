@@ -1,0 +1,13 @@
+{
+  "accepted": 1525774,
+  "expected_deliveries": 4679617,
+  "received": 4679617,
+  "missing": 0,
+  "duplicates": 0,
+  "history_complete_runs": 32,
+  "history_complete_accepted": 1321786,
+  "runs": 45,
+  "selected_messaging_runs": 35,
+  "file_runs": 4,
+  "selected_history_checked": 1503286
+}

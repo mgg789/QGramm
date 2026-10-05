@@ -1,0 +1,65 @@
+# Standalone qgramm-micro-safer deployment. This file is read by the
+# sidecar CLI, not by qgramm core. Replace the public MLS pins during offline
+# provisioning; secret values stay in the named environment variables.
+[endpoint]
+name = "external-endpoint"
+user = "alice"
+device = "alice-device"
+server_url = "https://relay.example.invalid"
+token_env = "QGRAMM_MICRO_RELAY_TOKEN"
+master_key_env = "QGRAMM_MICRO_MASTER_KEY"
+hpke_key_env = "QGRAMM_MICRO_HPKE_KEY"
+db_path = "./var/micro-safer/state.db"
+grant_public_key_env = "QGRAMM_MICRO_GRANT_PUBLIC_KEY"
+issuer = "qgramm-approval-backend"
+audience = "external-endpoint"
+poll_interval_ms = 500
+request_timeout_ms = 120000
+max_frame_bytes = 32768
+max_body_bytes = 1048576
+max_concurrent = 4
+# Active and retained intent/inbox/outbox/grant rows are hard-capped from this
+# value; reaching the cap fails closed and requires an offline identity reset.
+max_pending = 4096
+
+[peers.chat]
+user = "bob"
+device = "bob-device"
+signing_key = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+group_id = "AAAAAAAAAAAAAAAAAAAAAA=="
+# Optional additional offline pins from the authoritative provisioning backend:
+# group_context = "<base64 group context>"
+# epoch = 1
+
+[chats.chat]
+peer = "chat"
+
+# Optional qg_openai adapter. The model endpoint itself receives plaintext;
+# external URLs require both endpoint and model allow_plaintext opt-in.
+[models.local]
+url = "http://127.0.0.1:11434/v1/chat/completions"
+model = "local-model"
+max_tokens = 2048
+max_body_bytes = 1048576
+
+[handlers.model]
+kind = "llm"
+model = "local"
+require_approval = true
+
+# Optional qg_mcp adapter:
+# [handlers.tools]
+# kind = "mcp"
+# url = "http://127.0.0.1:9000/mcp"
+# operation = "tools/call"
+# require_approval = true
+
+# Optional qg_ai_storage sidecar:
+# [storage]
+# enabled = true
+# db_path = "./var/micro-safer/vault.db"
+# master_key_env = "QGRAMM_MICRO_VAULT_MASTER_KEY"
+# hpke_key_env = "QGRAMM_MICRO_VAULT_HPKE_KEY"
+# grant_public_key_env = "QGRAMM_MICRO_VAULT_GRANT_PUBLIC_KEY"
+# issuer = "qgramm-approval-backend"
+# audience = "external-endpoint-storage"

@@ -58,6 +58,14 @@ func newModuleHarness(t *testing.T, deleteMode string) *moduleHarness {
 			cfg.Features.OpenAI = true
 		case "anthropic":
 			cfg.Features.Anthropic = true
+		case "ai_storage":
+			cfg.Features.AIStorage = true
+		case "ai_endpoint":
+			cfg.Features.AIEndpoint = true
+		case "ai_policy":
+			cfg.Features.AIPolicy = true
+		case "ai_streaming":
+			cfg.Features.AIStreaming = true
 		case "mcp":
 			cfg.Features.MCP = true
 		case "http_tools":
@@ -70,6 +78,8 @@ func newModuleHarness(t *testing.T, deleteMode string) *moduleHarness {
 	cfg.Storage.Files = t.TempDir()
 	public, private, _ := ed25519.GenerateKey(rand.Reader)
 	t.Setenv(cfg.Security.TokenPublicKeyEnv, base64.StdEncoding.EncodeToString(public))
+	t.Setenv(cfg.AIPolicy.GrantPublicKeyEnv, base64.StdEncoding.EncodeToString(public))
+	t.Setenv(cfg.AIStorage.GrantPublicKeyEnv, base64.StdEncoding.EncodeToString(public))
 	t.Setenv(cfg.Security.ManagementSecretEnv, strings.Repeat("m", 32))
 	for _, env := range []string{cfg.Security.MasterKeyEnv, cfg.Security.HPKEKeyEnv} {
 		b := make([]byte, 32)

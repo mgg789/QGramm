@@ -43,8 +43,51 @@ func (c *Core) Send(ctx context.Context, id Identity, chat string, in MessageInp
 // sendMessage keeps the default projection compatible, while receipt-only callers
 // avoid reading and re-encrypting content after a durable commit.
 func (c *Core) sendMessage(ctx context.Context, id Identity, chat string, in MessageInput, minimal bool) (Message, error) {
+	job, saved, err := c.prepareMessage(ctx, id, chat, in)
+	if err != nil {
+		return Message{}, err
+	}
+	if job == nil {
+		return c.sendResult(ctx, id, saved, minimal, true)
+	}
+	var result messageWriteResult
+	if c.writer != nil {
+		result.message, result.repeated, result.err = c.writer.enqueue(*job)
+	} else {
+		result = c.submitPrepared([]messageWriteJob{*job})[0]
+	}
+	if result.err != nil {
+		return Message{}, result.err
+	}
+	if !result.repeated {
+		c.Wake(chat)
+	}
+	return c.sendResult(ctx, id, result.message, minimal, result.repeated)
+}
+
+// submitPrepared keeps bounded groups together through admission and commit.
+func (c *Core) submitPrepared(jobs []messageWriteJob) []messageWriteResult {
+	if c.writer != nil {
+		return c.writer.submitGroup(jobs)
+	}
+	// Open normally installs a writer; retain the embedding fallback with the
+	// same savepoint and transaction implementation, without an admission queue.
+	w := messageWriter{core: c}
+	for i := range jobs {
+		jobs[i].queued = time.Now()
+		jobs[i].result = make(chan messageWriteResult, 1)
+	}
+	w.executeBatchContext(jobs, jobs[0].ctx)
+	results := make([]messageWriteResult, len(jobs))
+	for i := range jobs {
+		results[i] = <-jobs[i].result
+	}
+	return results
+}
+
+func (c *Core) prepareMessage(ctx context.Context, id Identity, chat string, in MessageInput) (*messageWriteJob, Message, error) {
 	if !validID(in.OperationID) {
-		return Message{}, &APIError{400, "operation_id required (1..128 safe characters)"}
+		return nil, Message{}, &APIError{400, "operation_id required (1..128 safe characters)"}
 	}
 	// Queue jobs own their attachment metadata even when an embedding caller
 	// reuses its input after admission. Preserve nil versus empty JSON arrays.
@@ -60,55 +103,55 @@ func (c *Core) sendMessage(ctx context.Context, id Identity, chat string, in Mes
 	err := c.readQueryRow(ctx, `SELECT hash,result FROM operations WHERE device_id=? AND operation_id=?`, id.DeviceID, in.OperationID).Scan(&previousHash, &previous)
 	if err == nil {
 		if previousHash != hash {
-			return Message{}, &APIError{409, "operation_id reused with different content"}
+			return nil, Message{}, &APIError{409, "operation_id reused with different content"}
 		}
 		var saved Message
 		if err = json.Unmarshal(previous, &saved); err != nil {
-			return Message{}, err
+			return nil, Message{}, err
 		}
-		return c.sendResult(ctx, id, saved, minimal, true)
+		return nil, saved, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
-		return Message{}, err
+		return nil, Message{}, err
 	}
 	var mode string
 	var epoch int64
 	var pending, canSend bool
 	err = c.readQueryRow(ctx, `SELECT c.mode,c.epoch,c.pending,m.can_send FROM chats c JOIN members m ON m.chat_id=c.id JOIN devices d ON d.user_id=m.user_id JOIN users u ON u.id=m.user_id WHERE c.id=? AND m.user_id=? AND d.id=? AND m.active=1 AND d.revoked=0 AND u.disabled=0`, chat, id.UserID, id.DeviceID).Scan(&mode, &epoch, &pending, &canSend)
 	if err != nil || !canSend {
-		return Message{}, &APIError{403, "send permission denied"}
+		return nil, Message{}, &APIError{403, "send permission denied"}
 	}
 	if pending {
-		return Message{}, &APIError{409, "MLS epoch transition pending"}
+		return nil, Message{}, &APIError{409, "MLS epoch transition pending"}
 	}
 	if in.ReplyTo != "" && !c.Config.Features.Reply || in.ForwardFrom != "" && !c.Config.Features.Forward || len(in.Attachments) > 0 && !c.Config.Features.Files {
-		return Message{}, &APIError{400, "feature absent from build"}
+		return nil, Message{}, &APIError{400, "feature absent from build"}
 	}
 	if mode == "basic" {
 		if in.Envelope == nil || in.MLS != "" {
-			return Message{}, &APIError{400, "basic HPKE envelope required"}
+			return nil, Message{}, &APIError{400, "basic HPKE envelope required"}
 		}
 		in.Payload, err = c.Engine.OpenEnvelope(*in.Envelope, cryptoenc.Binding(chat, id.UserID, id.DeviceID, in.OperationID))
 		if err != nil {
-			return Message{}, &APIError{400, "invalid encrypted envelope"}
+			return nil, Message{}, &APIError{400, "invalid encrypted envelope"}
 		}
 	} else {
 		if in.Envelope != nil || in.MLS == "" || in.Epoch != epoch {
-			return Message{}, &APIError{409, "invalid MLS message or epoch"}
+			return nil, Message{}, &APIError{409, "invalid MLS message or epoch"}
 		}
 	}
 	for _, hook := range c.Prepare {
 		if err = hook(ctx, id, chat, &in); err != nil {
-			return Message{}, err
+			return nil, Message{}, err
 		}
 	}
 	if len(in.Payload) == 0 || len(in.Payload) > c.Config.Policy.MaxMessageBytes {
-		return Message{}, &APIError{400, "invalid message payload size"}
+		return nil, Message{}, &APIError{400, "invalid message payload size"}
 	}
 	messageID := uuid.NewString()
 	stored, err := c.Engine.Seal(in.Payload, []byte("message/"+messageID))
 	if err != nil {
-		return Message{}, err
+		return nil, Message{}, err
 	}
 	metadata, _ := json.Marshal(messageMetadata{Attachments: in.Attachments, ReplyTo: in.ReplyTo, ForwardFrom: in.ForwardFrom})
 	// The queued closure retains ciphertext and metadata only, not plaintext or
@@ -117,29 +160,7 @@ func (c *Core) sendMessage(ctx context.Context, id Identity, chat string, in Mes
 	write := func(writeCtx context.Context, tx *sql.Tx) (Message, bool, error) {
 		return c.persistMessageInTx(writeCtx, tx, id, chat, in, mode, epoch, hash, messageID, stored, metadata)
 	}
-	var message Message
-	var repeated bool
-	if c.writer == nil {
-		var tx *sql.Tx
-		tx, err = c.DB.BeginTx(ctx, nil)
-		if err == nil {
-			message, repeated, err = write(ctx, tx)
-			if err == nil {
-				err = tx.Commit()
-			} else {
-				_ = tx.Rollback()
-			}
-		}
-	} else {
-		message, repeated, err = c.writer.submitTx(ctx, len(stored)+len(metadata), write)
-	}
-	if err != nil {
-		return Message{}, err
-	}
-	if !repeated {
-		c.Wake(chat)
-	}
-	return c.sendResult(ctx, id, message, minimal, repeated)
+	return &messageWriteJob{ctx: ctx, bytes: len(stored) + len(metadata), runTx: write}, Message{}, nil
 }
 
 // persistMessageInTx repeats ACL, epoch and dedup checks in the writer-owned
@@ -242,8 +263,8 @@ func (c *Core) ViewMessage(ctx context.Context, id Identity, messageID string) (
 	return messages[0], nil
 }
 
-// viewMessages retains the ID lookup needed by event/history batches. Single
-// projections use the slice helper directly and allocate no ID maps.
+// viewMessages provides an ID lookup for internal batch callers. History and
+// event pages use ordered slices directly and need no output ID map.
 func (c *Core) viewMessages(ctx context.Context, id Identity, ids []string) (map[string]Message, error) {
 	messages, err := c.projectMessages(ctx, id, ids)
 	if err != nil {
@@ -256,15 +277,26 @@ func (c *Core) viewMessages(ctx context.Context, id Identity, ids []string) (map
 	return out, nil
 }
 
+type storedMessage struct {
+	message           Message
+	payload, metadata []byte
+}
+
+// These columns have a stable order shared by direct, history, and event reads.
+const messageProjectionColumns = `msg.id,msg.chat_id,msg.sender,msg.device_id,msg.operation_id,msg.seq,msg.revision,msg.deleted,msg.payload,msg.metadata,msg.epoch,msg.created_at,c.mode,d.public_key`
+const nullableMessageProjectionColumns = `COALESCE(msg.id,''),COALESCE(msg.chat_id,''),COALESCE(msg.sender,''),COALESCE(msg.device_id,''),COALESCE(msg.operation_id,''),COALESCE(msg.seq,0),COALESCE(msg.revision,0),COALESCE(msg.deleted,0),msg.payload,msg.metadata,COALESCE(msg.epoch,0),COALESCE(msg.created_at,0),c.mode,COALESCE(d.public_key,'')`
+const messageProjectionAccess = ` JOIN chats c ON c.id=msg.chat_id JOIN members member ON member.chat_id=msg.chat_id JOIN devices d ON d.user_id=member.user_id JOIN users u ON u.id=member.user_id WHERE member.user_id=? AND d.id=? AND member.active=1 AND d.revoked=0 AND u.disabled=0 AND msg.seq>=member.joined_seq`
+
+func (s *storedMessage) destinations(encodedKey *string) []any {
+	m := &s.message
+	return []any{&m.ID, &m.ChatID, &m.Sender, &m.DeviceID, &m.OperationID, &m.Seq, &m.Revision, &m.Deleted, &s.payload, &s.metadata, &m.Epoch, &m.CreatedAt, &m.Mode, encodedKey}
+}
+
 // projectMessages fetches message ACL and the active recipient key together.
 // Nothing is cached across requests. Rows close before optional projection hooks.
 func (c *Core) projectMessages(ctx context.Context, id Identity, ids []string) ([]Message, error) {
 	if len(ids) == 0 {
 		return []Message{}, nil
-	}
-	type storedMessage struct {
-		message           Message
-		payload, metadata []byte
 	}
 	args := make([]any, 0, len(ids)+2)
 	args = append(args, id.UserID, id.DeviceID)
@@ -282,7 +314,7 @@ func (c *Core) projectMessages(ctx context.Context, id Identity, ids []string) (
 			}
 		}
 	}
-	rows, err := c.readQuery(ctx, `SELECT msg.id,msg.chat_id,msg.sender,msg.device_id,msg.operation_id,msg.seq,msg.revision,msg.deleted,msg.payload,msg.metadata,msg.epoch,msg.created_at,c.mode,d.public_key FROM messages msg JOIN chats c ON c.id=msg.chat_id JOIN members member ON member.chat_id=msg.chat_id JOIN devices d ON d.user_id=member.user_id JOIN users u ON u.id=member.user_id WHERE member.user_id=? AND d.id=? AND member.active=1 AND d.revoked=0 AND u.disabled=0 AND msg.seq>=member.joined_seq AND msg.id IN (`+strings.Join(placeholders, ",")+`)`, args...)
+	rows, err := c.readQuery(ctx, `SELECT `+messageProjectionColumns+` FROM messages msg`+messageProjectionAccess+` AND msg.id IN (`+strings.Join(placeholders, ",")+`)`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -290,8 +322,7 @@ func (c *Core) projectMessages(ctx context.Context, id Identity, ids []string) (
 	var encodedKey string
 	for rows.Next() {
 		var item storedMessage
-		m := &item.message
-		if err = rows.Scan(&m.ID, &m.ChatID, &m.Sender, &m.DeviceID, &m.OperationID, &m.Seq, &m.Revision, &m.Deleted, &item.payload, &item.metadata, &m.Epoch, &m.CreatedAt, &m.Mode, &encodedKey); err != nil {
+		if err = rows.Scan(item.destinations(&encodedKey)...); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -305,8 +336,17 @@ func (c *Core) projectMessages(ctx context.Context, id Identity, ids []string) (
 	if len(stored) != len(placeholders) {
 		return nil, &APIError{404, "message not accessible"}
 	}
+	return c.projectStoredMessages(ctx, id, stored, encodedKey)
+}
+
+// Every caller closes its SQL rows before entering hooks or cryptography.
+func (c *Core) projectStoredMessages(ctx context.Context, id Identity, stored []storedMessage, encodedKey string) ([]Message, error) {
+	started := diagnosticStart()
+	defer func() { c.observeProjection(diagnosticElapsed(started)) }()
 	out := make([]Message, 0, len(stored))
-	var publicKey []byte
+	var recipient cryptoenc.Recipient
+	var recipientParsed bool
+	var err error
 	for _, item := range stored {
 		m := item.message
 		var meta messageMetadata
@@ -329,13 +369,18 @@ func (c *Core) projectMessages(ctx context.Context, id Identity, ids []string) (
 			return nil, err
 		}
 		if m.Mode == "basic" {
-			if publicKey == nil {
-				publicKey, err = base64.StdEncoding.DecodeString(encodedKey)
+			if !recipientParsed {
+				publicKey, e := base64.StdEncoding.DecodeString(encodedKey)
+				if e != nil {
+					return nil, e
+				}
+				recipient, err = cryptoenc.ParseRecipient(publicKey)
 				if err != nil {
 					return nil, err
 				}
+				recipientParsed = true
 			}
-			envelope, err := cryptoenc.SealEnvelope(publicKey, plain, cryptoenc.Binding(m.ChatID, id.UserID, id.DeviceID, m.ID))
+			envelope, err := recipient.SealEnvelope(plain, cryptoenc.Binding(m.ChatID, id.UserID, id.DeviceID, m.ID))
 			if err != nil {
 				return nil, err
 			}
@@ -381,8 +426,58 @@ func (c *Core) batch(w http.ResponseWriter, r *http.Request, id Identity) {
 	if minimal {
 		w.Header().Set("Preference-Applied", "return=minimal")
 	}
-	for _, item := range in.Messages {
-		msg, err := c.sendMessage(r.Context(), id, r.PathValue("chat"), item, minimal)
+	results := make([]messageWriteResult, len(in.Messages))
+	var jobs []messageWriteJob
+	var indices []int
+	bytes := 0
+	pendingIDs := make(map[string]bool)
+	groupLimit := maxWriteBatch
+	if c.writer != nil {
+		groupLimit = min(groupLimit, cap(c.writer.jobs))
+	}
+	flush := func() {
+		if len(jobs) == 0 {
+			return
+		}
+		committed := c.submitPrepared(jobs)
+		for j, result := range committed {
+			i := indices[j]
+			results[i] = result
+			if result.err == nil && !result.repeated {
+				c.Wake(r.PathValue("chat"))
+			}
+		}
+		jobs, indices, bytes = nil, nil, 0
+		clear(pendingIDs)
+	}
+	for i, item := range in.Messages {
+		// An earlier occurrence must become durable before retry/conflict validation,
+		// including malformed replacement envelopes with the same operation ID.
+		if pendingIDs[item.OperationID] {
+			flush()
+		}
+		job, saved, err := c.prepareMessage(r.Context(), id, r.PathValue("chat"), item)
+		if err != nil {
+			results[i].err = err
+			continue
+		}
+		if job == nil {
+			results[i] = messageWriteResult{message: saved, repeated: true}
+			continue
+		}
+		if len(jobs) == groupLimit || len(jobs) > 0 && job.bytes > maxWriteBatchBytes-bytes {
+			flush()
+		}
+		jobs, indices, bytes = append(jobs, *job), append(indices, i), bytes+job.bytes
+		pendingIDs[item.OperationID] = true
+	}
+	flush()
+	for i, item := range in.Messages {
+		result := results[i]
+		msg, err := result.message, result.err
+		if err == nil {
+			msg, err = c.sendResult(r.Context(), id, msg, minimal, result.repeated)
+		}
 		if err != nil {
 			code := 503
 			var api *APIError
@@ -400,33 +495,30 @@ func (c *Core) batch(w http.ResponseWriter, r *http.Request, id Identity) {
 }
 func (c *Core) history(w http.ResponseWriter, r *http.Request, id Identity) {
 	chat := r.PathValue("chat")
-	_, _, joined, err := c.Member(r.Context(), id.UserID, chat)
-	if err != nil {
-		Error(w, 403, "membership required")
-		return
-	}
 	after, _ := strconv.ParseInt(r.URL.Query().Get("after"), 10, 64)
-	if after < joined-1 {
-		after = joined - 1
-	}
 	limit := 100
 	if v, e := strconv.Atoi(r.URL.Query().Get("limit")); e == nil && v > 0 && v <= 200 {
 		limit = v
 	}
-	rows, err := c.readQuery(r.Context(), `SELECT id FROM messages WHERE chat_id=? AND seq>? ORDER BY seq LIMIT ?`, chat, after, limit)
+	rows, err := c.readQuery(r.Context(), `SELECT `+nullableMessageProjectionColumns+` FROM members member JOIN chats c ON c.id=member.chat_id JOIN devices d ON d.user_id=member.user_id JOIN users u ON u.id=member.user_id LEFT JOIN messages msg ON msg.chat_id=c.id AND msg.seq>? AND msg.seq>=member.joined_seq WHERE member.chat_id=? AND member.user_id=? AND d.id=? AND member.active=1 AND d.revoked=0 AND u.disabled=0 ORDER BY msg.seq LIMIT ?`, after, chat, id.UserID, id.DeviceID, limit)
 	if err != nil {
 		statusError(w, err)
 		return
 	}
-	ids := []string{}
+	stored := []storedMessage{}
+	var encodedKey string
+	authorized := false
 	for rows.Next() {
-		var mid string
-		if err = rows.Scan(&mid); err != nil {
+		var item storedMessage
+		if err = rows.Scan(item.destinations(&encodedKey)...); err != nil {
 			rows.Close()
 			statusError(w, err)
 			return
 		}
-		ids = append(ids, mid)
+		authorized = true
+		if item.message.ID != "" {
+			stored = append(stored, item)
+		}
 	}
 	err = rows.Err()
 	rows.Close()
@@ -434,14 +526,14 @@ func (c *Core) history(w http.ResponseWriter, r *http.Request, id Identity) {
 		statusError(w, err)
 		return
 	}
-	messages, err := c.viewMessages(r.Context(), id, ids)
+	if !authorized {
+		Error(w, 403, "membership required")
+		return
+	}
+	out, err := c.projectStoredMessages(r.Context(), id, stored, encodedKey)
 	if err != nil {
 		statusError(w, err)
 		return
-	}
-	out := make([]Message, 0, len(ids))
-	for _, mid := range ids {
-		out = append(out, messages[mid])
 	}
 	JSON(w, 200, out)
 }
@@ -470,20 +562,73 @@ func (c *Core) Events(ctx context.Context, id Identity, chat string, after int64
 	if after == current {
 		return []Event{}, nil
 	}
-	rows, err := c.readQuery(ctx, `SELECT seq,kind,message_id,data FROM events WHERE chat_id=? AND seq>? ORDER BY seq LIMIT ?`, chat, after, limit)
+	// Fetch the bounded event page and current message state in one snapshot.
+	// A one-event page needs no ranking or temporary sort. Bound that fast path
+	// to the observed head; a concurrent append remains for the next
+	// replay call, rather than expanding this query beyond its validated head.
+	// Rank within the page avoids copying the same payload for repeated events.
+	// LEFT JOIN retains non-message events and exposes inaccessible references
+	// explicitly rather than silently dropping them. ACL and key are fresh here.
+	query := `WITH page AS (SELECT seq,kind,message_id,data FROM events WHERE chat_id=? AND seq>? ORDER BY seq LIMIT ?), ranked AS (SELECT *,ROW_NUMBER() OVER (PARTITION BY message_id ORDER BY seq) AS message_rank FROM page)
+SELECT page.seq,page.kind,page.message_id,page.data,(d.id IS NOT NULL AND u.id IS NOT NULL),
+` + nullableMessageProjectionColumns + `
+FROM ranked page JOIN chats c ON c.id=?
+LEFT JOIN members member ON member.chat_id=c.id AND member.user_id=? AND member.active=1
+LEFT JOIN devices d ON d.user_id=member.user_id AND d.id=? AND d.revoked=0
+LEFT JOIN users u ON u.id=member.user_id AND u.disabled=0
+LEFT JOIN messages msg ON page.message_rank=1 AND msg.id=page.message_id AND msg.chat_id=c.id AND msg.seq>=member.joined_seq AND d.id IS NOT NULL AND u.id IS NOT NULL
+ORDER BY page.seq`
+	var args []any
+	if current-after == 1 || limit == 1 {
+		query = `SELECT page.seq,page.kind,page.message_id,page.data,(d.id IS NOT NULL AND u.id IS NOT NULL),
+` + nullableMessageProjectionColumns + `
+FROM (SELECT seq,kind,message_id,data FROM events WHERE chat_id=? AND seq>? AND seq<=? ORDER BY seq LIMIT 1) page JOIN chats c ON c.id=?
+LEFT JOIN members member ON member.chat_id=c.id AND member.user_id=? AND member.active=1
+LEFT JOIN devices d ON d.user_id=member.user_id AND d.id=? AND d.revoked=0
+LEFT JOIN users u ON u.id=member.user_id AND u.disabled=0
+LEFT JOIN messages msg ON msg.id=page.message_id AND msg.chat_id=c.id AND msg.seq>=member.joined_seq AND d.id IS NOT NULL AND u.id IS NOT NULL`
+		args = []any{chat, after, current, chat, id.UserID, id.DeviceID}
+	} else {
+		args = []any{chat, after, limit, chat, id.UserID, id.DeviceID}
+	}
+	rows, err := c.readQuery(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
 	type item struct {
-		event Event
-		data  []byte
+		event        Event
+		data         []byte
+		messageIndex int
 	}
 	items := []item{}
+	stored := []storedMessage{}
+	indices := make(map[string]int)
+	var encodedKey string
 	for rows.Next() {
-		it := item{event: Event{ChatID: chat}}
-		if err = rows.Scan(&it.event.Seq, &it.event.Type, &it.event.MessageID, &it.data); err != nil {
+		it := item{event: Event{ChatID: chat}, messageIndex: -1}
+		var message storedMessage
+		var authorized bool
+		destinations := append([]any{&it.event.Seq, &it.event.Type, &it.event.MessageID, &it.data, &authorized}, message.destinations(&encodedKey)...)
+		if err = rows.Scan(destinations...); err != nil {
 			rows.Close()
 			return nil, err
+		}
+		if !authorized {
+			rows.Close()
+			return nil, &APIError{403, "membership required"}
+		}
+		if it.event.MessageID != "" {
+			index, present := indices[it.event.MessageID]
+			if !present {
+				if message.message.ID == "" {
+					rows.Close()
+					return nil, &APIError{404, "message not accessible"}
+				}
+				index = len(stored)
+				indices[it.event.MessageID] = index
+				stored = append(stored, message)
+			}
+			it.messageIndex = index
 		}
 		items = append(items, it)
 	}
@@ -492,20 +637,14 @@ func (c *Core) Events(ctx context.Context, id Identity, chat string, after int64
 	if err != nil {
 		return nil, err
 	}
-	messageIDs := make([]string, 0, len(items))
-	for _, it := range items {
-		if it.event.MessageID != "" {
-			messageIDs = append(messageIDs, it.event.MessageID)
-		}
-	}
-	messages, err := c.viewMessages(ctx, id, messageIDs)
+	messages, err := c.projectStoredMessages(ctx, id, stored, encodedKey)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]Event, 0, len(items))
 	for _, it := range items {
 		if it.event.MessageID != "" {
-			it.event.Data = messages[it.event.MessageID]
+			it.event.Data = messages[it.messageIndex]
 		} else if len(it.data) > 0 {
 			data, e := c.Engine.Open(it.data, []byte(fmt.Sprintf("event/%s/%d", chat, it.event.Seq)))
 			if e != nil {

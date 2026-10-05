@@ -14,11 +14,40 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
 type aiRequester func(context.Context, string, map[string]string, any, bool) ([]byte, error)
+
+func aiProviderHeaders(settings config.AI, provider string) (map[string]string, error) {
+	headers := map[string]string{}
+	if provider == "anthropic" {
+		headers["anthropic-version"] = "2023-06-01"
+	}
+	if settings.Auth == "none" {
+		if !settings.AllowPrivate {
+			return nil, errors.New("unauthenticated provider requires explicit private access")
+		}
+		return headers, nil
+	}
+	env := settings.OpenAIKeyEnv
+	if provider == "anthropic" {
+		env = settings.AnthropicKeyEnv
+	}
+	key := os.Getenv(env)
+	if key == "" {
+		return nil, errors.New("provider credential unavailable")
+	}
+	if provider == "anthropic" {
+		headers["x-api-key"] = key
+	} else {
+		headers["Authorization"] = "Bearer " + key
+	}
+	return headers, nil
+}
 
 type aiLimitKey struct{}
 type aiRequestLimits struct {
@@ -85,23 +114,27 @@ func aiPublicIP(ip net.IP) bool {
 	return true
 }
 
-// Each call resolves once and dials only validated addresses. Redirects are
-// rejected, so provider/tool credentials cannot migrate to another origin.
-func aiRequest(ctx context.Context, raw string, headers map[string]string, body any, allowPrivate bool) ([]byte, error) {
+// aiOpenRequest performs the common bounded request setup and returns the
+// response body without buffering it. Both the ordinary JSON requester and
+// the provider SSE requester use this path, so DNS/address, proxy, redirect,
+// timeout, request-size and private-network policy stay identical.
+func aiOpenRequest(ctx context.Context, raw string, headers map[string]string, body any, allowPrivate bool) (*http.Response, func(), error) {
 	limits := aiContextLimits(ctx)
 	ctx, cancel := context.WithTimeout(ctx, limits.timeout)
-	defer cancel()
 	u, e := url.Parse(raw)
 	if e != nil || u.User != nil || u.Hostname() == "" || u.Fragment != "" || (u.Scheme != "https" && !(u.Scheme == "http" && allowPrivate)) {
-		return nil, errors.New("egress URL denied")
+		cancel()
+		return nil, nil, errors.New("egress URL denied")
 	}
 	addresses, e := net.DefaultResolver.LookupIPAddr(ctx, u.Hostname())
 	if e != nil || len(addresses) == 0 {
-		return nil, errors.New("egress resolution failed")
+		cancel()
+		return nil, nil, errors.New("egress resolution failed")
 	}
 	for _, a := range addresses {
 		if !allowPrivate && !aiPublicIP(a.IP) {
-			return nil, errors.New("egress address denied")
+			cancel()
+			return nil, nil, errors.New("egress address denied")
 		}
 	}
 	port := u.Port()
@@ -123,14 +156,15 @@ func aiRequest(ctx context.Context, raw string, headers map[string]string, body 
 		}
 		return nil, last
 	}}
-	defer tr.CloseIdleConnections()
 	client := &http.Client{Transport: tr, Timeout: limits.timeout, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("redirect denied") }}
 	data, e := json.Marshal(body)
 	if e != nil {
-		return nil, errors.New("request encoding failed")
+		cancel()
+		return nil, nil, errors.New("request encoding failed")
 	}
 	if len(data) > 1<<20 {
-		return nil, errors.New("request too large")
+		cancel()
+		return nil, nil, errors.New("request too large")
 	}
 	method := "POST"
 	if m, ok := headers[":method"]; ok {
@@ -138,7 +172,8 @@ func aiRequest(ctx context.Context, raw string, headers map[string]string, body 
 	}
 	req, e := http.NewRequestWithContext(ctx, method, raw, bytes.NewReader(data))
 	if e != nil {
-		return nil, errors.New("request invalid")
+		cancel()
+		return nil, nil, errors.New("request invalid")
 	}
 	req.Header.Set("Content-Type", "application/json")
 	for key, value := range headers {
@@ -148,13 +183,33 @@ func aiRequest(ctx context.Context, raw string, headers map[string]string, body 
 	}
 	response, e := client.Do(req)
 	if e != nil {
-		return nil, errors.New("external request failed")
+		client.CloseIdleConnections()
+		cancel()
+		return nil, nil, errors.New("external request failed")
 	}
-	defer response.Body.Close()
+	return response, func() {
+		response.Body.Close()
+		client.CloseIdleConnections()
+		cancel()
+	}, nil
+}
+
+// Each call resolves once and dials only validated addresses. Redirects are
+// rejected, so provider/tool credentials cannot migrate to another origin.
+func aiRequest(ctx context.Context, raw string, headers map[string]string, body any, allowPrivate bool) ([]byte, error) {
+	limits := aiContextLimits(ctx)
+	response, closeResponse, e := aiOpenRequest(ctx, raw, headers, body, allowPrivate)
+	if e != nil {
+		return nil, e
+	}
+	defer closeResponse()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return nil, errors.New("external service rejected request")
 	}
 	if session := response.Header.Get("Mcp-Session-Id"); session != "" {
+		if headers == nil {
+			headers = map[string]string{}
+		}
 		headers[":session"] = session
 	}
 	if response.StatusCode == http.StatusAccepted {
@@ -188,9 +243,39 @@ func aiRequest(ctx context.Context, raw string, headers map[string]string, body 
 	if !strings.HasPrefix(response.Header.Get("Content-Type"), "application/json") {
 		return nil, errors.New("external response must be application/json")
 	}
-	data, e = io.ReadAll(io.LimitReader(response.Body, int64(limits.response)+1))
+	data, e := io.ReadAll(io.LimitReader(response.Body, int64(limits.response)+1))
 	if e != nil || len(data) > limits.response {
 		return nil, errors.New("external response too large or unreadable")
 	}
 	return data, nil
+}
+
+// aiRequestStream opens an incremental SSE response. The caller must close
+// the returned body; closing it also releases the transport and request
+// context. It intentionally never falls back to io.ReadAll.
+func aiRequestStream(ctx context.Context, raw string, headers map[string]string, body any, allowPrivate bool) (io.ReadCloser, error) {
+	response, closeResponse, e := aiOpenRequest(ctx, raw, headers, body, allowPrivate)
+	if e != nil {
+		return nil, e
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		closeResponse()
+		return nil, errors.New("external service rejected request")
+	}
+	if !strings.HasPrefix(strings.ToLower(response.Header.Get("Content-Type")), "text/event-stream") {
+		closeResponse()
+		return nil, errors.New("external response must be text/event-stream")
+	}
+	return &aiStreamResponseBody{ReadCloser: response.Body, close: closeResponse}, nil
+}
+
+type aiStreamResponseBody struct {
+	io.ReadCloser
+	close func()
+	once  sync.Once
+}
+
+func (b *aiStreamResponseBody) Close() error {
+	b.once.Do(b.close)
+	return nil
 }

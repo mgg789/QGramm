@@ -1,0 +1,221 @@
+{
+  "baseline_commit": "20c3932",
+  "tooling_commit": "0d42533",
+  "projection": "bounded full-response projection",
+  "prepare": "bounded preliminary reads, final transaction checks remain",
+  "aggregation": "Arithmetic mean of per-run successful-request percentiles/phase CPU means/sample RAM maxima, not pooled percentiles; CPU100%=onecore; two repeats are not confidence intervals",
+  "load": "10kWS,10sidle,100messages/s30s+1000/s5s; ready10-message batches andfullresponseinallcohorts; 5000pairedchats,oneactivechat; frozenpriorgenerator/runner",
+  "included_primary_runs": 6,
+  "accepted_total": 47890,
+  "runs": [
+    {
+      "file": "batchreads-before-subscribed-1.json",
+      "variant": "before",
+      "profile": "subscribed",
+      "repeat": 1,
+      "batch_size": 10,
+      "response_mode": "full",
+      "accepted": 7980,
+      "acceptance_passed": true,
+      "steady_delivery_p95_ms": 15.002,
+      "steady_delivery_p99_ms": 17.069,
+      "steady_accept_p95_ms": 15.378,
+      "steady_accept_p99_ms": 17.83,
+      "whole_delivery_p99_ms": 16.162,
+      "steady_cpu_mean_percent": 11.739,
+      "steady_memory_max_mib": 345.5,
+      "idle_cpu_mean_percent": 1.427,
+      "idle_cpu_excluding_first_percent": 1.493,
+      "idle_resource_samples": 4
+    },
+    {
+      "file": "batchreads-before-subscribed-2.json",
+      "variant": "before",
+      "profile": "subscribed",
+      "repeat": 2,
+      "batch_size": 10,
+      "response_mode": "full",
+      "accepted": 7980,
+      "acceptance_passed": true,
+      "steady_delivery_p95_ms": 15.316,
+      "steady_delivery_p99_ms": 18.907,
+      "steady_accept_p95_ms": 15.064,
+      "steady_accept_p99_ms": 19.161,
+      "whole_delivery_p99_ms": 16.797,
+      "steady_cpu_mean_percent": 11.671,
+      "steady_memory_max_mib": 337.4,
+      "idle_cpu_mean_percent": 3.334,
+      "idle_cpu_excluding_first_percent": 3.635,
+      "idle_resource_samples": 5
+    },
+    {
+      "file": "batchreads-prepare-subscribed-1.json",
+      "variant": "prepare",
+      "profile": "subscribed",
+      "repeat": 1,
+      "batch_size": 10,
+      "response_mode": "full",
+      "accepted": 7980,
+      "acceptance_passed": true,
+      "steady_delivery_p95_ms": 14.652,
+      "steady_delivery_p99_ms": 18.211,
+      "steady_accept_p95_ms": 15.45,
+      "steady_accept_p99_ms": 18.4,
+      "whole_delivery_p99_ms": 16.462,
+      "steady_cpu_mean_percent": 11.064,
+      "steady_memory_max_mib": 334.5,
+      "idle_cpu_mean_percent": 2.002,
+      "idle_cpu_excluding_first_percent": 1.655,
+      "idle_resource_samples": 5
+    },
+    {
+      "file": "batchreads-prepare-subscribed-2.json",
+      "variant": "prepare",
+      "profile": "subscribed",
+      "repeat": 2,
+      "batch_size": 10,
+      "response_mode": "full",
+      "accepted": 7990,
+      "acceptance_passed": true,
+      "steady_delivery_p95_ms": 15.609,
+      "steady_delivery_p99_ms": 18.589,
+      "steady_accept_p95_ms": 16.221,
+      "steady_accept_p99_ms": 18.941,
+      "whole_delivery_p99_ms": 17.007,
+      "steady_cpu_mean_percent": 11.805,
+      "steady_memory_max_mib": 334.2,
+      "idle_cpu_mean_percent": 7.284,
+      "idle_cpu_excluding_first_percent": 1.752,
+      "idle_resource_samples": 5
+    },
+    {
+      "file": "batchreads-projection-subscribed-1.json",
+      "variant": "projection",
+      "profile": "subscribed",
+      "repeat": 1,
+      "batch_size": 10,
+      "response_mode": "full",
+      "accepted": 7980,
+      "acceptance_passed": true,
+      "steady_delivery_p95_ms": 14.783,
+      "steady_delivery_p99_ms": 19.489,
+      "steady_accept_p95_ms": 14.52,
+      "steady_accept_p99_ms": 19.836,
+      "whole_delivery_p99_ms": 18.02,
+      "steady_cpu_mean_percent": 12.134,
+      "steady_memory_max_mib": 336.5,
+      "idle_cpu_mean_percent": 1.32,
+      "idle_cpu_excluding_first_percent": 1.208,
+      "idle_resource_samples": 5
+    },
+    {
+      "file": "batchreads-projection-subscribed-2.json",
+      "variant": "projection",
+      "profile": "subscribed",
+      "repeat": 2,
+      "batch_size": 10,
+      "response_mode": "full",
+      "accepted": 7980,
+      "acceptance_passed": true,
+      "steady_delivery_p95_ms": 15.62,
+      "steady_delivery_p99_ms": 17.85,
+      "steady_accept_p95_ms": 15.706,
+      "steady_accept_p99_ms": 17.241,
+      "whole_delivery_p99_ms": 16.66,
+      "steady_cpu_mean_percent": 11.943,
+      "steady_memory_max_mib": 341.3,
+      "idle_cpu_mean_percent": 3.706,
+      "idle_cpu_excluding_first_percent": 1.688,
+      "idle_resource_samples": 5
+    }
+  ],
+  "cohort_means": {
+    "before/subscribed": {
+      "runs": 2,
+      "accepted_total": 15960,
+      "means": {
+        "steady_delivery_p95_ms": 15.159,
+        "steady_delivery_p99_ms": 17.988,
+        "steady_accept_p95_ms": 15.221,
+        "steady_accept_p99_ms": 18.4955,
+        "whole_delivery_p99_ms": 16.4795,
+        "steady_cpu_mean_percent": 11.705,
+        "steady_memory_max_mib": 341.45,
+        "idle_cpu_excluding_first_percent": 2.564
+      }
+    },
+    "prepare/subscribed": {
+      "runs": 2,
+      "accepted_total": 15970,
+      "means": {
+        "steady_delivery_p95_ms": 15.1305,
+        "steady_delivery_p99_ms": 18.4,
+        "steady_accept_p95_ms": 15.8355,
+        "steady_accept_p99_ms": 18.670499999999997,
+        "whole_delivery_p99_ms": 16.7345,
+        "steady_cpu_mean_percent": 11.4345,
+        "steady_memory_max_mib": 334.35,
+        "idle_cpu_excluding_first_percent": 1.7035
+      }
+    },
+    "projection/subscribed": {
+      "runs": 2,
+      "accepted_total": 15960,
+      "means": {
+        "steady_delivery_p95_ms": 15.2015,
+        "steady_delivery_p99_ms": 18.6695,
+        "steady_accept_p95_ms": 15.113,
+        "steady_accept_p99_ms": 18.5385,
+        "whole_delivery_p99_ms": 17.34,
+        "steady_cpu_mean_percent": 12.038499999999999,
+        "steady_memory_max_mib": 338.9,
+        "idle_cpu_excluding_first_percent": 1.448
+      }
+    }
+  },
+  "comparisons": {
+    "prepare/subscribed": {
+      "control": "before/subscribed",
+      "runs": 2,
+      "control_runs": 2,
+      "change_percent": {
+        "steady_delivery_p95_ms": -0.18800712448051593,
+        "steady_delivery_p99_ms": 2.290415832777404,
+        "steady_accept_p95_ms": 4.0371854674462915,
+        "steady_accept_p99_ms": 0.946176096888407,
+        "whole_delivery_p99_ms": 1.5473770442064216,
+        "steady_cpu_mean_percent": -2.310978214438275,
+        "steady_memory_max_mib": -2.079367403719423,
+        "idle_cpu_excluding_first_percent": -33.560842433697346
+      }
+    },
+    "projection/subscribed": {
+      "control": "before/subscribed",
+      "runs": 2,
+      "control_runs": 2,
+      "change_percent": {
+        "steady_delivery_p95_ms": 0.2803615014182803,
+        "steady_delivery_p99_ms": 3.788636869023798,
+        "steady_accept_p95_ms": -0.7095460219433747,
+        "steady_accept_p99_ms": 0.23248898380687777,
+        "whole_delivery_p99_ms": 5.221639006037804,
+        "steady_cpu_mean_percent": 2.849209739427594,
+        "steady_memory_max_mib": -0.7468150534485352,
+        "idle_cpu_excluding_first_percent": -43.52574102964118
+      }
+    }
+  },
+  "limits": [
+    "Shared macOS M5Pro DockerLinuxVM4CPU8GiB,notdedicatedLinuxSSD,noTLS",
+    "Batch ready-input latency excludes formingwait; batch andsingle distributions differ",
+    "IdleCPU excludingfirstfewapproximate2ssamples",
+    "Counts notexactIDs,decryption,persistentdeviceACK"
+  ],
+  "selection": {
+    "projection": "Not retained: mean steady delivery p99+3.8%,CPU+2.8%; minorRAMsavingnotworth complexity on this load.",
+    "prepare": "Deferred: mean CPU-2.3%,RAM-2.1%,deliveryp99+2.3%; no clear latency win, controls vary; snapshot not applied to retained core.",
+    "combined": "Not run: neither individually demonstrated a convincing speed gain; condition not satisfied.",
+    "retained_core_baseline": "20c3932 (experiment1 will be reverted);main2917865unchanged",
+    "prepare_patch_sha256": "7efd2980a6ac9c19d8de967ed39bac96508cfed1041dc1b22034c51203434338"
+  }
+}

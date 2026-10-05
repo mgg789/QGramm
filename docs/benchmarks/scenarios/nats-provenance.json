@@ -1,0 +1,20 @@
+{
+  "repository": "nats-io/nats-server",
+  "tag": "v2.15.0",
+  "url": "https://github.com/nats-io/nats-server/releases/tag/v2.15.0",
+  "assets": [
+    {
+      "name": "nats-server-v2.15.0-linux-arm64.sbom.spdx.json",
+      "url": "https://github.com/nats-io/nats-server/releases/download/v2.15.0/nats-server-v2.15.0-linux-arm64.sbom.spdx.json"
+    },
+    {
+      "name": "nats-server-v2.15.0-linux-arm64.tar.gz",
+      "url": "https://github.com/nats-io/nats-server/releases/download/v2.15.0/nats-server-v2.15.0-linux-arm64.tar.gz"
+    }
+  ],
+  "asset_url": "https://github.com/nats-io/nats-server/releases/download/v2.15.0/nats-server-v2.15.0-linux-arm64.tar.gz",
+  "asset_sha256": "cdc208f5a3f42963a52b6ab06ef65626bb870315dc936e26ba571780c6351112",
+  "binary_sha256": "9f9ac35b87e0e415802adfc177e073eb4c78050d5c368b6d18f8db571dc93496",
+  "image": "qgramm-scenario-nats:2.15.0",
+  "image_id": "sha256:f8f17950993e74ffc5de6d3b8cc9bfd5e76909adf567f94195ba784102312337"
+}

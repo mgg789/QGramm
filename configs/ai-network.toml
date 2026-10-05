@@ -1,0 +1,49 @@
+# Named AI endpoints and bots. Set QGRAMM_OPENAI_KEY in the service environment.
+[server]
+listen = "127.0.0.1:8080"
+allow_insecure_loopback = true
+
+[features]
+groups = true
+openai = true
+ai_streaming = true
+
+[capacity]
+expected_concurrent_users = 100
+
+[ai]
+default_bot = "assistant"
+max_output_tokens = 2048
+
+[ai.bots.reviewer]
+endpoint = "openai"
+streaming = false
+tools = []
+
+# A local HTTP endpoint can explicitly opt out of credentials, but only with
+# private egress enabled:
+# [ai.endpoints.local]
+# provider = "openai"
+# url = "http://127.0.0.1:9000/v1"
+# model = "local-model"
+# auth = "none"
+# allow_private = true
+
+[ai.endpoints.openai]
+provider = "openai"
+url = "https://api.openai.com/v1"
+model = "operator-selected-model"
+key_env = "QGRAMM_OPENAI_KEY"
+auth = "bearer"
+allow_private = false
+streaming = true
+capabilities = ["basic_text", "tool"]
+
+[ai.bots.assistant]
+endpoint = "openai"
+system_prompt = "You are a concise QGramm assistant."
+max_steps = 8
+max_context_turns = 20
+max_context_bytes = 262144
+timeout_seconds = 45
+max_output_tokens = 2048

@@ -1,0 +1,332 @@
+--- a/internal/core/messages.go
++++ b/internal/core/messages.go
+@@ -86,6 +86,10 @@
+ }
+ 
+ func (c *Core) prepareMessage(ctx context.Context, id Identity, chat string, in MessageInput) (*messageWriteJob, Message, error) {
++	return c.prepareMessageWithSnapshot(ctx, id, chat, in, nil)
++}
++
++func (c *Core) prepareMessageWithSnapshot(ctx context.Context, id Identity, chat string, in MessageInput, snapshot *batchPrepareSnapshot) (*messageWriteJob, Message, error) {
+ 	if !validID(in.OperationID) {
+ 		return nil, Message{}, &APIError{400, "operation_id required (1..128 safe characters)"}
+ 	}
+@@ -100,7 +104,12 @@
+ 	hash := hex.EncodeToString(digest.Sum(nil))
+ 	var previousHash string
+ 	var previous []byte
+-	err := c.readQueryRow(ctx, `SELECT hash,result FROM operations WHERE device_id=? AND operation_id=?`, id.DeviceID, in.OperationID).Scan(&previousHash, &previous)
++	var err error
++	if snapshot != nil {
++		previousHash, previous, err = snapshot.operation(in.OperationID)
++	} else {
++		err = c.readQueryRow(ctx, `SELECT hash,result FROM operations WHERE device_id=? AND operation_id=?`, id.DeviceID, in.OperationID).Scan(&previousHash, &previous)
++	}
+ 	if err == nil {
+ 		if previousHash != hash {
+ 			return nil, Message{}, &APIError{409, "operation_id reused with different content"}
+@@ -117,7 +126,11 @@
+ 	var mode string
+ 	var epoch int64
+ 	var pending, canSend bool
+-	err = c.readQueryRow(ctx, `SELECT c.mode,c.epoch,c.pending,m.can_send FROM chats c JOIN members m ON m.chat_id=c.id JOIN devices d ON d.user_id=m.user_id JOIN users u ON u.id=m.user_id WHERE c.id=? AND m.user_id=? AND d.id=? AND m.active=1 AND d.revoked=0 AND u.disabled=0`, chat, id.UserID, id.DeviceID).Scan(&mode, &epoch, &pending, &canSend)
++	if snapshot != nil {
++		mode, epoch, pending, canSend, err = snapshot.mode, snapshot.epoch, snapshot.pending, snapshot.canSend, snapshot.accessErr
++	} else {
++		err = c.readQueryRow(ctx, `SELECT c.mode,c.epoch,c.pending,m.can_send FROM chats c JOIN members m ON m.chat_id=c.id JOIN devices d ON d.user_id=m.user_id JOIN users u ON u.id=m.user_id WHERE c.id=? AND m.user_id=? AND d.id=? AND m.active=1 AND d.revoked=0 AND u.disabled=0`, chat, id.UserID, id.DeviceID).Scan(&mode, &epoch, &pending, &canSend)
++	}
+ 	if err != nil || !canSend {
+ 		return nil, Message{}, &APIError{403, "send permission denied"}
+ 	}
+@@ -435,6 +448,9 @@
+ 	if c.writer != nil {
+ 		groupLimit = min(groupLimit, cap(c.writer.jobs))
+ 	}
++	bulkPrepare := len(c.Prepare) == 0 && len(c.InTransaction) == 0
++	var snapshot *batchPrepareSnapshot
++	snapshotEnd := 0
+ 	flush := func() {
+ 		if len(jobs) == 0 {
+ 			return
+@@ -449,6 +465,7 @@
+ 		}
+ 		jobs, indices, bytes = nil, nil, 0
+ 		clear(pendingIDs)
++		snapshot = nil
+ 	}
+ 	for i, item := range in.Messages {
+ 		// An earlier occurrence must become durable before retry/conflict validation,
+@@ -456,7 +473,14 @@
+ 		if pendingIDs[item.OperationID] {
+ 			flush()
+ 		}
+-		job, saved, err := c.prepareMessage(r.Context(), id, r.PathValue("chat"), item)
++		if bulkPrepare && len(jobs) == groupLimit {
++			flush()
++		}
++		if bulkPrepare && (snapshot == nil || i >= snapshotEnd) {
++			snapshotEnd = min(i+groupLimit, len(in.Messages))
++			snapshot = c.loadBatchPrepare(r.Context(), id, r.PathValue("chat"), in.Messages[i:snapshotEnd])
++		}
++		job, saved, err := c.prepareMessageWithSnapshot(r.Context(), id, r.PathValue("chat"), item, snapshot)
+ 		if err != nil {
+ 			results[i].err = err
+ 			continue
+--- /dev/null
++++ b/internal/core/batch_prepare.go
+@@ -0,0 +1,68 @@
++package core
++
++import (
++	"context"
++	"database/sql"
++	"strings"
++)
++
++type batchPreviousOperation struct {
++	hash   string
++	result []byte
++}
++
++// This bounded, request-local snapshot avoids repeated preliminary reads only.
++// The writer still checks access, epoch, pending state and dedup in its transaction.
++type batchPrepareSnapshot struct {
++	operations       map[string]batchPreviousOperation
++	operationsErr    error
++	mode             string
++	epoch            int64
++	pending, canSend bool
++	accessErr        error
++}
++
++func (s *batchPrepareSnapshot) operation(id string) (string, []byte, error) {
++	if s.operationsErr != nil {
++		return "", nil, s.operationsErr
++	}
++	if previous, ok := s.operations[id]; ok {
++		return previous.hash, previous.result, nil
++	}
++	return "", nil, sql.ErrNoRows
++}
++
++func (c *Core) loadBatchPrepare(ctx context.Context, id Identity, chat string, inputs []MessageInput) *batchPrepareSnapshot {
++	s := &batchPrepareSnapshot{operations: make(map[string]batchPreviousOperation)}
++	args := []any{id.DeviceID}
++	seen := make(map[string]bool)
++	for _, input := range inputs {
++		if validID(input.OperationID) && !seen[input.OperationID] {
++			seen[input.OperationID] = true
++			args = append(args, input.OperationID)
++		}
++	}
++	if len(args) > 1 {
++		query := `SELECT operation_id,hash,result FROM operations WHERE device_id=? AND operation_id IN (` + strings.TrimSuffix(strings.Repeat("?,", len(args)-1), ",") + `)`
++		rows, err := c.readQuery(ctx, query, args...)
++		if err == nil {
++			for rows.Next() {
++				var op string
++				var previous batchPreviousOperation
++				if err = rows.Scan(&op, &previous.hash, &previous.result); err != nil {
++					break
++				}
++				s.operations[op] = previous
++			}
++			if err == nil {
++				err = rows.Err()
++			}
++			rows.Close()
++		}
++		s.operationsErr = err
++	}
++	if s.operationsErr == nil {
++		s.accessErr = c.readQueryRow(ctx, `SELECT c.mode,c.epoch,c.pending,m.can_send FROM chats c JOIN members m ON m.chat_id=c.id JOIN devices d ON d.user_id=m.user_id JOIN users u ON u.id=m.user_id WHERE c.id=? AND m.user_id=? AND d.id=? AND m.active=1 AND d.revoked=0 AND u.disabled=0`, chat, id.UserID, id.DeviceID).Scan(&s.mode, &s.epoch, &s.pending, &s.canSend)
++	}
++	return s
++}
+--- /dev/null
++++ b/internal/core/batch_prepare_test.go
+@@ -0,0 +1,154 @@
++package core
++
++import (
++	"context"
++	"database/sql"
++	"errors"
++	"fmt"
++	"testing"
++)
++
++func TestBatchPrepareSnapshotFreshTransactionGuards(t *testing.T) {
++	for _, change := range []string{"UPDATE devices SET revoked=1 WHERE id='alice-phone'", "UPDATE members SET can_send=0 WHERE user_id='alice'", "UPDATE chats SET epoch=epoch+1 WHERE id='chat'", "UPDATE chats SET pending=1 WHERE id='chat'"} {
++		t.Run(change, func(t *testing.T) {
++			f := newFixture(t)
++			ctx := context.Background()
++			input := f.input(t, "fresh-guard", "hello")
++			snapshot := f.c.loadBatchPrepare(ctx, f.id, "chat", []MessageInput{input})
++			job, _, err := f.c.prepareMessageWithSnapshot(ctx, f.id, "chat", input, snapshot)
++			if err != nil || job == nil {
++				t.Fatal(job, err)
++			}
++			if _, err := f.c.DB.Exec(change); err != nil {
++				t.Fatal(err)
++			}
++			result := f.c.submitPrepared([]messageWriteJob{*job})[0]
++			var api *APIError
++			if !errors.As(result.err, &api) || api.Status != 403 && api.Status != 409 {
++				t.Fatal(result.err)
++			}
++			var count int
++			if err := f.c.DB.QueryRow("SELECT COUNT(*) FROM messages").Scan(&count); err != nil || count != 0 {
++				t.Fatal(count, err)
++			}
++		})
++	}
++}
++
++func TestBatchPrepareSnapshotConcurrentOperation(t *testing.T) {
++	for _, conflict := range []bool{false, true} {
++		t.Run(fmt.Sprint(conflict), func(t *testing.T) {
++			f := newFixture(t)
++			ctx := context.Background()
++			input := f.input(t, "concurrent-op", "hello")
++			snapshot := f.c.loadBatchPrepare(ctx, f.id, "chat", []MessageInput{input})
++			job, _, err := f.c.prepareMessageWithSnapshot(ctx, f.id, "chat", input, snapshot)
++			if err != nil {
++				t.Fatal(err)
++			}
++			other := input
++			if conflict {
++				other = f.input(t, input.OperationID, "changed")
++			}
++			saved, err := f.c.Send(ctx, f.id, "chat", other)
++			if err != nil {
++				t.Fatal(err)
++			}
++			result := f.c.submitPrepared([]messageWriteJob{*job})[0]
++			if conflict {
++				var api *APIError
++				if !errors.As(result.err, &api) || api.Status != 409 {
++					t.Fatal(result.err)
++				}
++			} else if result.err != nil || !result.repeated || result.message.ID != saved.ID {
++				t.Fatal(result)
++			}
++		})
++	}
++}
++
++func TestBatchPrepareSnapshotCorruptResultIsolation(t *testing.T) {
++	f := newFixture(t)
++	ctx := context.Background()
++	bad := f.input(t, "bad-result", "a")
++	if _, err := f.c.Send(ctx, f.id, "chat", bad); err != nil {
++		t.Fatal(err)
++	}
++	if _, err := f.c.DB.Exec("UPDATE operations SET result=? WHERE operation_id=?", []byte("{corrupt"), bad.OperationID); err != nil {
++		t.Fatal(err)
++	}
++	good := f.input(t, "good-result", "b")
++	codes := batchStatuses(t, batchRequest(t, f, ctx, []MessageInput{bad, good}, true))
++	if fmt.Sprint(codes) != "[503 201]" {
++		t.Fatal(codes)
++	}
++	// Storage query errors cannot turn into authoritative dedup misses.
++	if _, err := f.c.DB.Exec("DROP TABLE operations"); err != nil {
++		t.Fatal(err)
++	}
++	snapshot := f.c.loadBatchPrepare(ctx, f.id, "chat", []MessageInput{good})
++	if snapshot.operationsErr == nil {
++		t.Fatal("missing SQL error")
++	}
++	if job, _, err := f.c.prepareMessageWithSnapshot(ctx, f.id, "chat", good, snapshot); err == nil || job != nil {
++		t.Fatal(job, err)
++	}
++}
++
++func TestBatchPrepareHooksRemainSequential(t *testing.T) {
++	for _, transactional := range []bool{false, true} {
++		t.Run(fmt.Sprint(transactional), func(t *testing.T) {
++			f := newFixture(t)
++			ctx := context.Background()
++			calls := 0
++			if transactional {
++				f.c.InTransaction = append(f.c.InTransaction, func(ctx context.Context, tx *sql.Tx, _ Identity, _ string, _ Message) error { calls++; return nil })
++			} else {
++				f.c.Prepare = append(f.c.Prepare, func(ctx context.Context, _ Identity, _ string, _ *MessageInput) error {
++					calls++
++					if calls == 1 {
++						_, err := f.c.DB.ExecContext(ctx, "UPDATE members SET can_send=0 WHERE user_id='alice'")
++						return err
++					}
++					return nil
++				})
++			}
++			codes := batchStatuses(t, batchRequest(t, f, ctx, []MessageInput{f.input(t, "hook-a", "a"), f.input(t, "hook-b", "b")}, true))
++			if transactional {
++				if fmt.Sprint(codes) != "[201 201]" || calls != 2 {
++					t.Fatal(codes, calls)
++				}
++			} else if fmt.Sprint(codes) != "[403 403]" || calls != 1 {
++				t.Fatal(codes, calls)
++			}
++		})
++	}
++}
++
++func TestBatchPrepareHookGroupBoundaryOrdering(t *testing.T) {
++	f := newFixture(t)
++	calls := 0
++	f.c.Prepare = append(f.c.Prepare, func(ctx context.Context, _ Identity, _ string, _ *MessageInput) error {
++		calls++
++		if calls == maxWriteBatch+1 {
++			var seq int
++			if err := f.c.DB.QueryRowContext(ctx, "SELECT seq FROM chats WHERE id='chat'").Scan(&seq); err != nil {
++				return err
++			}
++			if seq != 0 {
++				return fmt.Errorf("legacy preparation ordering changed: seq=%d", seq)
++			}
++		}
++		return nil
++	})
++	inputs := make([]MessageInput, maxWriteBatch+1)
++	for i := range inputs {
++		inputs[i] = f.input(t, fmt.Sprint("hook-boundary-", i), "hello")
++	}
++	codes := batchStatuses(t, batchRequest(t, f, context.Background(), inputs, true))
++	for _, code := range codes {
++		if code != 201 {
++			t.Fatal(codes)
++		}
++	}
++}
+--- /dev/null
++++ b/internal/core/batch_prepare_profile_test.go
+@@ -0,0 +1,27 @@
++//go:build qg_bench_profile
++
++package core
++
++import (
++	"context"
++	"fmt"
++	"testing"
++)
++
++func TestBatchPrepareBoundedReadCount(t *testing.T) {
++	f := newFixture(t)
++	inputs := make([]MessageInput, 34)
++	for i := range inputs {
++		inputs[i] = f.input(t, fmt.Sprint("bounded-", i), "hello")
++	}
++	before := f.c.diagnostics.reads.Load()
++	codes := batchStatuses(t, batchRequest(t, f, context.Background(), inputs, true))
++	for _, code := range codes {
++		if code != 201 {
++			t.Fatal(codes)
++		}
++	}
++	if reads := f.c.diagnostics.reads.Load() - before; reads != 6 {
++		t.Fatalf("preliminary reads %d want 6 for 3 bounded windows", reads)
++	}
++}

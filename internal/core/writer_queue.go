@@ -22,6 +22,7 @@ type messageWriteJob struct {
 	runTx  func(context.Context, *sql.Tx) (Message, bool, error)
 	bytes  int
 	result chan messageWriteResult
+	group  []messageWriteJob
 }
 
 // messageWriter bounds retained, already validated payloads before the single
@@ -32,6 +33,7 @@ type messageWriter struct {
 	stop, done                                             chan struct{}
 	mu                                                     sync.Mutex
 	closed                                                 bool
+	groupExtra                                             atomic.Int64
 	admitted, rejected, completed, cancelled               atomic.Uint64
 	waitNS, serviceNS, commitNS, commitCount, commitErrors atomic.Uint64
 	batchCount, batchJobs, committedMessages, maxBatch     atomic.Uint64
@@ -80,6 +82,11 @@ func (w *messageWriter) enqueue(job messageWriteJob) (Message, bool, error) {
 		w.mu.Unlock()
 		return Message{}, false, &APIError{503, "writer stopping"}
 	}
+	if len(w.jobs)+int(w.groupExtra.Load()) >= cap(w.jobs) {
+		w.rejected.Add(1)
+		w.mu.Unlock()
+		return Message{}, false, &APIError{503, "writer queue full"}
+	}
 	select {
 	case w.jobs <- job:
 		w.admitted.Add(1)
@@ -94,6 +101,74 @@ func (w *messageWriter) enqueue(job messageWriteJob) (Message, bool, error) {
 	// racing a successful commit must not turn its receipt into a queue rejection.
 	result := <-job.result
 	return result.message, result.repeated, result.err
+}
+
+func (w *messageWriter) submitGroup(jobs []messageWriteJob) []messageWriteResult {
+	if len(jobs) == 1 {
+		m, repeated, err := w.enqueue(jobs[0])
+		return []messageWriteResult{{message: m, repeated: repeated, err: err}}
+	}
+	results := make([]messageWriteResult, len(jobs))
+	reject := func(err error) []messageWriteResult {
+		for i := range results {
+			results[i].err = err
+		}
+		return results
+	}
+	if len(jobs) == 0 {
+		return results
+	}
+	if len(jobs) > maxWriteBatch {
+		return reject(&APIError{503, "writer group too large"})
+	}
+	bytes := 0
+	for _, job := range jobs {
+		if job.runTx == nil || len(job.group) != 0 || job.bytes < 0 {
+			return reject(&APIError{503, "invalid writer group"})
+		}
+		bytes += job.bytes
+	}
+	if len(jobs) > 1 && bytes > maxWriteBatchBytes {
+		return reject(&APIError{503, "writer group too large"})
+	}
+	for _, job := range jobs {
+		if err := job.ctx.Err(); err != nil {
+			return reject(err)
+		}
+	}
+	for i := range jobs {
+		jobs[i].queued, jobs[i].result = time.Now(), make(chan messageWriteResult, 1)
+	}
+	job := jobs[0]
+	if len(jobs) > 1 {
+		job.group = jobs
+	}
+	w.mu.Lock()
+	if w.closed {
+		w.mu.Unlock()
+		return reject(&APIError{503, "writer stopping"})
+	}
+	if len(w.jobs)+int(w.groupExtra.Load())+len(jobs) > cap(w.jobs) {
+		w.rejected.Add(uint64(len(jobs)))
+		w.mu.Unlock()
+		return reject(&APIError{503, "writer queue full"})
+	}
+	w.groupExtra.Add(int64(len(jobs) - 1))
+	select {
+	case w.jobs <- job:
+		w.admitted.Add(uint64(len(jobs)))
+		w.mu.Unlock()
+	default:
+		w.groupExtra.Add(-int64(len(jobs) - 1))
+		w.rejected.Add(uint64(len(jobs)))
+		w.mu.Unlock()
+		return reject(&APIError{503, "writer queue full"})
+	}
+	// Definitive outcomes are awaited even when the HTTP request cancels.
+	for i := range jobs {
+		results[i] = <-jobs[i].result
+	}
+	return results
 }
 
 func (w *messageWriter) execute(job messageWriteJob) {
@@ -156,6 +231,11 @@ const maxWriteBatchBytes = 8 << 20
 // Only already queued message jobs share a commit. There is no batching timer.
 // Oversized single jobs run alone; the payload limit remains the configured one.
 func (w *messageWriter) process(first messageWriteJob) *messageWriteJob {
+	if len(first.group) > 0 {
+		w.groupExtra.Add(-int64(len(first.group) - 1))
+		w.executeBatch(first.group)
+		return nil
+	}
 	if first.runTx == nil {
 		w.execute(first)
 		return nil
@@ -168,7 +248,7 @@ drain:
 	for n < len(jobs) && bytes < maxWriteBatchBytes {
 		select {
 		case job := <-w.jobs:
-			if job.runTx == nil || job.bytes > maxWriteBatchBytes-bytes {
+			if len(job.group) > 0 || job.runTx == nil || job.bytes > maxWriteBatchBytes-bytes {
 				pending = &job
 				break drain
 			}
@@ -185,9 +265,16 @@ drain:
 // sequence, event, operation or module state behind in a successful neighbour.
 // Successful results remain private until the shared FULL commit completes.
 func (w *messageWriter) executeBatch(jobs []messageWriteJob) {
+	w.executeBatchContext(jobs, w.core.Context)
+}
+
+// Queued work belongs to the core lifecycle. A Core embedded without the
+// writer retains the caller-owned transaction lifetime of direct Send.
+func (w *messageWriter) executeBatchContext(jobs []messageWriteJob, txContext context.Context) {
 	start := time.Now()
+	bodyStart := diagnosticStart()
 	var results [maxWriteBatch]messageWriteResult
-	tx, batchErr := w.core.DB.BeginTx(w.core.Context, nil)
+	tx, batchErr := w.core.DB.BeginTx(txContext, nil)
 	if tx != nil {
 		defer tx.Rollback()
 	}
@@ -208,7 +295,7 @@ func (w *messageWriter) executeBatch(jobs []messageWriteJob) {
 		}
 		// The single-job path needs no savepoint or extra SQL round trips.
 		if len(jobs) > 1 {
-			_, batchErr = tx.ExecContext(w.core.Context, "SAVEPOINT qgramm_message")
+			_, batchErr = tx.ExecContext(txContext, "SAVEPOINT qgramm_message")
 			if batchErr != nil {
 				result.err = batchErr
 				continue
@@ -226,10 +313,10 @@ func (w *messageWriter) executeBatch(jobs []messageWriteJob) {
 				batchErr = result.err
 				continue
 			}
-			_, batchErr = tx.ExecContext(w.core.Context, "ROLLBACK TO qgramm_message")
+			_, batchErr = tx.ExecContext(txContext, "ROLLBACK TO qgramm_message")
 		}
 		if len(jobs) > 1 && batchErr == nil {
-			_, batchErr = tx.ExecContext(w.core.Context, "RELEASE qgramm_message")
+			_, batchErr = tx.ExecContext(txContext, "RELEASE qgramm_message")
 		}
 		if result.err == nil && batchErr == nil {
 			if !result.repeated {
@@ -237,6 +324,7 @@ func (w *messageWriter) executeBatch(jobs []messageWriteJob) {
 			}
 		}
 	}
+	w.core.observeBody(diagnosticElapsed(bodyStart))
 	if batchErr == nil && changed > 0 {
 		commitStart := time.Now()
 		batchErr = tx.Commit()
@@ -295,5 +383,5 @@ func (c *Core) WriterStats() WriterMetrics {
 		return WriterMetrics{}
 	}
 	w := c.writer
-	return WriterMetrics{Capacity: cap(w.jobs), Queued: len(w.jobs), Admitted: w.admitted.Load(), Rejected: w.rejected.Load(), Completed: w.completed.Load(), Cancelled: w.cancelled.Load(), QueueWaitNS: w.waitNS.Load(), ServiceNS: w.serviceNS.Load(), CommitNS: w.commitNS.Load(), CommitCount: w.commitCount.Load(), CommitErrors: w.commitErrors.Load(), BatchCount: w.batchCount.Load(), BatchJobs: w.batchJobs.Load(), CommittedMessages: w.committedMessages.Load(), MaxBatch: w.maxBatch.Load()}
+	return WriterMetrics{Capacity: cap(w.jobs), Queued: len(w.jobs) + int(w.groupExtra.Load()), Admitted: w.admitted.Load(), Rejected: w.rejected.Load(), Completed: w.completed.Load(), Cancelled: w.cancelled.Load(), QueueWaitNS: w.waitNS.Load(), ServiceNS: w.serviceNS.Load(), CommitNS: w.commitNS.Load(), CommitCount: w.commitCount.Load(), CommitErrors: w.commitErrors.Load(), BatchCount: w.batchCount.Load(), BatchJobs: w.batchJobs.Load(), CommittedMessages: w.committedMessages.Load(), MaxBatch: w.maxBatch.Load()}
 }

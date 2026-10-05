@@ -53,7 +53,7 @@ deletion precedence; a membership change during projection can require resync.
 
 - A 201 send result means SQLite committed both message and event. It does not mean a recipient received/read it.
 - Preserve the complete serialized request and operation ID for retries. Changing ciphertext or metadata while reusing an operation ID returns 409, even if plaintext is identical.
-- `POST .../messages/batch` accepts `{messages:[...]}` and returns HTTP207 with per-item results. A batch is not an all-or-nothing transaction; retry failed items only.
+- `POST .../messages/batch` accepts `{messages:[...]}` and returns HTTP207 with per-item results. A batch is not an all-or-nothing transaction; retry failed items only. Prepared elements share bounded FULL commits (up to16 messages/8MiB and queue capacity), with an individual savepoint per element. Preparation/savepoint failures remain per-item; an unsuccessful shared commit rejects its tentative successes. Duplicate operation IDs force the earlier group to finish before retry validation. ACK and notifications follow commit. A single message above the group byte limit runs alone within the configured message limit.
 - History: `GET .../messages?after=0&limit=100`, ordered by creation sequence. Events: `GET .../events?after=0`, ordered by chat sequence.
 - Events refer to the **current message projection**, so replay after edits/deletion converges to present state rather than recreating deleted payloads.
 - `POST .../receipts` accepts `{delivered: N, read: M}` with `0 <= M <= N <= chat sequence`. These are explicit per-device claims, not proof a human viewed the message. Duplicate receipts do not create new events.

@@ -1,0 +1,24 @@
+[
+  {
+    "profile": "group",
+    "image": "qgramm:scenario-group",
+    "image_id": "sha256:1754e400cbc73e4cda3dbee2c8bda64f657e2a69dd5a2e93a1745ecd4a470f53",
+    "server_commit": "a16e26b5f316f11f6ff6b111b48350157f04a1a2",
+    "binary_sha256": "0459d7a7238a3e7b3262e8880bd8f97802bba1ad5348e5dae62508456f0e5283",
+    "go_build_info": "../scenarios/qgramm-group-binary: go1.26.8\n\tpath\tgithub.com/mgg789/QGramm/cmd/qgramm\n\tmod\tgithub.com/mgg789/QGramm\t(devel)\t\n\tdep\tgithub.com/BurntSushi/toml\tv1.5.0\th1:W5quZX/G/csjUnuI8SUYlsHs9M38FC7znL0lIO+DvMg=\n\tdep\tgithub.com/cloudflare/circl\tv1.6.3\th1:9GPOhQGF9MCYUeXyMYlqTR6a5gTrgR/fBLXvUgtVcg8=\n\tdep\tgithub.com/dustin/go-humanize\tv1.0.1\th1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=\n\tdep\tgithub.com/golang-jwt/jwt/v5\tv5.2.3\th1:kkGXqQOBSDDWRhWNXTFpqGSCMyh/PLnqUvMGJPDJDs0=\n\tdep\tgithub.com/google/uuid\tv1.6.0\th1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=\n\tdep\tgithub.com/gorilla/websocket\tv1.5.3\th1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=\n\tdep\tgithub.com/remyoudompheng/bigfft\tv0.0.0-20230129092748-24d4a6f8daec\th1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=\n\tdep\tgolang.org/x/crypto\tv0.48.0\th1:/VRzVqiRSggnhY7gNRxPauEQ5Drw9haKdM0jqfcCFts=\n\tdep\tgolang.org/x/exp\tv0.0.0-20251023183803-a4bb9ffd2546\th1:mgKeJMpvi0yx/sU5GsxQ7p6s2wtOnGAHZWCHUM4KGzY=\n\tdep\tgolang.org/x/sys\tv0.42.0\th1:omrd2nAlyT5ESRdCLYdm3+fMfNFE/+Rf4bDIQImRJeo=\n\tdep\tmodernc.org/libc\tv1.67.6\th1:eVOQvpModVLKOdT+LvBPjdQqfrZq+pC39BygcT+E7OI=\n\tdep\tmodernc.org/mathutil\tv1.7.1\th1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU=\n\tdep\tmodernc.org/memory\tv1.11.0\th1:o4QC8aMQzmcwCK3t3Ux/ZHmwFPzE6hf2Y5LbkRs+hbI=\n\tdep\tmodernc.org/sqlite\tv1.46.1\th1:eFJ2ShBLIEnUWlLy12raN0Z1plqmFX9Qe3rjQTKt6sU=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\t-tags=qg_groups\n\tbuild\t-trimpath=true\n\tbuild\tCGO_ENABLED=0\n\tbuild\tGOARCH=arm64\n\tbuild\tGOOS=linux\n\tbuild\tGOARM64=v8.0\n",
+    "config": "[server]\nlisten=\"0.0.0.0:8080\"\ntrusted_proxy=true\n[storage]\npath=\"/data/qgramm.db\"\nfiles=\"/data/files\"\n[capacity]\nexpected_concurrent_users=10000\nmax_connections=12000\n[features]\ngroups=true\nfiles=false\n",
+    "build_method": "private cached Dockerfile using existing golang1.26.8 build stage and repository qgramm-build; core snapshot a16e26b",
+    "platform": "linux/arm64"
+  },
+  {
+    "profile": "files",
+    "image": "qgramm:scenario-files",
+    "image_id": "sha256:e5eaf6780bf3ba81b02384be8880369ced32f8b4b6018d163c21ce73f60b1d8e",
+    "server_commit": "a16e26b5f316f11f6ff6b111b48350157f04a1a2",
+    "binary_sha256": "649769ab3e8322c611a0a2f5a05200b875f1ae70f7fa3d73992f7d76eaffe61d",
+    "go_build_info": "../scenarios/qgramm-files-binary: go1.26.8\n\tpath\tgithub.com/mgg789/QGramm/cmd/qgramm\n\tmod\tgithub.com/mgg789/QGramm\t(devel)\t\n\tdep\tgithub.com/BurntSushi/toml\tv1.5.0\th1:W5quZX/G/csjUnuI8SUYlsHs9M38FC7znL0lIO+DvMg=\n\tdep\tgithub.com/cloudflare/circl\tv1.6.3\th1:9GPOhQGF9MCYUeXyMYlqTR6a5gTrgR/fBLXvUgtVcg8=\n\tdep\tgithub.com/dustin/go-humanize\tv1.0.1\th1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=\n\tdep\tgithub.com/golang-jwt/jwt/v5\tv5.2.3\th1:kkGXqQOBSDDWRhWNXTFpqGSCMyh/PLnqUvMGJPDJDs0=\n\tdep\tgithub.com/google/uuid\tv1.6.0\th1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=\n\tdep\tgithub.com/gorilla/websocket\tv1.5.3\th1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=\n\tdep\tgithub.com/remyoudompheng/bigfft\tv0.0.0-20230129092748-24d4a6f8daec\th1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=\n\tdep\tgolang.org/x/crypto\tv0.48.0\th1:/VRzVqiRSggnhY7gNRxPauEQ5Drw9haKdM0jqfcCFts=\n\tdep\tgolang.org/x/exp\tv0.0.0-20251023183803-a4bb9ffd2546\th1:mgKeJMpvi0yx/sU5GsxQ7p6s2wtOnGAHZWCHUM4KGzY=\n\tdep\tgolang.org/x/sys\tv0.42.0\th1:omrd2nAlyT5ESRdCLYdm3+fMfNFE/+Rf4bDIQImRJeo=\n\tdep\tmodernc.org/libc\tv1.67.6\th1:eVOQvpModVLKOdT+LvBPjdQqfrZq+pC39BygcT+E7OI=\n\tdep\tmodernc.org/mathutil\tv1.7.1\th1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU=\n\tdep\tmodernc.org/memory\tv1.11.0\th1:o4QC8aMQzmcwCK3t3Ux/ZHmwFPzE6hf2Y5LbkRs+hbI=\n\tdep\tmodernc.org/sqlite\tv1.46.1\th1:eFJ2ShBLIEnUWlLy12raN0Z1plqmFX9Qe3rjQTKt6sU=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\t-tags=qg_files,qg_groups\n\tbuild\t-trimpath=true\n\tbuild\tCGO_ENABLED=0\n\tbuild\tGOARCH=arm64\n\tbuild\tGOOS=linux\n\tbuild\tGOARM64=v8.0\n",
+    "config": "[server]\nlisten=\"0.0.0.0:8080\"\ntrusted_proxy=true\n[storage]\npath=\"/data/qgramm.db\"\nfiles=\"/data/files\"\n[capacity]\nexpected_concurrent_users=10000\nmax_connections=12000\n[features]\ngroups=true\nfiles=true\n",
+    "build_method": "private cached Dockerfile using existing golang1.26.8 build stage and repository qgramm-build; core snapshot a16e26b",
+    "platform": "linux/arm64"
+  }
+]

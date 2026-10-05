@@ -1,0 +1,115 @@
+{
+  "method": "Native isolated unchanged-head poll cost; 5000 subscriptions; 5 warm polls; 100 measured polls per run, 3 consecutive before then 3 consecutive after. No HTTP or WebSocket traffic in measured loop. No forced GC; MemStats delta across loop; native host timing can vary and does not establish end-to-end latency improvement. Shared fixture Core has no subscriptions; isolated poll Core has no replay background worker.",
+  "native_go": "go version go1.26.4 darwin/arm64",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "baseline_commit": "2ce70776a9515cdc598c3cf263f062dce9daba17",
+  "after_overlay_files": [
+    "internal/core/sharedreplay.go",
+    "internal/core/realtime.go",
+    "internal/core/types.go"
+  ],
+  "fixture_sha256": "9aa6c1f0d861b1c17c761cf60e15a14bda1fc5262631bfcbca9da91e92d9de9a",
+  "variants": {
+    "before": {
+      "runs": [
+        {
+          "allocs_per_poll": 35219.17,
+          "bytes_per_poll": 1282522.32,
+          "chats": 5000,
+          "forced_gc": false,
+          "natural_gc_cycles": 26,
+          "ns_per_poll": 5540432.5,
+          "poll_calls": 100,
+          "unexpected_notifications": 0,
+          "verified_heads": 5000
+        },
+        {
+          "allocs_per_poll": 35217.2,
+          "bytes_per_poll": 1281601.44,
+          "chats": 5000,
+          "forced_gc": false,
+          "natural_gc_cycles": 26,
+          "ns_per_poll": 5630553.33,
+          "poll_calls": 100,
+          "unexpected_notifications": 0,
+          "verified_heads": 5000
+        },
+        {
+          "allocs_per_poll": 35216.51,
+          "bytes_per_poll": 1281361.92,
+          "chats": 5000,
+          "forced_gc": false,
+          "natural_gc_cycles": 26,
+          "ns_per_poll": 5551071.25,
+          "poll_calls": 100,
+          "unexpected_notifications": 0,
+          "verified_heads": 5000
+        }
+      ],
+      "mean": {
+        "ns_per_poll": 5574019.026666666,
+        "bytes_per_poll": 1281828.56,
+        "allocs_per_poll": 35217.62666666666,
+        "natural_gc_cycles": 26
+      },
+      "source_files": {
+        "internal/core/sharedreplay.go": "3f2826bf423dcf0314c3780f1b6446054bfb7dbdf5ae1e753617e5276c559c51",
+        "internal/core/realtime.go": "ab55ffc3622793f1f8f21328e30ebc55c93ddb3b21d55900a9f0af6d49699c5f",
+        "internal/core/types.go": "81b2b42106c9600c7b2da0817449ffe8b70e859d2e4c69b470c56b384d8a6f3e"
+      }
+    },
+    "after": {
+      "runs": [
+        {
+          "allocs_per_poll": 20158.03,
+          "bytes_per_poll": 540605.52,
+          "chats": 5000,
+          "forced_gc": false,
+          "natural_gc_cycles": 12,
+          "ns_per_poll": 5336957.5,
+          "poll_calls": 100,
+          "unexpected_notifications": 0,
+          "verified_heads": 5000
+        },
+        {
+          "allocs_per_poll": 20155.68,
+          "bytes_per_poll": 539577.76,
+          "chats": 5000,
+          "forced_gc": false,
+          "natural_gc_cycles": 11,
+          "ns_per_poll": 5311886.25,
+          "poll_calls": 100,
+          "unexpected_notifications": 0,
+          "verified_heads": 5000
+        },
+        {
+          "allocs_per_poll": 20155.86,
+          "bytes_per_poll": 539777.36,
+          "chats": 5000,
+          "forced_gc": false,
+          "natural_gc_cycles": 11,
+          "ns_per_poll": 5570194.58,
+          "poll_calls": 100,
+          "unexpected_notifications": 0,
+          "verified_heads": 5000
+        }
+      ],
+      "mean": {
+        "ns_per_poll": 5406346.11,
+        "bytes_per_poll": 539986.88,
+        "allocs_per_poll": 20156.523333333334,
+        "natural_gc_cycles": 11.333333333333334
+      },
+      "source_files": {
+        "internal/core/sharedreplay.go": "f8305601da185e8cebe8f3fb223ca6baeaa2b72298a5d64b031348dfee1e0c38",
+        "internal/core/realtime.go": "7eb8673cd14a5bd2cf834eec515c1c9bb6fa1eed2c8054a3873630403b56a6a7",
+        "internal/core/types.go": "ef62b7c3c1e9139adce9834934ac3b9fc15149467bafa20fbd2f73383e95fb84"
+      }
+    }
+  },
+  "mean_change_percent": {
+    "ns_per_poll": -3.008115255159738,
+    "bytes_per_poll": -57.87370504523632,
+    "allocs_per_poll": -42.76581007540919
+  }
+}
