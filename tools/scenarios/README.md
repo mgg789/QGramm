@@ -134,3 +134,33 @@ History verification has a separate 120-second budget outside latency timing.
 an acceptance verdict; inspect each JSON's integrity, load and setup fields.
 
 Runner checks: `(cd tools/scenarios && python3 -m unittest test_run.py)`.
+
+## NATS consumer-state sensitivity
+
+`run.py --service nats --nats-consumer-memory` passes
+`-nats-consumer-memory` to the generator. The stream remains FILE/R1 with
+`sync_interval=always`; only each consumer's state moves from FILE to MEMORY.
+The generator checks the returned consumer configuration before starting load,
+and JSON records `nats_consumer_storage` plus both storage contracts.
+This is a within-NATS control of ACK bookkeeping I/O, not equivalent QGramm
+device delivery semantics. Client reconnect is checked while the server remains
+running. No server restart is tested; MEMORY consumer state must not be relied
+on for restart recovery. Keep this control separate from the primary FILE
+consumer comparison.
+
+Centrifugo history verification snapshots `limit=0` metadata, then requests
+forward pages bounded to128 publications and an estimated512KiB. Every page
+checks epoch, stream top and contiguous offsets. Full history is still checked;
+large replies are not silently truncated to make a test pass.
+
+Reproduce the sensitivity with `campaign.py --mode consumerstate` (the usual
+`--generator`, `--env-generator`, `--out-dir` arguments): FILE/MEMORY then
+MEMORY/FILE group runs. `--profiles payload4k` selects only the payload4k
+comparison profile when repeating it. All modes refuse to overwrite evidence.
+[Consumer storage documentation](https://github.com/nats-io/nats.docs/blob/master/nats-concepts/jetstream/consumers.md).
+
+[Benchmark module notices](THIRD_PARTY_LICENSES.txt) cover the complete separate
+SDK module graph, including test/optional dependencies. Regenerate/check from
+this directory using `go run ../../cmd/qgramm-licenses -out THIRD_PARTY_LICENSES.txt [-check]`;
+first download missing graph sources with `go mod download all`. This changes
+only benchmark development dependencies, not the production module or binary.

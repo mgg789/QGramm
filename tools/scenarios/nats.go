@@ -83,9 +83,12 @@ func (a *natsAdapter) subscribe(user int, create bool) error {
 	durable := "receiver_" + strconv.Itoa(user)
 	subject := fmt.Sprintf("bench.%d", chatFor(a.cfg, user))
 	if create {
-		_, err = js.AddConsumer(scenarioStream, &nats.ConsumerConfig{Durable: durable, DeliverSubject: nats.NewInbox(), FilterSubject: subject, AckPolicy: nats.AckExplicitPolicy, AckWait: 30 * time.Second, MaxAckPending: 1000000, DeliverPolicy: nats.DeliverAllPolicy})
-		if err != nil {
-			return err
+		info, createErr := js.AddConsumer(scenarioStream, &nats.ConsumerConfig{Durable: durable, DeliverSubject: nats.NewInbox(), FilterSubject: subject, MemoryStorage: a.cfg.NATSConsumerMemory, AckPolicy: nats.AckExplicitPolicy, AckWait: 30 * time.Second, MaxAckPending: 1000000, DeliverPolicy: nats.DeliverAllPolicy})
+		if createErr != nil {
+			return createErr
+		}
+		if info.Config.MemoryStorage != a.cfg.NATSConsumerMemory {
+			return fmt.Errorf("NATS consumer storage differs from requested profile")
 		}
 	}
 	_, err = js.Subscribe(subject, func(msg *nats.Msg) {

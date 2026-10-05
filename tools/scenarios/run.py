@@ -40,7 +40,9 @@ def main():
     p.add_argument('--timeout', type=float, default=900)
     p.add_argument('--file-bytes', type=int, default=0)
     p.add_argument('--file-count', type=int, default=2)
+    p.add_argument('--nats-consumer-memory', action='store_true', help='NATS sensitivity only: keep consumer state in RAM; messages stay FILE')
     a = p.parse_args()
+    if a.nats_consumer_memory and a.service != 'nats': p.error('--nats-consumer-memory requires --service nats')
     if a.service == 'qgramm' and not a.env_generator: p.error('qgramm requires --env-generator')
     out = pathlib.Path(a.out).resolve()
     if out.exists(): p.error('refusing to overwrite evidence')
@@ -79,6 +81,7 @@ def main():
                 raise RuntimeError('temporary '+a.service+' readiness failed before workload')
             args=[str(pathlib.Path(a.generator).resolve()),'-service',a.service,'-url',scheme+address+suffix,'-users',str(a.users),'-chats',str(a.chats),'-fanout',str(a.fanout),'-payload-bytes',str(a.payload_bytes),'-steps',a.steps,'-idle',a.idle,'-response-mode',a.response_mode,'-reconnect',str(a.reconnect),'-offline',a.offline,'-out',str(result),'-phase-file',str(phase),'-file-bytes',str(a.file_bytes),'-file-count',str(a.file_count)]
             if a.service=='qgramm':args+=['-env-file',str(env_file)]
+            if a.nats_consumer_memory:args+=['-nats-consumer-memory']
             start=time.monotonic()
             with (temp/'generator.log').open('w') as log:
                 process=subprocess.Popen(args,cwd=ROOT,env=dict(os.environ,BENCH_SECRET=secret),stdout=log,stderr=subprocess.STDOUT)
@@ -106,7 +109,11 @@ def main():
             evidence['readiness_seconds']=round(readiness_seconds,3)
             evidence['environment']={'host_os':platform.platform(),'host_cpu':command('sysctl','-n','machdep.cpu.brand_string') if platform.system()=='Darwin' else platform.processor(),'host_logical_cpus':os.cpu_count(),'server_kernel':command('docker','exec',name,'uname','-a') if inspect['State']['Running'] else 'container stopped','cpu_limit':4,'ram_limit_gib':8,'image':a.image,'image_id':inspect['Image'],'image_labels':image['Config'].get('Labels'),'generator_sha256':hashlib.sha256(pathlib.Path(a.generator).read_bytes()).hexdigest(),'tooling_commit':command('git','rev-parse','HEAD'),'container_oom':inspect['State']['OOMKilled'],'isolation':'shared Docker Desktop VM, generator host, noTLS, loopback only','stats':'docker no-stream+1s (~2s); CPU100%=onecore; generator psCPU lifetime mean, not intervalCPU'}
             evidence['server_configuration']=config.read_text().replace(secret,'<synthetic-secret>')
-            evidence['contract']={'durability':{'qgramm':'SQLite WAL FULL durable operation/event transaction','nats':'JetStream file R1 sync_interval=always, explicit-ACK consumer per recipient','centrifugo':'Memory history cache1M/channel TTL900s; no restart durability'}[a.service],'crypto':'client/container and container/recipient HPKE, storage AEAD' if a.service=='qgramm' else 'none; isolated loopback payload','auth':'per-request Ed25519 JWT and chat/device ACL' if a.service=='qgramm' else 'shared connection token' if a.service=='nats' else 'distinct HS256 connectionJWT, permissive benchmark channels','transport':'HTTP send/WebSocket receive' if a.service=='qgramm' else 'WebSocket send/receive'}
+            evidence['contract']={'durability':{'qgramm':'SQLite WAL FULL durable operation/event transaction','nats':'JetStream FILE messages R1 sync_interval=always; explicit-ACK consumer state '+('MEMORY' if a.nats_consumer_memory else 'FILE')+' per recipient','centrifugo':'Memory history cache1M/channel TTL900s; no restart durability'}[a.service],'crypto':'client/container and container/recipient HPKE, storage AEAD' if a.service=='qgramm' else 'none; isolated loopback payload','auth':'per-request Ed25519 JWT and chat/device ACL' if a.service=='qgramm' else 'shared connection token' if a.service=='nats' else 'distinct HS256 connectionJWT, permissive benchmark channels','transport':'HTTP send/WebSocket receive' if a.service=='qgramm' else 'WebSocket send/receive'}
+            if a.service=='nats':
+                evidence['contract']['stream_storage']='FILE'
+                evidence['contract']['consumer_storage']='MEMORY' if a.nats_consumer_memory else 'FILE'
+                evidence['contract']['consumer_restart']='not tested; MEMORY state must not be treated as restart durable'
             out.parent.mkdir(parents=True,exist_ok=True);out.write_text(json.dumps(evidence,indent=2)+'\n')
             if process.returncode:raise RuntimeError('scenario failed; saved evidence '+str(out))
             print(json.dumps({'out':str(out),'exit':process.returncode}),flush=True)

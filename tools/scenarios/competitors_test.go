@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -60,7 +62,18 @@ func centrifugoTestServer(t *testing.T, recovered bool, history []centrifugoPub,
 				_ = json.Unmarshal(cmd["subscribe"], &args)
 				reply["subscribe"] = map[string]any{"recoverable": true, "recovered": recovered && args.Recover, "offset": offset, "epoch": "epoch", "publications": []any{}}
 			case cmd["history"] != nil:
-				reply["history"] = map[string]any{"offset": offset, "epoch": "epoch", "publications": history}
+				var args struct {
+					Limit int                 `json:"limit"`
+					Since *centrifugoPosition `json:"since"`
+				}
+				_ = json.Unmarshal(cmd["history"], &args)
+				var page []centrifugoPub
+				for _, pub := range history {
+					if args.Limit > len(page) && (args.Since == nil || pub.Offset > args.Since.Offset) {
+						page = append(page, pub)
+					}
+				}
+				reply["history"] = map[string]any{"offset": offset, "epoch": "epoch", "publications": page}
 			default:
 				reply["publish"] = map[string]any{}
 			}
@@ -71,6 +84,79 @@ func centrifugoTestServer(t *testing.T, recovered bool, history []centrifugoPub,
 	}))
 	t.Cleanup(s.Close)
 	return s
+}
+
+func TestCentrifugoHistoryBoundedPagination(t *testing.T) {
+	const count = 300
+	accepted := make([]Publication, count)
+	pubs := make([]centrifugoPub, count)
+	for i := range accepted {
+		id := fmt.Sprintf("%017d", i+1)
+		body := []byte(id + strings.Repeat("x", 4096-len(id)))
+		encoded, _ := json.Marshal(string(body))
+		accepted[i] = Publication{ID: id, Chat: 0, Payload: body}
+		pubs[i] = centrifugoPub{Data: encoded, Offset: uint64(i + 1)}
+	}
+	var pageRequests atomic.Int64
+	var badRequest atomic.Bool
+	up := websocket.Upgrader{}
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ws, err := up.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer ws.Close()
+		for {
+			var cmd map[string]json.RawMessage
+			if err = ws.ReadJSON(&cmd); err != nil {
+				return
+			}
+			var id uint64
+			_ = json.Unmarshal(cmd["id"], &id)
+			reply := map[string]any{"id": id}
+			switch {
+			case cmd["connect"] != nil:
+				reply["connect"] = map[string]any{"client": "test"}
+			case cmd["subscribe"] != nil:
+				reply["subscribe"] = map[string]any{"epoch": "epoch", "offset": count, "recoverable": true}
+			case cmd["history"] != nil:
+				var args struct {
+					Limit   int                 `json:"limit"`
+					Reverse bool                `json:"reverse"`
+					Since   *centrifugoPosition `json:"since"`
+				}
+				_ = json.Unmarshal(cmd["history"], &args)
+				var page []centrifugoPub
+				if args.Limit > 0 {
+					pageRequests.Add(1)
+					// Model a bounded server output queue: the old all-history
+					// request would close the socket here despite valid live traffic.
+					if args.Limit > 128 || args.Limit*(4096+256) > 512*1024 || args.Since == nil || args.Since.Epoch != "epoch" || args.Reverse || args.Since.Offset >= count {
+						badRequest.Store(true)
+						return
+					}
+					start := int(args.Since.Offset)
+					page = pubs[start:min(count, start+args.Limit)]
+				}
+				reply["history"] = map[string]any{"epoch": "epoch", "offset": count, "publications": page}
+			}
+			if err = ws.WriteJSON(reply); err != nil {
+				return
+			}
+		}
+	}))
+	defer s.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	a, err := NewCentrifugo(ctx, Config{URL: "ws" + strings.TrimPrefix(s.URL, "http"), Users: 2, Chats: 1, Fanout: 1, PayloadBytes: 4096, Secret: "test-only"}, func(Delivery) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	history, err := a.History(ctx, accepted)
+	if err != nil || history.Checked != count || history.Missing != 0 || history.Unexpected != 0 || history.Corrupt != 0 || a.Errors() != 0 || badRequest.Load() || pageRequests.Load() < 3 {
+		t.Fatalf("history %+v error %v pages %d bad %v errors %d", history, err, pageRequests.Load(), badRequest.Load(), a.Errors())
+	}
 }
 func TestCentrifugoIntentionalDisconnectAndRecoveryFailure(t *testing.T) {
 	s := centrifugoTestServer(t, false, nil, 0)

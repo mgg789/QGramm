@@ -57,6 +57,9 @@ func validate(c Config) error {
 	if c.ResponseMode != "full" && c.ResponseMode != "minimal" {
 		return fmt.Errorf("response-mode must be full or minimal")
 	}
+	if c.NATSConsumerMemory && c.Service != "nats" {
+		return fmt.Errorf("nats-consumer-memory requires service=nats")
+	}
 	if c.FileBytes < 0 || c.FileCount < 1 || (c.FileBytes > 0 && (c.Service != "qgramm" || c.Chats != 1 || c.Fanout != 1)) {
 		return fmt.Errorf("file scenario requires qgramm, chats=1, fanout=1, file-count>=1 and nonnegative file-bytes")
 	}
@@ -83,6 +86,7 @@ func execute() int {
 	flag.StringVar(&out, "out", "", "JSON output, stdout if omitted")
 	flag.Int64Var(&c.FileBytes, "file-bytes", 0, "resumable QGramm attachment size; zero selects messaging scenario")
 	flag.IntVar(&c.FileCount, "file-count", 2, "number of files in attachment scenario")
+	flag.BoolVar(&c.NATSConsumerMemory, "nats-consumer-memory", false, "keep NATS consumer state in RAM; stream messages remain FILE")
 	flag.Parse()
 	c.Secret = os.Getenv("BENCH_SECRET")
 	var err error

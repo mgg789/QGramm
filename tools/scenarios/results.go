@@ -78,6 +78,7 @@ type ReconnectResult struct {
 	Completed       bool      `json:"completed"`
 }
 type Results struct {
+	NATSConsumerStorage  string              `json:"nats_consumer_storage,omitempty"`
 	Service              string              `json:"service"`
 	Users                int                 `json:"users"`
 	Chats                int                 `json:"chats"`

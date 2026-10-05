@@ -26,14 +26,19 @@ def main():
     p.add_argument('--generator', required=True)
     p.add_argument('--env-generator', required=True)
     p.add_argument('--out-dir', required=True)
-    p.add_argument('--mode', choices=['comparison', 'idle', 'files', 'soak'], default='comparison')
+    p.add_argument('--mode', choices=['comparison', 'idle', 'files', 'soak', 'consumerstate'], default='comparison')
+    p.add_argument('--profiles', default=','.join(PROFILES), help='comma-separated comparison profiles')
     p.add_argument('--cooldown', type=float, default=15)
     a = p.parse_args()
     out = pathlib.Path(a.out_dir).resolve()
     out.mkdir(parents=True, exist_ok=True)
     jobs = []
     if a.mode == 'comparison':
-        for profile, settings in PROFILES.items():
+        requested = a.profiles.split(',')
+        if len(set(requested)) != len(requested) or any(profile not in PROFILES for profile in requested):
+            p.error('profiles must be unique names from '+','.join(PROFILES))
+        for profile in requested:
+            settings = PROFILES[profile]
             for repeat, order in enumerate([list(IMAGES), list(reversed(IMAGES))], 1):
                 for service in order:
                     jobs.append((f'{profile}-{service}-r{repeat}', service, settings))
@@ -48,6 +53,11 @@ def main():
                 jobs.append((f'files{size}m-qgramm-r{repeat}', 'qgramm',
                              dict(users=2, chats=1, fanout=1, file_bytes=size*1024*1024,
                                   file_count=2, steps='1:1s')))
+    elif a.mode == 'consumerstate':
+        for repeat, order in enumerate([['file', 'memory'], ['memory', 'file']], 1):
+            for storage in order:
+                jobs.append((f'consumerstate-{storage}-nats-r{repeat}', 'nats',
+                             dict(PROFILES['fanout100'], nats_consumer_memory=storage == 'memory')))
     else:
         # Derive a tested rate from both distributed repeats. If there is no
         # qualifying step, record an explicitly exploratory 100/s fallback.
@@ -72,7 +82,11 @@ def main():
                 '--env-generator', str(pathlib.Path(a.env_generator).resolve()), '--out', str(target)]
         for key, value in settings.items():
             if key != 'selection':
-                argv += ['--'+key.replace('_', '-'), str(value)]
+                if isinstance(value, bool):
+                    if value:
+                        argv += ['--'+key.replace('_', '-')]
+                else:
+                    argv += ['--'+key.replace('_', '-'), str(value)]
         print(json.dumps({'start': name, 'settings': settings}), flush=True)
         completed = subprocess.run(argv)
         if target.exists():

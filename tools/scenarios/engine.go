@@ -89,7 +89,14 @@ func (e *Engine) recordSendError(err error) {
 }
 
 func newEngine(c Config) *Engine {
-	return &Engine{cfg: c, items: map[string]*trackedPublication{}, seq: map[int]uint64{}, offline: map[int]bool{}, result: Results{Service: c.Service, Users: c.Users, Chats: c.Chats, Fanout: c.Fanout, PayloadBytes: c.PayloadBytes, Workers: c.Workers, DuplicatePolicy: "unique delivery integrity allows counted at-least-once duplicates; strict load SLO requires zero"}, resumeIDs: map[string]map[int]bool{}}
+	storage := ""
+	if c.Service == "nats" {
+		storage = "FILE"
+		if c.NATSConsumerMemory {
+			storage = "MEMORY"
+		}
+	}
+	return &Engine{cfg: c, items: map[string]*trackedPublication{}, seq: map[int]uint64{}, offline: map[int]bool{}, result: Results{NATSConsumerStorage: storage, Service: c.Service, Users: c.Users, Chats: c.Chats, Fanout: c.Fanout, PayloadBytes: c.PayloadBytes, Workers: c.Workers, DuplicatePolicy: "unique delivery integrity allows counted at-least-once duplicates; strict load SLO requires zero"}, resumeIDs: map[string]map[int]bool{}}
 }
 func (e *Engine) receive(d Delivery) {
 	now := time.Now()

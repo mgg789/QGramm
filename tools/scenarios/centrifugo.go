@@ -251,8 +251,10 @@ func (a *centrifugoAdapter) Send(ctx context.Context, p Publication) error {
 func (a *centrifugoAdapter) History(ctx context.Context, accepted []Publication) (HistoryResult, error) {
 	r := HistoryResult{Supported: true}
 	expected := make(map[string]Publication, len(accepted))
+	maxPayloadByChat := make(map[int]int)
 	for _, p := range accepted {
 		expected[p.ID] = p
+		maxPayloadByChat[p.Chat] = max(maxPayloadByChat[p.Chat], len(p.Payload))
 	}
 	seen := make(map[string]bool)
 	for chat := 0; chat < a.cfg.Chats; chat++ {
@@ -262,30 +264,58 @@ func (a *centrifugoAdapter) History(ctx context.Context, accepted []Publication)
 		if c == nil {
 			return r, fmt.Errorf("history sender disconnected")
 		}
-		reply, e := c.command(ctx, "history", map[string]any{"channel": fmt.Sprintf("bench.%d", chat), "limit": 1000000})
+		channel := fmt.Sprintf("bench.%d", chat)
+		// Read the stream position separately, then page within that snapshot.
+		// A single large history response can overflow the server output queue
+		// even when all live publications were delivered successfully.
+		reply, e := c.command(ctx, "history", map[string]any{"channel": channel, "limit": 0})
 		if e != nil {
 			return r, e
 		}
 		if reply.History == nil {
 			return r, fmt.Errorf("missing history reply")
 		}
-		if uint64(len(reply.History.Publications)) != reply.History.Offset {
-			return r, fmt.Errorf("history truncated or expired for chat %d: have %d, offset %d", chat, len(reply.History.Publications), reply.History.Offset)
+		top, epoch := reply.History.Offset, reply.History.Epoch
+		if top > 0 && epoch == "" {
+			return r, fmt.Errorf("missing history epoch for chat %d", chat)
 		}
-		for _, pub := range reply.History.Publications {
-			r.Checked++
-			payload, id, e := centrifugoPayload(pub)
-			p, ok := expected[id]
-			if e != nil || !ok {
-				r.Unexpected++
-				continue
+		maxPayload := max(a.cfg.PayloadBytes, 17, maxPayloadByChat[chat])
+		pageSize := max(1, min(128, (512*1024)/(maxPayload+256)))
+		var cursor uint64
+		for cursor < top {
+			limit := min(pageSize, int(top-cursor))
+			page, err := c.command(ctx, "history", map[string]any{
+				"channel": channel, "limit": limit, "reverse": false,
+				"since": map[string]any{"offset": cursor, "epoch": epoch},
+			})
+			if err != nil {
+				return r, err
 			}
-			if seen[id] {
-				r.Unexpected++
+			if page.History == nil || page.History.Epoch != epoch || page.History.Offset != top {
+				return r, fmt.Errorf("history stream position changed for chat %d", chat)
 			}
-			seen[id] = true
-			if p.Chat != chat || string(p.Payload) != string(payload) {
-				r.Corrupt++
+			if len(page.History.Publications) == 0 || len(page.History.Publications) > limit {
+				return r, fmt.Errorf("history truncated or invalid page for chat %d at offset %d", chat, cursor)
+			}
+			for _, pub := range page.History.Publications {
+				if pub.Offset != cursor+1 || pub.Offset > top {
+					return r, fmt.Errorf("history non-contiguous offset for chat %d: want %d, got %d", chat, cursor+1, pub.Offset)
+				}
+				cursor = pub.Offset
+				r.Checked++
+				payload, id, e := centrifugoPayload(pub)
+				p, ok := expected[id]
+				if e != nil || !ok {
+					r.Unexpected++
+					continue
+				}
+				if seen[id] {
+					r.Unexpected++
+				}
+				seen[id] = true
+				if p.Chat != chat || string(p.Payload) != string(payload) {
+					r.Corrupt++
+				}
 			}
 		}
 	}

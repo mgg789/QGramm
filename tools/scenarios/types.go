@@ -17,6 +17,7 @@ type Config struct {
 	PhaseFile                                   string
 	FileBytes                                   int64
 	FileCount                                   int
+	NATSConsumerMemory                          bool
 }
 type Step struct {
 	Name     string
