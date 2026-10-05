@@ -17,3 +17,5 @@
 - Message jobs already queued may share a FULL commit (max16 jobs/8MiB, no delay timer). Each job uses a savepoint; ACK/wake happen only after commit. InTransaction hooks must be SQL-only and must not manage transactions or savepoints.
 
 - HTTP batch submits bounded groups (up to16 messages/8MiB and queue capacity) together; savepoints isolate elements, duplicate IDs flush prior groups, and results follow FULL commit. Preserve per-item207 and retry semantics.
+
+- `tools/scenarios` is a separate benchmark Go module: `(cd tools/scenarios && go test -race ./... && go vet ./... && python3 -m unittest test_run.py)`. Keep competitor dependencies out of the production module; compare exact accepted IDs/payloads with admission/skips, and distinguish NATS consumer-state controls from cross-service guarantees.

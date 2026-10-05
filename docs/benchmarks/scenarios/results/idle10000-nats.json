@@ -1,0 +1,353 @@
+{
+  "nats_consumer_storage": "FILE",
+  "service": "nats",
+  "users": 10000,
+  "chats": 1,
+  "fanout": 1,
+  "payload_bytes": 256,
+  "workers": 256,
+  "integrity_passed": true,
+  "load_pass": true,
+  "started_at": "2026-10-05T05:06:00.246067+03:00",
+  "phases": [
+    {
+      "name": "step-0",
+      "target_messages_per_second": 1,
+      "duration_seconds": 1,
+      "planned": 1,
+      "scheduled": 1,
+      "offered": 1,
+      "accepted": 1,
+      "rejected": 0,
+      "backpressure": 0,
+      "uncertain": 0,
+      "skipped": 0,
+      "delivered": 1,
+      "duplicate": 0,
+      "actual_offered_rate": 1,
+      "ack": {
+        "p50_ms": 2.348291,
+        "p95_ms": 2.348291,
+        "p99_ms": 2.348291,
+        "samples": 1
+      },
+      "delivery": {
+        "p50_ms": 2.365791,
+        "p95_ms": 2.365791,
+        "p99_ms": 2.365791,
+        "samples": 1
+      },
+      "generator_late": {
+        "p50_ms": 0.001334,
+        "p95_ms": 0.001334,
+        "p99_ms": 0.001334,
+        "samples": 1
+      },
+      "slo_pass": true
+    }
+  ],
+  "outstanding": [
+    {
+      "seconds": 1.000094083,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 2.000086458,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 3.001131125,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 4.000863292,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 5.001079875,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 6.000918208,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 7.001054458,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 8.001059958,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 9.0000845,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 10.001074375,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 11.000287667,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 12.001066083,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 13.001064292,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 14.001105417,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 15.001058417,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 16.001066792,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 17.001068583,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 18.000630625,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 19.001061542,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 20.001061292,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 21.001075375,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    },
+    {
+      "seconds": 21.005467417,
+      "pending_deliveries": 0,
+      "max_age_ms": 0
+    }
+  ],
+  "integrity": {
+    "accepted": 1,
+    "expected_deliveries": 1,
+    "received": 1,
+    "missing": 0,
+    "duplicate": 0,
+    "unexpected": 0,
+    "corrupt": 0,
+    "out_of_order": 0,
+    "adapter_errors": 0
+  },
+  "history": {
+    "checked": 1,
+    "missing": 0,
+    "unexpected": 0,
+    "corrupt": 0,
+    "supported": true
+  },
+  "reconnect": {
+    "receivers": 0,
+    "offline_seconds": 0,
+    "replay_origin_latency": {
+      "p50_ms": 0,
+      "p95_ms": 0,
+      "p99_ms": 0,
+      "samples": 0
+    },
+    "resume_drain_ms": 0,
+    "pending_at_resume": 0,
+    "completed": false
+  },
+  "highest_tested_slo_rate": 1,
+  "drain_seconds": 2.959e-06,
+  "pending_after_drain": 0,
+  "duplicate_policy": "unique delivery integrity allows counted at-least-once duplicates; strict load SLO requires zero",
+  "resource_samples": [
+    {
+      "elapsed_seconds": 1.03,
+      "phase": "setup",
+      "cpu": "116.12%",
+      "memory": "231.7MiB / 7.748GiB",
+      "network_io": "5.31MB / 8.04MB",
+      "block_io": "14.8MB / 20.5kB",
+      "generator_cpu_lifetime_percent": 152.5,
+      "generator_rss_kib": 312944
+    },
+    {
+      "elapsed_seconds": 3.062,
+      "phase": "idle",
+      "cpu": "20.95%",
+      "memory": "492MiB / 7.748GiB",
+      "network_io": "10.2MB / 15.1MB",
+      "block_io": "14.9MB / 20.5kB",
+      "generator_cpu_lifetime_percent": 26.7,
+      "generator_rss_kib": 562912
+    },
+    {
+      "elapsed_seconds": 5.096,
+      "phase": "idle",
+      "cpu": "1.26%",
+      "memory": "555.5MiB / 7.748GiB",
+      "network_io": "11MB / 15.9MB",
+      "block_io": "14.9MB / 20.5kB",
+      "generator_cpu_lifetime_percent": 0.0,
+      "generator_rss_kib": 583280
+    },
+    {
+      "elapsed_seconds": 7.131,
+      "phase": "idle",
+      "cpu": "0.17%",
+      "memory": "555.5MiB / 7.748GiB",
+      "network_io": "11MB / 15.9MB",
+      "block_io": "14.9MB / 20.5kB",
+      "generator_cpu_lifetime_percent": 0.0,
+      "generator_rss_kib": 583280
+    },
+    {
+      "elapsed_seconds": 9.17,
+      "phase": "idle",
+      "cpu": "0.16%",
+      "memory": "555.8MiB / 7.748GiB",
+      "network_io": "11MB / 15.9MB",
+      "block_io": "14.9MB / 20.5kB",
+      "generator_cpu_lifetime_percent": 0.0,
+      "generator_rss_kib": 583280
+    },
+    {
+      "elapsed_seconds": 11.206,
+      "phase": "idle",
+      "cpu": "0.19%",
+      "memory": "555.6MiB / 7.748GiB",
+      "network_io": "11MB / 15.9MB",
+      "block_io": "14.9MB / 20.5kB",
+      "generator_cpu_lifetime_percent": 0.0,
+      "generator_rss_kib": 583280
+    },
+    {
+      "elapsed_seconds": 13.242,
+      "phase": "idle",
+      "cpu": "0.18%",
+      "memory": "555.6MiB / 7.748GiB",
+      "network_io": "11MB / 15.9MB",
+      "block_io": "14.9MB / 20.5kB",
+      "generator_cpu_lifetime_percent": 0.0,
+      "generator_rss_kib": 583280
+    },
+    {
+      "elapsed_seconds": 15.284,
+      "phase": "idle",
+      "cpu": "0.17%",
+      "memory": "555.8MiB / 7.748GiB",
+      "network_io": "11MB / 15.9MB",
+      "block_io": "14.9MB / 20.5kB",
+      "generator_cpu_lifetime_percent": 0.1,
+      "generator_rss_kib": 583280
+    },
+    {
+      "elapsed_seconds": 17.317,
+      "phase": "idle",
+      "cpu": "0.13%",
+      "memory": "555.6MiB / 7.748GiB",
+      "network_io": "11MB / 15.9MB",
+      "block_io": "14.9MB / 20.5kB",
+      "generator_cpu_lifetime_percent": 0.0,
+      "generator_rss_kib": 583280
+    },
+    {
+      "elapsed_seconds": 19.354,
+      "phase": "idle",
+      "cpu": "0.18%",
+      "memory": "555.6MiB / 7.748GiB",
+      "network_io": "11.7MB / 16.5MB",
+      "block_io": "14.9MB / 20.5kB",
+      "generator_cpu_lifetime_percent": 0.0,
+      "generator_rss_kib": 583296
+    },
+    {
+      "elapsed_seconds": 21.396,
+      "phase": "idle",
+      "cpu": "0.17%",
+      "memory": "555.6MiB / 7.748GiB",
+      "network_io": "11.7MB / 16.5MB",
+      "block_io": "14.9MB / 20.5kB",
+      "generator_cpu_lifetime_percent": 0.0,
+      "generator_rss_kib": 583296
+    }
+  ],
+  "generator_exit_code": 0,
+  "readiness_seconds": 0.017,
+  "environment": {
+    "host_os": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "host_cpu": "Apple M5 Pro",
+    "host_logical_cpus": 18,
+    "server_kernel": "Linux b402b6edd901 6.12.76-linuxkit #1 SMP Thu Jun 11 15:44:51 UTC 2026 aarch64 Linux",
+    "cpu_limit": 4,
+    "ram_limit_gib": 8,
+    "image": "qgramm-scenario-nats:2.15.0",
+    "image_id": "sha256:f8f17950993e74ffc5de6d3b8cc9bfd5e76909adf567f94195ba784102312337",
+    "image_labels": {
+      "scenario.release": "v2.15.0",
+      "scenario.source": "https://github.com/nats-io/nats-server/releases/tag/v2.15.0"
+    },
+    "generator_sha256": "a8638dba7fa6e1dc21a77d60de3128109010897ab4945fbcebf2cbabf961cbef",
+    "tooling_commit": "8eed9fce55219df107ec4d0fc855e0e290e485fa",
+    "container_oom": false,
+    "isolation": "shared Docker Desktop VM, generator host, noTLS, loopback only",
+    "stats": "docker no-stream+1s (~2s); CPU100%=onecore; generator psCPU lifetime mean, not intervalCPU"
+  },
+  "server_configuration": "port:4222\nhttp:8222\nwebsocket { port:8080; no_tls:true }\nmax_connections:12000\nauthorization { token:\"<synthetic-secret>\" }\njetstream { store_dir:\"/data\";sync_interval:always }\n",
+  "contract": {
+    "durability": "JetStream FILE messages R1 sync_interval=always; explicit-ACK consumer state FILE per recipient",
+    "crypto": "none; isolated loopback payload",
+    "auth": "shared connection token",
+    "transport": "WebSocket send/receive",
+    "stream_storage": "FILE",
+    "consumer_storage": "FILE",
+    "consumer_restart": "not tested; MEMORY state must not be treated as restart durable"
+  },
+  "campaign": {
+    "name": "idle10000-nats",
+    "mode": "idle",
+    "settings": {
+      "users": 10000,
+      "chats": 1,
+      "fanout": 1,
+      "payload_bytes": 256,
+      "steps": "1:1s",
+      "idle": "20s"
+    },
+    "runner_exit_code": 0,
+    "cooldown_seconds": 60.0
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "source_commit": "8eed9fce55219df107ec4d0fc855e0e290e485fa",
+  "generator_sha256": "a8638dba7fa6e1dc21a77d60de3128109010897ab4945fbcebf2cbabf961cbef",
+  "build_info": "../scenarios/generator-v2: go1.26.4\n\tpath\tgithub.com/mgg789/QGramm/tools/scenarios\n\tmod\tgithub.com/mgg789/QGramm/tools/scenarios\tv0.0.0-20261005014338-8eed9fce5521\t\n\tdep\tgithub.com/cloudflare/circl\tv1.6.3\th1:9GPOhQGF9MCYUeXyMYlqTR6a5gTrgR/fBLXvUgtVcg8=\n\tdep\tgithub.com/golang-jwt/jwt/v5\tv5.2.3\th1:kkGXqQOBSDDWRhWNXTFpqGSCMyh/PLnqUvMGJPDJDs0=\n\tdep\tgithub.com/gorilla/websocket\tv1.5.3\th1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=\n\tdep\tgithub.com/klauspost/compress\tv1.17.9\th1:6KIumPrER1LHsvBVuDa0r5xaG0Es51mhhB9BQB2qeMA=\n\tdep\tgithub.com/mgg789/QGramm\tv0.0.0\n\t=>\t../..\t(devel)\t\n\t\n\tdep\tgithub.com/nats-io/nats.go\tv1.39.1\th1:oTkfKBmz7W047vRxV762M67ZdXeOtUgvbBaNoQ+3PPk=\n\tdep\tgithub.com/nats-io/nkeys\tv0.4.9\th1:qe9Faq2Gxwi6RZnZMXfmGMZkg3afLLOtrU+gDZJ35b0=\n\tdep\tgithub.com/nats-io/nuid\tv1.0.1\th1:5iA8DT8V7q8WK2EScv2padNa/rTESc1KdnPw4TC2paw=\n\tdep\tgolang.org/x/crypto\tv0.48.0\th1:/VRzVqiRSggnhY7gNRxPauEQ5Drw9haKdM0jqfcCFts=\n\tdep\tgolang.org/x/sys\tv0.42.0\th1:omrd2nAlyT5ESRdCLYdm3+fMfNFE/+Rf4bDIQImRJeo=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\tCGO_ENABLED=1\n\tbuild\tCGO_CFLAGS=\n\tbuild\tCGO_CPPFLAGS=\n\tbuild\tCGO_CXXFLAGS=\n\tbuild\tCGO_LDFLAGS=\n\tbuild\tGOARCH=arm64\n\tbuild\tGOOS=darwin\n\tbuild\tGOARM64=v8.0\n\tbuild\tvcs=git\n\tbuild\tvcs.revision=8eed9fce55219df107ec4d0fc855e0e290e485fa\n\tbuild\tvcs.time=2026-10-05T01:43:38Z\n\tbuild\tvcs.modified=false\n",
+  "tool_sha256": {
+    "run.py": "dfa649a44214cba1c89ea1447ca7bf27f058296ffd7dcca2be4c4e04c3e12f3e",
+    "campaign.py": "36347428e6fcc319a95958b71132e49648204b10510476d46d6c402b8b03bfc8"
+  }
+}

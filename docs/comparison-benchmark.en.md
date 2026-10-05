@@ -1,5 +1,7 @@
 # Measured alternative baselines
 
+Newer versions and broader active-chat/group/reconnect/idle/soak/file workloads are measured in the [scenario campaign](scenario-benchmark.md). This historical baseline remains tied to its original workload and versions.
+
 [Русский](comparison-benchmark.md) · [QGramm measurements](benchmark.md)
 
 All final runs used the same Apple M5 Pro (18 host logical CPUs), macOS 26.6.2,

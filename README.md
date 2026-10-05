@@ -20,6 +20,18 @@ Choose QGramm when your application already owns users and UI, and needs persist
 
 These are different scopes, not comparative performance measurements. Matrix and Zulip provide broader communication platforms; Centrifugo and NATS provide infrastructure. QGramm packages chat persistence and protocol semantics for integration, with [explicit acceptance limits](docs/verification.md).
 
+### Active conversations, groups and recovery
+
+The expanded campaign measures 2,000 connections across 1,000 independent chats, 4 KiB payloads, 100-recipient groups, reconnect, 10,000 idle connections, five-minute load and concurrent attachments. Two-repeat ranges on the shared M5 Pro / Docker Desktop host, 4 CPU / 8 GiB quotas:
+
+| Service/profile | 1,000 chats, 500/s: delivery p99, ms | 100 recipients × 100/s: delivery p99, ms | RAM at 500/s, MiB |
+|---|---:|---:|---:|
+| QGramm, HPKE + SQLite FULL | 4.89–5.56 | 13.43–16.09 | 89–97 |
+| NATS 2.15.0, FILE stream/FILE consumers | 9.11–51.99 | 3,960–4,598 | 262–265 |
+| Centrifugo 6.9.7, memory history | 1.26–1.74 | 3.77–3.79 | 129–170 |
+
+Separate NATS control: FILE stream/MEMORY consumers gives group p99 **3.16–3.28 ms**, retaining disk-synchronized publications but changing consumer-state restart guarantees. QGramm's fixture does not persist device delivery receipts. These are different crypto/ACK/storage contracts, not a universal protocol ranking. Five-minute results preserve admission failures/skips; Centrifugo 4 KiB history OOM and QGramm's initial 10k setup failure remain visible. [Method, p95/p99, all attempts, resource windows and files](docs/scenario-benchmark.md).
+
 ### Measured latency and resources
 
 Two repetitions on Apple M5 Pro / Docker Desktop Linux arm64, 4 CPU / 8 GiB limits, 10,000 sockets and one active chat. The table shows ranges across the two runs: steady-phase delivery latency, mean sampled CPU and phase sampled maximum RAM. Load: 100/s for 30 seconds, then 1,000/s for five seconds.

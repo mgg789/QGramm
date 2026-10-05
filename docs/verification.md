@@ -30,13 +30,14 @@ This is a pre-release core. Implementation, mocks, independent peers and live pr
 | Commit/GC/SQL campaign | 8 primary before/after runs, 63,908 offered = accepted = events = history, no errors/backpressure; two instrumented 2k diagnostics excluded from latency tables. Redis absent in both binaries. Lower read/alloc/commit work, mixed tail results preserved. [Evidence](performance-sql-gc.md) |
 | Replay/WAL follow-up | One-query history, two-query nonempty replay, single-event range path, fresh ACL/key checks and per-batch HPKE parsing; optional PASSIVE worker retains FULL/automatic fallback. Natural-GC diagnostics and initial SQL regression preserved; final same-load comparison uses two repeats per profile. [Evidence](performance-tail.md) |
 | Three isolated optimizations | 18 primary runs, 143,775 offered = accepted = events = history, zero errors/backpressure; selected ready-batch commit + minimal ACK, idle reuse reverted and single-message regressions preserved. Same-load controls against dev2ce7077; main qualification deferred. [Evidence](performance-three.md) |
+| Expanded scenario evidence | Shared active-chat/group/reconnect matrix with exact per-ID plaintext/order/history checks, 10k idle attempts, 300-second loads and four parallel-file runs. Separate NATS FILE/MEMORY consumer control; original Centrifugo reply failure, paginated-history OOM and QGramm setup failure retained. Strict admission SLO is separate from accepted-message integrity. [Method and all attempts](scenario-benchmark.md) |
 | Full batch read follow-up | 6 primary runs,47,890 offered=accepted=events=history, zero errors/backpressure. Grouped full projection and preliminary snapshots tested separately; no convincing gain, neither retained, conditional combination not run. Archived source patch and provenance. [Evidence](performance-batch-reads.md) |
 | Docker | Minimal arm64 build, UID10001, health/restart, retained volume, exclusive0600 offline backup; third-party license bundle included |
 | Architectures | Static Linux amd64/arm64 binaries cross-built; arm64 container run. amd64 native runtime not checked |
 | Contracts/licenses | Generator covers39 routes; OpenAPI3.1/WS JSONSchema validation; `go run ./cmd/qgramm-licenses -out THIRD_PARTY_LICENSES.txt -check` |
 | Readiness | Independent inspector reviewed implementation/fixes before commits; no blocking findings |
 
-Development host: macOS arm64 Go1.26.4; Docker Go1.26.8. Image/source/workload contours and sampled resources accompany benchmark JSON. Test fixtures create ephemeral synthetic keys; real credentials are never committed or printed.
+Development host: macOS arm64 Go1.26.4; QGramm Docker Go1.26.8. Competitor build/toolchain provenance is recorded per campaign. Image/source/workload contours and sampled resources accompany benchmark JSON. Test fixtures create ephemeral synthetic keys; real credentials are never committed or printed.
 
 Provider acceptance uses live DeepSeek for the OpenAI-compatible API and
 integration fixtures for the Anthropic Messages contract. Separate vendor-hosted
@@ -47,7 +48,7 @@ live calls are not release gates in the selected acceptance policy.
 - Browser PCM and TURN pass in Linux Chromium. macOS Chrome ICE, Safari/Firefox, public NAT and combined client MLS fingerprint authentication remain separate client/platform contours.
 - Operator tool endpoints were not supplied; HTTP/MCP contracts and permission/egress boundaries have local integration coverage. Live provider tool invocation against external operator services remains a deployment check.
 - Mixed public/private MLS handshake matrix failed; only documented public member commits are supported. External signed roster authority and client cryptographic checks are mandatory.
-- No independently qualified Linux local-SSD reference host, long soak, exact process peaks, TLS performance or concurrent large-file load. Sizing remains workload-dependent.
+- No independently qualified Linux local-SSD reference host, hours-long soak, exact process peaks, TLS performance or combined messaging/large-file load. Five-minute Docker runs and concurrent 16/64 MiB attachment flows are published with admission/setup/history failures in the scenario report. Sizing remains workload-dependent.
 - No independent cryptographic audit, production deployment, horizontal cluster or guarantee of deleting downloaded/provider/backed-up copies.
 
 These gates prevent claiming the entire requested production release has passed acceptance. Functioning modules and reproducible checks expose their current limitations.

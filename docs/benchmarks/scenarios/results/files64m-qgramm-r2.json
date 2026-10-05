@@ -1,0 +1,101 @@
+{
+  "files": [
+    {
+      "plain_bytes": 67108864,
+      "wire_bytes": 67110656,
+      "chunks": 64,
+      "create_seconds": 0.003133166,
+      "upload_seconds": 1.096861875,
+      "resume_seconds": 0.45116,
+      "download_seconds": 0.650336042,
+      "upload_mib_per_second": 58.34827653208385,
+      "download_mib_per_second": 98.41066136082307,
+      "plain_sha256": "e771ccccebf8bf3cf974ac2ec68789a1e7c6293429fe7a47bc55e79b4158ee37",
+      "corrupt_chunk_rejected": true,
+      "exact_chunk_retry": true,
+      "complete_retry": true,
+      "resume_status_verified": true,
+      "unpublished_recipient_denied": true,
+      "download_verified": true
+    },
+    {
+      "plain_bytes": 67108864,
+      "wire_bytes": 67110656,
+      "chunks": 64,
+      "create_seconds": 0.002682167,
+      "upload_seconds": 1.09855825,
+      "resume_seconds": 0.447566208,
+      "download_seconds": 0.655448666,
+      "upload_mib_per_second": 58.258176114011256,
+      "download_mib_per_second": 97.6430395237085,
+      "plain_sha256": "ccbf84cb84b2d6e46dd974123d61d8358686371a8f805907f3d1c12b33a6cf7f",
+      "corrupt_chunk_rejected": true,
+      "exact_chunk_retry": true,
+      "complete_retry": true,
+      "resume_status_verified": true,
+      "unpublished_recipient_denied": true,
+      "download_verified": true
+    }
+  ],
+  "concurrent_uploads": 2,
+  "elapsed_seconds": 1.8779745829999999,
+  "total_plain_bytes": 134217728,
+  "websocket_errors": 0,
+  "limitations": [
+    "QGramm-only basic encrypted attachment acceptance; competitors do not implement this file API",
+    "Synthetic reproducible payload; 1MiB plaintext chunks plus28B AESGCM overhead",
+    "Resume drops idle HTTP pooled connections between successful requests; no midrequest/server crash",
+    "Upload wall time includes checksum refusal, exact chunk retry, status resume and completion; generation excluded"
+  ],
+  "resource_samples": [
+    {
+      "elapsed_seconds": 1.031,
+      "phase": "setup",
+      "cpu": "50.85%",
+      "memory": "16.73MiB / 7.748GiB",
+      "network_io": "128MB / 82.5kB",
+      "block_io": "16.4kB / 124MB",
+      "generator_cpu_lifetime_percent": 15.9,
+      "generator_rss_kib": 217776
+    }
+  ],
+  "generator_exit_code": 0,
+  "readiness_seconds": 0.012,
+  "environment": {
+    "host_os": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "host_cpu": "Apple M5 Pro",
+    "host_logical_cpus": 18,
+    "server_kernel": "Linux 92a4c37ac883 6.12.76-linuxkit #1 SMP Thu Jun 11 15:44:51 UTC 2026 aarch64 Linux",
+    "cpu_limit": 4,
+    "ram_limit_gib": 8,
+    "image": "qgramm:scenario-files",
+    "image_id": "sha256:e5eaf6780bf3ba81b02384be8880369ced32f8b4b6018d163c21ce73f60b1d8e",
+    "image_labels": null,
+    "generator_sha256": "a8638dba7fa6e1dc21a77d60de3128109010897ab4945fbcebf2cbabf961cbef",
+    "tooling_commit": "8eed9fce55219df107ec4d0fc855e0e290e485fa",
+    "container_oom": false,
+    "isolation": "shared Docker Desktop VM, generator host, noTLS, loopback only",
+    "stats": "docker no-stream+1s (~2s); CPU100%=onecore; generator psCPU lifetime mean, not intervalCPU"
+  },
+  "server_configuration": "[server]\nlisten=\"0.0.0.0:8080\"\ntrusted_proxy=true\n[storage]\npath=\"/data/qgramm.db\"\nfiles=\"/data/files\"\n[capacity]\nexpected_concurrent_users=10000\nmax_connections=12000\n[features]\ngroups=true\nfiles=true\n[policy]\nmax_file_bytes=134217728\nmax_chunk_bytes=2097152\nmax_storage_bytes=1073741824\n",
+  "contract": {
+    "durability": "SQLite WAL FULL durable operation/event transaction",
+    "crypto": "client/container and container/recipient HPKE, storage AEAD",
+    "auth": "per-request Ed25519 JWT and chat/device ACL",
+    "transport": "HTTP send/WebSocket receive"
+  },
+  "campaign": {
+    "name": "files64m-qgramm-r2",
+    "mode": "files",
+    "settings": {
+      "users": 2,
+      "chats": 1,
+      "fanout": 1,
+      "file_bytes": 67108864,
+      "file_count": 2,
+      "steps": "1:1s"
+    },
+    "runner_exit_code": 0,
+    "cooldown_seconds": 15
+  }
+}

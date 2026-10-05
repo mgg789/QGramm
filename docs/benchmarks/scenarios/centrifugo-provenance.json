@@ -1,0 +1,16 @@
+{
+  "repository": "centrifugal/centrifugo",
+  "tag": "v6.9.7",
+  "url": "https://github.com/centrifugal/centrifugo/releases/tag/v6.9.7",
+  "assets": [
+    {
+      "name": "centrifugo_6.9.7_linux_arm64.tar.gz",
+      "url": "https://github.com/centrifugal/centrifugo/releases/download/v6.9.7/centrifugo_6.9.7_linux_arm64.tar.gz"
+    }
+  ],
+  "asset_url": "https://github.com/centrifugal/centrifugo/releases/download/v6.9.7/centrifugo_6.9.7_linux_arm64.tar.gz",
+  "asset_sha256": "3f8fcb0022b5a793be5569f681df7a9936bfa65bfdfe86445fdc217e32fe06a4",
+  "binary_sha256": "af6800f2ce52846a2240b01131411a8d3fc6ecb9780ce8a37ca66e66b145f0a9",
+  "image": "qgramm-scenario-centrifugo:6.9.7",
+  "image_id": "sha256:fd02a90a7def89119f22f45ecfc1ad48ade2c78706e911c37e9e4871fac6463f"
+}

@@ -1,0 +1,36 @@
+{
+  "commands": [
+    {
+      "command": "(cd tools/scenarios && go test -race ./... && go vet ./...)",
+      "status": "passed",
+      "race_result": "cached"
+    },
+    {
+      "command": "(cd tools/scenarios && python3 -m unittest test_run.py)",
+      "status": "passed",
+      "tests": 2
+    },
+    {
+      "command": "(cd tools/scenarios && go run ../../cmd/qgramm-licenses -out THIRD_PARTY_LICENSES.txt -check)",
+      "status": "passed"
+    },
+    {
+      "command": "python3 scripts/check-docs.py",
+      "status": "passed",
+      "local_links": 315
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed"
+    },
+    {
+      "command": "git diff 20c3932 -- internal cmd go.mod go.sum",
+      "status": "no changes"
+    }
+  ],
+  "performance_policy": "No builds/tests/profilers ran concurrently with primary benchmark workload; completed campaign before final checks. File resource sampling gaps and failed attempts retained.",
+  "primary_attempts": 45,
+  "files_total_plain_bytes": 335544320,
+  "core_changed": false,
+  "release_qualification": "shared Docker Desktop ARM64 loopback without TLS; dedicated Linux local-SSD and independent security audit remain separate"
+}
