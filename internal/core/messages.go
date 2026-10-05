@@ -543,20 +543,7 @@ func (c *Core) Events(ctx context.Context, id Identity, chat string, after int64
 	}
 	var current, joined int64
 	var minimum sql.NullInt64
-	var firstEventSeq sql.NullInt64
-	var firstEventType, firstEventMessageID sql.NullString
-	var firstEventData []byte
-	var firstMessage storedMessage
-	var firstKey string
-	metadataDestinations := []any{&current, &joined, &minimum, &firstEventSeq, &firstEventType, &firstEventMessageID, &firstEventData}
-	metadataDestinations = append(metadataDestinations, firstMessage.destinations(&firstKey)...)
-	err := c.readQueryRow(ctx, `SELECT c.seq,m.joined_seq,CASE WHEN c.seq>? THEN (SELECT MIN(seq) FROM events WHERE chat_id=c.id) END,
-e.seq,e.kind,e.message_id,e.data,
-`+nullableMessageProjectionColumns+`
-FROM chats c JOIN members m ON m.chat_id=c.id JOIN devices d ON d.user_id=m.user_id JOIN users u ON u.id=m.user_id
-LEFT JOIN events e ON e.chat_id=c.id AND e.seq=c.seq AND c.seq=MAX(?,m.joined_seq-1)+1
-LEFT JOIN messages msg ON e.message_id!='' AND msg.id=e.message_id AND msg.chat_id=c.id AND msg.seq>=m.joined_seq
-WHERE c.id=? AND m.user_id=? AND d.id=? AND m.active=1 AND d.revoked=0 AND u.disabled=0`, after, after, chat, id.UserID, id.DeviceID).Scan(metadataDestinations...)
+	err := c.readQueryRow(ctx, `SELECT c.seq,m.joined_seq,CASE WHEN c.seq>? THEN (SELECT MIN(seq) FROM events WHERE chat_id=c.id) END FROM chats c JOIN members m ON m.chat_id=c.id JOIN devices d ON d.user_id=m.user_id JOIN users u ON u.id=m.user_id WHERE c.id=? AND m.user_id=? AND d.id=? AND m.active=1 AND d.revoked=0 AND u.disabled=0`, after, chat, id.UserID, id.DeviceID).Scan(&current, &joined, &minimum)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, &APIError{403, "membership required"}
 	}
@@ -574,31 +561,6 @@ WHERE c.id=? AND m.user_id=? AND d.id=? AND m.active=1 AND d.revoked=0 AND u.dis
 	}
 	if after == current {
 		return []Event{}, nil
-	}
-	// The metadata read above also carries the event and its fresh message ACL
-	// when the validated range has exactly one event. It is safe to project only
-	// after cursor validation and after QueryRow has released its result.
-	if firstEventSeq.Valid {
-		event := Event{Seq: firstEventSeq.Int64, ChatID: chat, Type: firstEventType.String, MessageID: firstEventMessageID.String}
-		if event.MessageID != "" {
-			if firstMessage.message.ID == "" {
-				return nil, &APIError{404, "message not accessible"}
-			}
-			messages, err := c.projectStoredMessages(ctx, id, []storedMessage{firstMessage}, firstKey)
-			if err != nil {
-				return nil, err
-			}
-			event.Data = messages[0]
-		} else if len(firstEventData) > 0 {
-			data, err := c.Engine.Open(firstEventData, []byte(fmt.Sprintf("event/%s/%d", chat, event.Seq)))
-			if err != nil {
-				return nil, err
-			}
-			if err = json.Unmarshal(data, &event.Data); err != nil {
-				return nil, err
-			}
-		}
-		return []Event{event}, nil
 	}
 	// Fetch the bounded event page and current message state in one snapshot.
 	// A one-event page needs no ranking or temporary sort. Bound that fast path

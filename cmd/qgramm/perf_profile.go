@@ -116,6 +116,7 @@ func startTimeline(dir string) {
 				"mallocs": diagnostics["mallocs"], "gc_cycles": diagnostics["gc_cycles"], "gc_pause_total_ns": diagnostics["gc_pause_total_ns"],
 				"diagnostics": diagnostics, "message_writer": c.WriterStats(),
 				"http_admission": c.AdmissionStats(),
+				"writer_db": c.DB.Stats(), "reader_db": c.ReadStats(),
 			})
 		}
 		for {
