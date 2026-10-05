@@ -1,0 +1,28 @@
+{
+  "performance_commit": "8b77c3b0f58b317a0847abb395ebc384b1c9298d",
+  "configuration_commit": "148de04a2a72af28d627367f242bdd156f2a545d",
+  "image": "qgramm:retention-fanout-8b77c3b",
+  "image_id": "sha256:a19f78d7c29c91e4c0a724def0772a7aaa8879f87728b5a06caae62a99b8fd47",
+  "binary_sha256": "6bda1b284dc68474a3339e53fef468d33af3a05777a50826eab3aa402c758757",
+  "go_build_info": "../perf-config/qgramm-after-binary: go1.26.8\n\tpath\tgithub.com/mgg789/QGramm/cmd/qgramm\n\tmod\tgithub.com/mgg789/QGramm\t(devel)\t\n\tdep\tgithub.com/BurntSushi/toml\tv1.5.0\th1:W5quZX/G/csjUnuI8SUYlsHs9M38FC7znL0lIO+DvMg=\n\tdep\tgithub.com/cloudflare/circl\tv1.6.3\th1:9GPOhQGF9MCYUeXyMYlqTR6a5gTrgR/fBLXvUgtVcg8=\n\tdep\tgithub.com/dustin/go-humanize\tv1.0.1\th1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=\n\tdep\tgithub.com/golang-jwt/jwt/v5\tv5.2.3\th1:kkGXqQOBSDDWRhWNXTFpqGSCMyh/PLnqUvMGJPDJDs0=\n\tdep\tgithub.com/google/uuid\tv1.6.0\th1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=\n\tdep\tgithub.com/gorilla/websocket\tv1.5.3\th1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=\n\tdep\tgithub.com/remyoudompheng/bigfft\tv0.0.0-20230129092748-24d4a6f8daec\th1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=\n\tdep\tgolang.org/x/crypto\tv0.48.0\th1:/VRzVqiRSggnhY7gNRxPauEQ5Drw9haKdM0jqfcCFts=\n\tdep\tgolang.org/x/exp\tv0.0.0-20251023183803-a4bb9ffd2546\th1:mgKeJMpvi0yx/sU5GsxQ7p6s2wtOnGAHZWCHUM4KGzY=\n\tdep\tgolang.org/x/sys\tv0.42.0\th1:omrd2nAlyT5ESRdCLYdm3+fMfNFE/+Rf4bDIQImRJeo=\n\tdep\tmodernc.org/libc\tv1.67.6\th1:eVOQvpModVLKOdT+LvBPjdQqfrZq+pC39BygcT+E7OI=\n\tdep\tmodernc.org/mathutil\tv1.7.1\th1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU=\n\tdep\tmodernc.org/memory\tv1.11.0\th1:o4QC8aMQzmcwCK3t3Ux/ZHmwFPzE6hf2Y5LbkRs+hbI=\n\tdep\tmodernc.org/sqlite\tv1.46.1\th1:eFJ2ShBLIEnUWlLy12raN0Z1plqmFX9Qe3rjQTKt6sU=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\t-tags=qg_groups\n\tbuild\t-trimpath=true\n\tbuild\tCGO_ENABLED=0\n\tbuild\tGOARCH=arm64\n\tbuild\tGOOS=linux\n\tbuild\tGOARM64=v8.0\n",
+  "cached_build_base_id": "sha256:214b2543eee7c75997a16fd11891d4b5f40307e808fc94b36738611b251a5ae5",
+  "build_method": "Immutable git archive performance commit; cached Go build stage in fresh /qgramm-source directory; standard production build tags groups; no profiling; same baseline Go version; configuration changes excluded",
+  "runner_sha256": "dfa649a44214cba1c89ea1447ca7bf27f058296ffd7dcca2be4c4e04c3e12f3e",
+  "diagnostic_mode": false,
+  "docker_vm": {
+    "cpus": 18,
+    "memory_bytes": 8319213568
+  },
+  "other_running_containers": 31,
+  "run_order": [
+    "fanout-after-r1",
+    "soak-after-r1",
+    "fanout-after-r2",
+    "soak-after-r2"
+  ],
+  "cooldown_before_each_seconds": 60,
+  "generator_hashes": {
+    "generator": "e5bcf3983a97fefa916978221f4de31f249d823ba39eaa36b4c89d2cb44887b2",
+    "generator-v2": "a8638dba7fa6e1dc21a77d60de3128109010897ab4945fbcebf2cbabf961cbef"
+  }
+}

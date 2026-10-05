@@ -1,0 +1,19 @@
+{
+  "retained": false,
+  "scope": "native macOS arm64 Go1.26.4 synthetic 256-byte fresh HPKE seal; three repeats per backend; no server-performance claim",
+  "circl_ns_per_op": [
+    45168,
+    45687,
+    45131
+  ],
+  "standard_ns_per_op": [
+    46493,
+    46567,
+    46928
+  ],
+  "circl_bytes_per_op": 9280,
+  "standard_bytes_per_op": 8464,
+  "circl_allocs_per_op": 111,
+  "standard_allocs_per_op": 102,
+  "decision": "No sealing speed gain; production cryptographic backend and protocol unchanged"
+}

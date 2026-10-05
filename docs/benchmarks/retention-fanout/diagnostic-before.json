@@ -1,0 +1,140 @@
+{
+  "last_http": {
+    "active": 0,
+    "pending": 0,
+    "admitted": 158816,
+    "rejected": 31,
+    "wait_ns": 13386482178
+  },
+  "last_writer": {
+    "capacity": 32,
+    "queued": 0,
+    "admitted": 149815,
+    "rejected": 0,
+    "completed": 149815,
+    "cancelled": 0,
+    "queue_wait_ns": 47072138789,
+    "service_ns": 77764926328,
+    "commit_ns": 65431364831,
+    "commit_count": 144202,
+    "commit_errors": 0,
+    "batch_count": 144202,
+    "batch_jobs": 149815,
+    "committed_messages": 149815,
+    "max_batch": 16
+  },
+  "rejection_samples": [
+    {
+      "http_rejected_delta": 7,
+      "writer_rejected_delta": 0,
+      "http_active": 32,
+      "http_pending": 49,
+      "writer_queued": 15,
+      "writer_capacity": 32,
+      "diagnostics": [
+        {
+          "sequence": 6430,
+          "end_unix_nano": 1791189276023726166,
+          "duration_ns": 175714749,
+          "stage": "queue_wait"
+        },
+        {
+          "sequence": 6431,
+          "end_unix_nano": 1791189276023920208,
+          "duration_ns": 175908124,
+          "stage": "transaction_body"
+        },
+        {
+          "sequence": 6432,
+          "end_unix_nano": 1791189276025360500,
+          "duration_ns": 177348541,
+          "stage": "writer_service"
+        }
+      ]
+    },
+    {
+      "http_rejected_delta": 10,
+      "writer_rejected_delta": 0,
+      "http_active": 1,
+      "http_pending": 0,
+      "writer_queued": 0,
+      "writer_capacity": 32,
+      "diagnostics": [
+        {
+          "sequence": 6464,
+          "end_unix_nano": 1791189276049626041,
+          "duration_ns": 141442125,
+          "stage": "queue_wait"
+        },
+        {
+          "sequence": 6465,
+          "end_unix_nano": 1791189276049663625,
+          "duration_ns": 139474708,
+          "stage": "queue_wait"
+        },
+        {
+          "sequence": 6466,
+          "end_unix_nano": 1791189276049718500,
+          "duration_ns": 22522334,
+          "stage": "queue_wait"
+        }
+      ]
+    },
+    {
+      "http_rejected_delta": 6,
+      "writer_rejected_delta": 0,
+      "http_active": 32,
+      "http_pending": 50,
+      "writer_queued": 16,
+      "writer_capacity": 32,
+      "diagnostics": [
+        {
+          "sequence": 7724,
+          "end_unix_nano": 1791189336015058291,
+          "duration_ns": 157992000,
+          "stage": "queue_wait"
+        },
+        {
+          "sequence": 7725,
+          "end_unix_nano": 1791189336015199583,
+          "duration_ns": 158132083,
+          "stage": "transaction_body"
+        },
+        {
+          "sequence": 7726,
+          "end_unix_nano": 1791189336015701333,
+          "duration_ns": 158633916,
+          "stage": "writer_service"
+        }
+      ]
+    },
+    {
+      "http_rejected_delta": 8,
+      "writer_rejected_delta": 0,
+      "http_active": 1,
+      "http_pending": 0,
+      "writer_queued": 0,
+      "writer_capacity": 32,
+      "diagnostics": [
+        {
+          "sequence": 7776,
+          "end_unix_nano": 1791189336064434125,
+          "duration_ns": 14516542,
+          "stage": "queue_wait"
+        },
+        {
+          "sequence": 7777,
+          "end_unix_nano": 1791189336064477958,
+          "duration_ns": 14548333,
+          "stage": "queue_wait"
+        },
+        {
+          "sequence": 7778,
+          "end_unix_nano": 1791189336064526541,
+          "duration_ns": 14571709,
+          "stage": "queue_wait"
+        }
+      ]
+    }
+  ]
+}

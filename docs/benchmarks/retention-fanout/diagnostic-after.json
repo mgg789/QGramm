@@ -1,0 +1,66 @@
+{
+  "instrumented": true,
+  "timeline_interval_ms": 100,
+  "forced_gc": false,
+  "last_http": {
+    "active": 0,
+    "pending": 0,
+    "admitted": 158853,
+    "rejected": 0,
+    "wait_ns": 0
+  },
+  "last_writer": {
+    "capacity": 32,
+    "queued": 0,
+    "admitted": 149852,
+    "rejected": 0,
+    "completed": 149852,
+    "cancelled": 0,
+    "queue_wait_ns": 25364573553,
+    "service_ns": 76253739716,
+    "commit_ns": 64182545287,
+    "commit_count": 144811,
+    "commit_errors": 0,
+    "batch_count": 144811,
+    "batch_jobs": 149852,
+    "committed_messages": 149852,
+    "max_batch": 16
+  },
+  "last_writer_db": {
+    "MaxOpenConnections": 1,
+    "OpenConnections": 1,
+    "InUse": 0,
+    "Idle": 1,
+    "WaitCount": 8988,
+    "WaitDuration": 39922180142,
+    "MaxIdleClosed": 0,
+    "MaxIdleTimeClosed": 0,
+    "MaxLifetimeClosed": 0
+  },
+  "last_reader_db": {
+    "MaxOpenConnections": 8,
+    "OpenConnections": 8,
+    "InUse": 0,
+    "Idle": 8,
+    "WaitCount": 154302,
+    "WaitDuration": 488609466304,
+    "MaxIdleClosed": 0,
+    "MaxIdleTimeClosed": 0,
+    "MaxLifetimeClosed": 0
+  },
+  "maximum_observed_slow_record_ms_by_stage": {
+    "commit": 31.057,
+    "projection": 10.483,
+    "query_lifetime": 39.801,
+    "queue_wait": 30.823,
+    "transaction_body": 11.75,
+    "writer_service": 32.464
+  },
+  "maximum_http_active": 16,
+  "maximum_http_pending": 0,
+  "gc_pause_total_ms": 427.936121,
+  "timeline_sha256": "207978cc626657de71f4b603531a1d938b2cad46933c3865d3dc064c92524c44",
+  "diagnostic_image_id": "sha256:7172262249e9acd53aac743060991e816de3b360c4b0176a843490bce7d533e7",
+  "source_overlay": "performance commit8b77c3b plus diagnostic-only writer/reader DBStats timeline fields; production build excludes profiling",
+  "interpretation": "This repeat did not reproduce residual503; no attribution of the20 failures in the first noninstrumented after run. Slow maxima are sampled ring records, not all-call distribution maxima."
+}

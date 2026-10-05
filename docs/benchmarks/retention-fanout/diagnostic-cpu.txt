@@ -1,0 +1,27 @@
+File: qgramm
+Build ID: 3228c34279a96c16c219aac32d42d65c672b995f
+Type: cpu
+Time: 2026-10-05 11:28:38 MSK
+Duration: 92.69s, Total samples = 62.52s (67.45%)
+Showing nodes accounting for 36.52s, 58.41% of 62.52s total
+Dropped 1079 nodes (cum <= 0.31s)
+Showing top 18 nodes out of 302
+      flat  flat%   sum%        cum   cum%
+     6.63s 10.60% 10.60%      6.63s 10.60%  internal/runtime/syscall/linux.Syscall6
+     5.77s  9.23% 19.83%      5.77s  9.23%  encoding/binary.littleEndian.PutUint64 (inline)
+     4.75s  7.60% 27.43%      8.54s 13.66%  github.com/cloudflare/circl/math/fp25519.mulGeneric
+     4.54s  7.26% 34.69%      8.52s 13.63%  github.com/cloudflare/circl/math/fp25519.red64
+     2.53s  4.05% 38.74%      2.53s  4.05%  runtime.nanotime (inline)
+     2.25s  3.60% 42.34%      7.10s 11.36%  github.com/cloudflare/circl/math/fp25519.sqrGeneric
+     1.99s  3.18% 45.52%      3.93s  6.29%  internal/sync.(*Mutex).Lock (inline)
+     1.56s  2.50% 48.02%      1.57s  2.51%  modernc.org/libc.Xmemcmp
+     0.91s  1.46% 49.47%      1.94s  3.10%  internal/sync.(*Mutex).lockSlow
+     0.86s  1.38% 50.85%     15.21s 24.33%  modernc.org/sqlite/lib._sqlite3VdbeExec
+     0.78s  1.25% 52.10%      1.66s  2.66%  runtime.pcvalue
+     0.71s  1.14% 53.23%         2s  3.20%  modernc.org/sqlite/lib._sqlite3BtreeTableMoveto
+     0.61s  0.98% 54.21%      0.61s  0.98%  runtime.memmove
+     0.60s  0.96% 55.17%      0.87s  1.39%  runtime.tryDeferToSpanScan
+     0.53s  0.85% 56.01%      2.61s  4.17%  github.com/cloudflare/circl/math/fp25519.addsubGeneric
+     0.52s  0.83% 56.85%      1.55s  2.48%  internal/sync.(*Mutex).Unlock (inline)
+     0.50s   0.8% 57.65%      1.15s  1.84%  runtime.scanObjectsSmall
+     0.48s  0.77% 58.41%         2s  3.20%  modernc.org/libc.(*TLS).Alloc

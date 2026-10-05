@@ -32,6 +32,8 @@ The expanded campaign measures 2,000 connections across 1,000 independent chats,
 
 Separate NATS control: FILE stream/MEMORY consumers gives group p99 **3.16–3.28 ms**, retaining disk-synchronized publications but changing consumer-state restart guarantees. QGramm's fixture does not persist device delivery receipts. These are different crypto/ACK/storage contracts, not a universal protocol ranking. Five-minute results preserve admission failures/skips; Centrifugo 4 KiB history OOM and QGramm's initial 10k setup failure remain visible. [Method, p95/p99, all attempts, resource windows and files](docs/scenario-benchmark.md).
 
+QGramm-only follow-up retains indexed, bounded retention cleanup: final 500/s ×300s had zero server rejections,149859 accepted and141 generator skips; all accepted data verified. Mean CPU rose31.4→35.3%. Replay query fusion was reverted after group-tail regression. Final group p99 varied11.31–79.20ms; no universal CPU/latency gain is claimed. [Final, rejected and refreshed-control runs](docs/performance-retention-fanout.md).
+
 ### Measured latency and resources
 
 Two repetitions on Apple M5 Pro / Docker Desktop Linux arm64, 4 CPU / 8 GiB limits, 10,000 sockets and one active chat. The table shows ranges across the two runs: steady-phase delivery latency, mean sampled CPU and phase sampled maximum RAM. Load: 100/s for 30 seconds, then 1,000/s for five seconds.
