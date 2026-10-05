@@ -1,0 +1,34 @@
+[server]
+listen = "127.0.0.1:8080"
+allow_insecure_loopback = true
+[features]
+openai = true
+ai_policy = true
+ai_storage = true
+[ai]
+model = "integration-selected-model"
+openai_key_env = "QGRAMM_OPENAI_KEY"
+[[ai.tools]]
+name = "knowledge"
+kind = "storage"
+resource = "support-knowledge"
+storage_action = "search"
+require_approval = true
+[ai.tools.schema]
+type = "object"
+additionalProperties = false
+[ai.tools.schema.properties.query]
+type = "string"
+[ai.tools.schema.properties.limit]
+type = "integer"
+[ai_storage]
+grant_public_key_env = "QGRAMM_AI_STORAGE_GRANT_PUBLIC_KEY"
+issuer = "qgramm-backend"
+audience = "qgramm-ai-storage"
+grant_ttl_seconds = 300
+max_resources = 64
+max_documents_per_resource = 4096
+max_item_bytes = 1048576
+max_vector_dimensions = 1536
+max_results = 32
+max_graph_depth = 4

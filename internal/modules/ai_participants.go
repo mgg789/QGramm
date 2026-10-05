@@ -899,6 +899,12 @@ func aiCompleteNamed(ctx context.Context, c *core.Core, task aiNamedTask, identi
 		return err
 	}
 	turns = aiBoundContext(append(turns, aiTurn{Role: "assistant", Content: answer}), aiSettings(ctx, c))
+	if c.Config.Features.AIStorage && aiStorageContextFilter != nil {
+		turns, err = aiStorageContextFilter(ctx, c, task.ID, turns)
+		if err != nil {
+			return err
+		}
+	}
 	raw, _ := json.Marshal(turns)
 	settings := aiSettings(ctx, c)
 	maxContextBytes := settings.MaxContextBytes
@@ -918,6 +924,11 @@ func aiCompleteNamed(ctx context.Context, c *core.Core, task aiNamedTask, identi
 	}
 	defer tx.Rollback()
 	var status string
+	if c.Config.Features.AIStorage && aiStorageValidateFinal != nil {
+		if err = aiStorageValidateFinal(ctx, tx, c, task.ID); err != nil {
+			return err
+		}
+	}
 	if err = tx.QueryRowContext(ctx, `SELECT status FROM ai_tasks WHERE id=?`, task.ID).Scan(&status); err != nil || status != "running" {
 		return errors.New("AI task no longer running")
 	}

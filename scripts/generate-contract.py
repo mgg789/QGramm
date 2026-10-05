@@ -90,9 +90,27 @@ C["AIPolicyRequest"] = obj({"request_id": S, "job_id": S, "chat_id": S, "source_
 C["AIPolicyRequest"]["description"] = "Metadata only; prompt, arguments and sealed continuation are never returned. Bind the typed backend-signed grant to this request."
 C["AIPolicyUsage"] = obj({"id": N, "request_id": S, "job_id": S, "scope": enum("global", "bot", "source_user"), "scope_id": S, "day": S, "reserved_microunits": N, "cost_microunits": N, "input_tokens": N, "output_tokens": N, "cache_read_tokens": N, "cache_write_tokens": N, "usage_known": B, "currency": S, "invocations": {"const": 1}, "status": S, "created_at": I})
 C["AIPolicyUsage"]["description"] = "Estimated accounting, not reconciled invoices. One invocation appears in several scopes; filter one scope rather than summing all rows. Missing usage retains the reserve."
+C["AIStorageResourceInput"] = obj({"scope": enum("shared", "bot", "user"), "owner": S, "metadata": {"type": ["object", "array", "string", "number", "boolean", "null"]}}, ["scope", "owner"])
+C["AIStorageResource"] = obj({"id": S, "scope": enum("shared", "bot", "user"), "owner": S, "routing_visible": B, "metadata": {"type": ["object", "array", "string", "number", "boolean", "null"]}, "created_at": S}, ["id", "scope", "owner", "routing_visible", "created_at"])
+C["AIStorageDocumentInput"] = obj({"text": S, "vector": arr({"type": "number"}), "filename": S, "file": BASE64, "metadata": {"type": ["object", "array", "string", "number", "boolean", "null"]}}, [])
+C["AIStorageDocument"] = obj({"id": S, "resource_id": S, "text": S, "vector": arr({"type": "number"}), "filename": S, "file": BASE64, "metadata": {"type": ["object", "array", "string", "number", "boolean", "null"]}}, ["id", "resource_id"])
+C["AIStorageDocumentResult"] = obj({"document": ref("AIStorageDocument"), "resource": ref("AIStorageResource"), "score": {"type": "number"}}, ["document", "resource", "score"])
+C["AIStorageEdgeInput"] = obj({"from": S, "to": S, "label": S, "vector": arr({"type": "number"})}, ["from", "to"])
+C["AIStorageEdge"] = obj({"id": S, "resource_id": S, "from": S, "to": S, "label": S, "vector": arr({"type": "number"})}, ["id", "resource_id", "from", "to"])
+C["AIStorageRequest"] = obj({"request_id": S, "request_hash": HASH, "chat_id": S, "source_user": S, "ai_user": S, "resource": S, "action": enum("read", "search", "graph"), "destination": S, "status": S}, ["request_id", "request_hash", "chat_id", "source_user", "ai_user", "resource", "action", "destination", "status"])
+C["AIStorageGrantInput"] = obj({"token": S}, ["token"])
+C["AIStorageGrantResult"] = obj({"nonce": S, "status": {"const": "granted"}}, ["nonce", "status"])
+C["AIStorageDeleteResult"] = obj({"deleted": {"const": True}}, ["deleted"])
+C["AIStorageRevokeResult"] = obj({"revoked": {"const": True}}, ["revoked"])
+C["AIEndpointInput"] = obj({"user_id": S, "device_id": S, "kind": enum("llm", "tools", "storage")}, ["user_id", "device_id", "kind"])
+C["AIEndpointResult"] = obj({"id": S, "participant_owner": {"const": "endpoint"}, "plaintext_boundary": {"const": "endpoint_host"}}, ["id", "participant_owner", "plaintext_boundary"])
+C["AIEndpointItem"] = obj({"id": S, "user_id": S, "device_id": S, "kind": enum("llm", "tools", "storage"), "participant_owner": {"const": "endpoint"}, "transport": {"const": "mls"}, "plaintext_boundary": {"const": "endpoint_host"}}, ["id", "user_id", "device_id", "kind", "participant_owner", "transport", "plaintext_boundary"])
+C["AIEndpointList"] = obj({"items": arr(ref("AIEndpointItem"))}, ["items"])
+C["AIStorageMCPRequest"] = obj({"jsonrpc": {"const": "2.0"}, "id": {"anyOf": [S, I, {"type": "null"}]}, "method": S, "params": {"type": "object", "additionalProperties": True}}, ["jsonrpc", "id", "method"])
+C["AIStorageMCPResponse"] = obj({"jsonrpc": {"const": "2.0"}, "id": {"anyOf": [S, I, {"type": "null"}]}, "result": {"type": "object", "additionalProperties": True}, "error": {"type": "object", "additionalProperties": True}}, ["jsonrpc", "id"])
 C["Event"]["oneOf"] += [obj({"type": {"const": kind}, "seq": N, "chat_id": S, "data": data}) for kind, data in {
     "ai.approval.required": obj({"job": S, "request_id": S, "action": {"const": "approval_required"}}),
-    "ai.egress.notice": obj({"job": S, "request_id": S, "action": enum("provider", "tool"), "name": S, "destination_origin": S, "confidentiality": {"const": "external_plaintext"}}),
+    "ai.egress.notice": obj({"job": S, "request_id": S, "action": enum("provider", "tool"), "name": S, "destination_origin": S, "confidentiality": enum("external_plaintext", "integrated_storage")}),
 }.items()]
 
 # route -> (request schema or None, success response schema, success codes)
@@ -101,9 +119,22 @@ ROUTES = {
 "DELETE /management/v1/ai/grants/{grant}": (None, obj({"grant": S, "revoked": B}), [200]),
 "GET /management/v1/ai/requests/{request}": (None, ref("AIPolicyRequest"), [200]),
 "GET /management/v1/ai/usage": (None, obj({"items": arr(ref("AIPolicyUsage")), "next_cursor": S}, ["items"]), [200]),
+"PUT /management/v1/ai/storage/resources/{resource}": (ref("AIStorageResourceInput"), ref("AIStorageResource"), [200]),
+"DELETE /management/v1/ai/storage/resources/{resource}": (None, ref("AIStorageDeleteResult"), [200]),
+"PUT /management/v1/ai/storage/resources/{resource}/documents/{document}": (ref("AIStorageDocumentInput"), obj({"id": S, "resource_id": S}, ["id", "resource_id"]), [200]),
+"GET /management/v1/ai/storage/resources/{resource}/documents/{document}": (None, ref("AIStorageDocumentResult"), [200]),
+"DELETE /management/v1/ai/storage/resources/{resource}/documents/{document}": (None, ref("AIStorageDeleteResult"), [200]),
+"PUT /management/v1/ai/storage/resources/{resource}/edges/{edge}": (ref("AIStorageEdgeInput"), ref("AIStorageEdge"), [200]),
+"DELETE /management/v1/ai/storage/resources/{resource}/edges/{edge}": (None, ref("AIStorageDeleteResult"), [200]),
+"GET /management/v1/ai/storage/requests/{request}": (None, ref("AIStorageRequest"), [200]),
+"POST /management/v1/ai/storage/grants": (ref("AIStorageGrantInput"), ref("AIStorageGrantResult"), [200]),
+"DELETE /management/v1/ai/storage/grants/{nonce}": (None, ref("AIStorageRevokeResult"), [200]),
+"POST /management/v1/ai/storage/mcp": (ref("AIStorageMCPRequest"), ref("AIStorageMCPResponse"), [200, 202]),
+"PUT /management/v1/ai/endpoints/{endpoint}": (ref("AIEndpointInput"), ref("AIEndpointResult"), [200]),
 "GET /healthz": (None, obj({"status": {"const": "ok"}}), [200]),
 "GET /readyz": (None, obj({"status": {"const": "ready"}}), [200]),
 "GET /v1/capabilities": (None, obj({"protocol_version": {"const": 1}, "features": arr(S), "server_key": BASE64, "server_key_id": HASH, "hpke_suite": {"const": "X25519-HKDF-SHA256-AES128GCM"}, "delivery": {"const": "at-least-once"}, "event_retention_hours": I, "dedup_retention_hours": I, "history": enum("all", "since_join"), "delete_mode": enum("global", "author_only"), "reaction_types": arr(S), "max_batch": I, "ai_trust_boundary": S}, required=["protocol_version", "features", "server_key", "server_key_id", "hpke_suite", "delivery", "event_retention_hours", "dedup_retention_hours", "history", "delete_mode", "reaction_types", "max_batch", "ai_trust_boundary"]), [200]),
+"GET /v1/chats/{chat}/ai/endpoints": (None, ref("AIEndpointList"), [200]),
 "POST /v1/ws-tickets": (None, obj({"ticket": S, "expires_in": {"const": 30}}), [201]),
 "GET /v1/ws": (None, None, [101]),
 "GET /v1/chats": (None, arr(ref("Chat")), [200]),
@@ -188,7 +219,8 @@ def main():
             result = {"description": "WebSocket upgrade; frames in websocket.schema.json" if code == 101 else "Successful response"}
             if minimal_send:
                 result["headers"] = {"Preference-Applied": {"description": "Present when the compact receipt was requested.", "schema": {"const": "return=minimal"}}}
-            if response: result["content"] = {"application/octet-stream" if binary and method == "GET" else "application/json": {"schema": response}}
+            if response and not (path == "/management/v1/ai/storage/mcp" and code == 202):
+                result["content"] = {"application/octet-stream" if binary and method == "GET" else "application/json": {"schema": response}}
             op["responses"][str(code)] = result
         paths.setdefault(path, {})[method.lower()] = op
     spec = {"openapi": "3.1.0", "info": {"title": "QGramm", "version": "1", "description": "All compiled-feature routes. A binary exposes only selected modules; query capabilities. Schemas are maintained maps checked for exact source route coverage. Deployment policy sets runtime size/retention limits."}, "paths": paths, "components": {"schemas": C, "securitySchemes": {"deviceJWT": {"type": "http", "scheme": "bearer", "bearerFormat": "EdDSA JWT", "description": "External authority signed JWT with sub=user_id, device_id, iss, aud, iat and exp; lifetime at most15 minutes."}, "managementBearer": {"type": "http", "scheme": "bearer", "description": "Runtime management secret, separate from device JWT."}}}}

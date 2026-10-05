@@ -36,11 +36,18 @@ func run(args []string) error {
 	fs := flag.NewFlagSet(command, flag.ContinueOnError)
 	path := fs.String("config", "qgramm.toml", "TOML configuration")
 	out := fs.String("out", "", "binary or deployment output path")
+	target := fs.String("target", "core", "build target: core or micro-safer")
 	if err := fs.Parse(args[1:]); err != nil {
 		return err
 	}
 	if fs.NArg() != 0 {
 		return fmt.Errorf("unexpected positional arguments")
+	}
+	if *target != "core" && *target != "micro-safer" {
+		return fmt.Errorf("unknown build target")
+	}
+	if *target != "core" && command != "build" {
+		return fmt.Errorf("target applies only to build")
 	}
 	d, err := config.LoadDetailed(*path)
 	if err != nil {
@@ -57,13 +64,23 @@ func run(args []string) error {
 	}
 	switch command {
 	case "build":
+		entry := "./cmd/qgramm"
+		if *target == "micro-safer" {
+			if !c.Features.AIEndpoint || !c.Features.E2EE {
+				return fmt.Errorf("micro-safer build requires ai_endpoint and e2ee")
+			}
+			entry = "./cmd/qgramm-micro-safer"
+		}
 		if *out == "" {
 			*out = "bin/qgramm"
+			if *target == "micro-safer" {
+				*out = "bin/qgramm-micro-safer"
+			}
 		}
 		if err := os.MkdirAll(filepath.Dir(*out), 0755); err != nil {
 			return err
 		}
-		cmd := exec.Command("go", "build", "-trimpath", "-tags", strings.Join(tags, ","), "-ldflags", "-s -w -X main.compiledFeatures="+strings.Join(names, ","), "-o", *out, "./cmd/qgramm")
+		cmd := exec.Command("go", "build", "-trimpath", "-tags", strings.Join(tags, ","), "-ldflags", "-s -w -X main.compiledFeatures="+strings.Join(names, ","), "-o", *out, entry)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		return cmd.Run()
@@ -113,6 +130,12 @@ func run(args []string) error {
 		// secret environment variables are inspected or embedded.
 		quote := func(s string) string { b, _ := json.Marshal(s); return string(b) }
 		refs := []string{c.Security.TokenPublicKeyEnv, c.Security.ManagementSecretEnv, c.Security.MasterKeyEnv, c.Security.HPKEKeyEnv}
+		if c.Features.AIPolicy {
+			refs = append(refs, c.AIPolicy.GrantPublicKeyEnv)
+		}
+		if c.Features.AIStorage {
+			refs = append(refs, c.AIStorage.GrantPublicKeyEnv)
+		}
 		refs = append(refs, c.Security.PreviousMasterKeyEnvs...)
 		refs = append(refs, c.Security.PreviousHPKEKeyEnvs...)
 		if c.Features.OpenAI {

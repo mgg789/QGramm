@@ -103,7 +103,15 @@ Compose binds the host port to loopback. Supply your own HTTPS reverse proxy and
 - HPKE client-to-container envelopes and encrypted storage; optional MLS E2EE with client-owned keys.
 - Optional groups and per-user send permissions, resumable attachment batches, edit/delete/reply/forward and numeric reactions.
 - Optional 1:1 WebRTC signaling and external TURN credentials. Clients supply media and peer verification.
-- Optional OpenAI/Anthropic participants and explicitly permitted remote MCP/HTTP tools. The [named AI network](docs/ai-network.md) gives each bot a permanent user/device identity for BASIC chats, while the legacy direct MLS AI path remains available. AI recipients decrypt inside the container; providers receive plaintext. Optional [stage-2 AI policy](docs/ai-policy.md) adds backend-signed approvals, per-tool permissions, encrypted usage/budgets and durable notices before external calls.
+- Optional OpenAI/Anthropic participants and explicitly permitted remote MCP/HTTP tools. The [named AI network](docs/ai-network.md) gives each bot a permanent user/device identity for BASIC chats, while the legacy direct MLS AI path remains available. AI recipients decrypt inside the container; providers receive plaintext. Optional [stage-2 AI policy](docs/ai-policy.md) adds backend-signed approvals, per-tool permissions, encrypted usage/budgets and durable notices before external calls. Optional [stage-3 scoped storage](docs/ai-stage3.md) adds bounded encrypted resource/document/graph retrieval and a separate external MLS endpoint contract; local LLM runtime acceptance remains pending.
+
+The integrated vault stores resource payloads, document text/files/vectors and
+graph edges encrypted at rest in the trusted container. Retrieval uses supplied
+vectors or bounded lexical scans; it does not start an embedding model or ANN
+service. Storage tools require both the generic AI policy approval and an
+independent resource grant bound to the exact request hash, destination,
+resource and action. The administrative storage MCP endpoint uses the
+management bearer and is never a model credential.
 
 Features are selected in `qgramm.toml` **at build time**. Disabled implementations are excluded by Go build tags; changing the feature set requires a rebuild. Runtime rejects a TOML that disagrees with the binary manifest. A full standard profile is provided in `configs/full.toml`.
 
@@ -114,7 +122,7 @@ go test -race ./...
 sh scripts/build-matrix.sh
 ```
 
-This is a pre-release. Race/build matrix, independent OpenMLS for the documented profile, Pion direct/TURN, live DeepSeek and a 10,000-connection load run passed. Linux Chromium decoded audio/video and TURN, plus live DeepSeek with independent MLS and restart/replay, also passed. Stage-1 named-AI profile matrix results remain pending review; its local mocked-HTTP evidence is listed separately. Dedicated Linux/SSD qualification and independent audit are deferred; other scope limits are documented. See [verification](docs/verification.md) and [benchmarks](docs/benchmark.md) for exact scopes; no audited-cryptography or full production-release claim.
+This is a pre-release. Race/build matrix, independent OpenMLS for the documented profile, Pion direct/TURN, live DeepSeek and a 10,000-connection load run passed. Linux Chromium decoded audio/video and TURN, plus live DeepSeek with independent MLS and restart/replay, also passed. The AI build matrix includes named participants, policy, scoped storage and external endpoints; local HTTP/SSE and Core-to-endpoint evidence is listed separately. Dedicated Linux/SSD qualification and independent audit are deferred; other scope limits are documented. See [verification](docs/verification.md) and [benchmarks](docs/benchmark.md) for exact scopes; no audited-cryptography or full production-release claim.
 
 ## License
 

@@ -120,12 +120,23 @@ The source owner or chat administrator can call
 then aborts the local active request. Late chunks/results are rejected. It cannot
 undo already-sent external effects or guarantee that a provider stops billing.
 
-## Following stages
+## Stage 2 and stage 3 boundaries
 
-Stage 2 is implemented by the optional [AI policy module](ai-policy.md): signed invocation grants, per-tool approvals, encrypted usage/budget records and events before external plaintext requests.
-Stage 3 adds LLM/tool crypto sidecars and scoped file/RAG/GraphRAG storage with
-explicit key ownership. These are planned contracts, not current capabilities.
-An inference/retrieval process necessarily handles plaintext within its trusted
-execution boundary. Routing ciphertext does not protect against compromise of
-that host. Independent MLS interoperability/audit qualification remains separate
-from local participant/streaming tests.
+Stage 2 is implemented by the optional [AI policy module](ai-policy.md): signed
+invocation grants, per-tool approvals, encrypted usage/budget records and
+events before external plaintext requests.
+
+Stage 3 integrated storage is documented in [ai-stage3.md](ai-stage3.md). It is
+a trusted-container vault with encrypted resource/document/edge payloads,
+supplied-vector or bounded lexical retrieval, bounded graph scans and no
+embedding model or ANN index. A storage tool needs the generic policy approval
+and a separate resource grant with a distinct audience, exact request hash,
+resource/action and provider destination. Private user/bot resources are
+restricted to two-member direct chats; retrieved context remains tainted to the
+approved destination and successful private history is cleared after use.
+
+The optional external `micro-safer` contour owns MLS private state at the
+endpoint, pins two participants, freezes on membership/epoch changes and keeps
+an encrypted uncertain outbox without automatic retry. The relay carries
+ciphertext only. Local LLM runtimes have not been independently verified here;
+current evidence covers HTTP contracts and local mocked transport.

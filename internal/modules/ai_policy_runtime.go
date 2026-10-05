@@ -20,20 +20,21 @@ import (
 
 type aiPolicyTicketKey struct{}
 type aiContinuation struct {
-	Version        int      `json:"version"`
-	Chat           string   `json:"chat_id"`
-	SourceMessage  string   `json:"source_message"`
-	SourceUser     string   `json:"source_user"`
-	SourceDevice   string   `json:"source_device"`
-	AIUser         string   `json:"ai_user"`
-	AIDevice       string   `json:"ai_device"`
-	Epoch          int64    `json:"epoch"`
-	SessionVersion int64    `json:"session_version"`
-	Turns          []aiTurn `json:"turns"`
-	Step           int      `json:"step"`
-	NextCall       int      `json:"next_call"`
-	Calls          []aiCall `json:"calls"`
-	ProviderNeeded bool     `json:"provider_needed"`
+	Version        int                `json:"version"`
+	Chat           string             `json:"chat_id"`
+	SourceMessage  string             `json:"source_message"`
+	SourceUser     string             `json:"source_user"`
+	SourceDevice   string             `json:"source_device"`
+	AIUser         string             `json:"ai_user"`
+	AIDevice       string             `json:"ai_device"`
+	Epoch          int64              `json:"epoch"`
+	SessionVersion int64              `json:"session_version"`
+	Turns          []aiTurn           `json:"turns"`
+	Step           int                `json:"step"`
+	NextCall       int                `json:"next_call"`
+	Calls          []aiCall           `json:"calls"`
+	ProviderNeeded bool               `json:"provider_needed"`
+	Boundary       *aiStorageBoundary `json:"storage_boundary,omitempty"`
 }
 
 func init() {
@@ -93,6 +94,7 @@ func runAIPolicyConversation(ctx context.Context, c *core.Core, job string, fn a
 			return "", errors.New("AI continuation invalidated")
 		}
 	}
+	ctx = context.WithValue(ctx, aiVaultRuntimeKey{}, aiVaultRuntime{Core: c, Job: job, Boundary: &state.Boundary})
 	for state.Step < settings.MaxSteps {
 		if err = ctx.Err(); err != nil {
 			return "", err
@@ -106,6 +108,11 @@ func runAIPolicyConversation(ctx context.Context, c *core.Core, job string, fn a
 		}
 		if state.ProviderNeeded {
 			providerName, destination := policyProvider(ctx, c, job, settings)
+			if c.Config.Features.AIStorage && aiStorageRelease != nil {
+				if err = aiStorageRelease(ctx, c, job, state.Boundary, "provider", destination); err != nil {
+					return "", err
+				}
+			}
 			if providerName == "" {
 				return "", errors.New("AI provider identity unavailable")
 			}
@@ -154,6 +161,11 @@ func runAIPolicyConversation(ctx context.Context, c *core.Core, job string, fn a
 			if toolErr != nil {
 				return "", toolErr
 			}
+			if c.Config.Features.AIStorage && aiStorageRelease != nil {
+				if err = aiStorageRelease(ctx, c, job, state.Boundary, tool.Kind, tool.URL); err != nil {
+					return "", err
+				}
+			}
 			canonical, canonErr := aiCanonicalArguments(call.Arguments)
 			if canonErr != nil {
 				return "", canonErr
@@ -172,7 +184,16 @@ func runAIPolicyConversation(ctx context.Context, c *core.Core, job string, fn a
 				Tool      config.Tool
 				Arguments json.RawMessage
 			}{1, tool, canonical}
-			effect := makePolicyEffect(job, state.Step, state.NextCall, "tool", tool.Name, tool.URL, fingerprint, tool.RequireApproval, tool.CostMicrounits, settings, state)
+			destination := tool.URL
+			if tool.Kind == "storage" {
+				destination = "vault://" + tool.Resource
+			}
+			effect := makePolicyEffect(job, state.Step, state.NextCall, "tool", tool.Name, destination, fingerprint, tool.RequireApproval, tool.CostMicrounits, settings, state)
+			if tool.Kind == "storage" && aiStoragePreflight != nil {
+				if err = aiStoragePreflight(ctx, c, job, tool, effect.ID); err != nil {
+					return "", err
+				}
+			}
 			payload, _ := json.Marshal(state)
 			if err = flushPolicyProgress(ctx); err != nil {
 				return "", err

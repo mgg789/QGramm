@@ -28,7 +28,7 @@ func TestPlanIsExplicitAndContainsAssumptions(t *testing.T) {
 	if e = json.Unmarshal(data, &plan); e != nil {
 		t.Fatal(e)
 	}
-	if len(plan.Tags) != 15 || len(plan.Estimate.Assumptions) == 0 {
+	if len(plan.Tags) != 17 || len(plan.Estimate.Assumptions) == 0 {
 		t.Fatalf("incomplete plan: %s", data)
 	}
 }
@@ -57,6 +57,23 @@ func TestRejectUnknownCommandBeforeWriting(t *testing.T) {
 	}
 	if _, e := os.Stat(out); !os.IsNotExist(e) {
 		t.Fatal("unexpected output")
+	}
+}
+
+func TestInvalidBuildTargetsDoNotWriteOutput(t *testing.T) {
+	for _, args := range [][]string{
+		{"validate", "-target", "unavailable"},
+		{"plan", "-target", "micro-safer"},
+		{"build", "-target", "micro-safer"},
+	} {
+		out := filepath.Join(t.TempDir(), "must-not-write")
+		args = append(args, "-config", "../../configs/minimal.toml", "-out", out)
+		if err := run(args); err == nil {
+			t.Fatal("invalid target accepted", args)
+		}
+		if _, err := os.Stat(out); !os.IsNotExist(err) {
+			t.Fatal("invalid target created output", err)
+		}
 	}
 }
 

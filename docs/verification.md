@@ -99,4 +99,57 @@ git diff --check
 
 The matrix passed 41 valid build/runtime selections and 12 invalid configurations, including policy/stream/provider exclusion. The fuzz run completed 66,560 executions. Local real HTTP handlers verified a provider → approved tool → provider sequence, committed notice before each request, encrypted checkpoint, recreation of the policy runtime before resume, one tool invocation and one final reply. Estimated cost settled to 34 microunits in that fixture. Other regressions cover provider gating, legacy MLS pause/resume and final decrypt, TTL queue release, revocation, concurrent budget admission, rollback across all three scopes, unknown usage, duplicate settlement and restart with an uncertain dispatched effect. Independent inspection reported READY after corrections.
 
-These checks use local test providers/HTTP servers and persisted SQLite fixtures; they are not new live API calls, an OS-process kill test, a performance benchmark or independent cryptographic audit. Protected LLM/tool sidecars and scoped RAG/GraphRAG storage remain stage 3.
+These checks use local test providers/HTTP servers and persisted SQLite fixtures; they are not new live API calls, an OS-process kill test, a performance benchmark or independent cryptographic audit. Stage-3 evidence follows separately.
+
+## Stage-3 storage and external endpoint evidence
+
+On 2026-10-05, the following checks passed:
+
+```sh
+go test -race ./...
+go test -race -tags qg_groups,qg_files,qg_e2ee,qg_calls,qg_delete,qg_edit,qg_reply,qg_forward,qg_reactions,qg_openai,qg_anthropic,qg_ai_streaming,qg_ai_policy,qg_ai_storage,qg_ai_endpoint,qg_mcp,qg_http_tools ./...
+go vet -tags qg_groups,qg_files,qg_e2ee,qg_calls,qg_delete,qg_edit,qg_reply,qg_forward,qg_reactions,qg_openai,qg_anthropic,qg_ai_streaming,qg_ai_policy,qg_ai_storage,qg_ai_endpoint,qg_mcp,qg_http_tools ./...
+go test -race -tags qg_ai_endpoint,qg_e2ee ./internal/microsafer ./cmd/qgramm-micro-safer
+sh scripts/build-matrix.sh
+go test -tags qg_ai_storage ./internal/aivault -run '^$' -fuzz '^FuzzStorageGrant$' -fuzztime=5s -parallel=2
+go test -tags qg_ai_endpoint,qg_e2ee ./internal/microsafer -run '^$' -fuzz '^FuzzRPCJSON$' -fuzztime=5s -parallel=2
+go run -race ./examples/basic
+python3 scripts/generate-contract.py
+python3 scripts/check-docs.py
+go run ./cmd/qgramm-licenses -out THIRD_PARTY_LICENSES.txt -check
+git diff --check
+```
+
+The matrix checks 47 Core profiles, 16 independently selected micro-safer
+adapter combinations and 14 invalid configurations. It verifies selected
+source files and production dependencies, with neither micro-safer in Core nor
+Core in micro-safer. Both base and full `qgramm-build -target micro-safer`
+builds passed. The generated contract covers 64 exact source HTTP routes;
+documentation checks passed 396 local links, UTF-8 and JSON syntax. Short fuzz
+smokes completed 188,942 storage-grant and 102,637 RPC JSON executions without
+crashes; these are not exhaustive fuzzing.
+
+Integrated-vault tests use actual SQLite and HTTP management/provider fixtures:
+shared/user/bot scopes, cryptographically authenticated routing headers,
+encrypted content/files/vectors/edges, tampering, cross-resource denial,
+bounded search/BFS, grant expiry/revocation and approval in either order.
+Retrieval cannot release context to another destination or scope/owner label,
+and successful dialogue context is cleared after vault use. The provider
+sequence is local test HTTP, not a new live vendor call.
+
+`TestAIEndpointCoreMicroSaferTransport` uses the actual Core HTTP handler and
+an actual MLS pair. It checks encrypted request/response delivery, valid Core
+operation IDs, exact retry, reconstructed endpoint state without a duplicate
+effect, pending-rekey and revoked access. Separate endpoint tests cover
+encrypted streaming/outbox ordering, uncertain effects, independent adapter
+exclusion, redirects/credential separation, bounded requests and HTTP
+deadlines. Storage denial followed by valid retrieval is also exercised through
+the encrypted MLS inbox, with a decryptable final response. The administrative
+storage MCP and external MCP adapter are different trust boundaries.
+
+The sidecar remains a beta pinned two-device profile: offline rejoin after
+epoch/membership changes, operator-managed replacement after retained-record
+caps, text OpenAI-compatible SSE and limited MCP operations. No live Ollama,
+vLLM, MLX or llama.cpp runtime acceptance, automatic embeddings/ANN, native
+agent framework, new load run, OS-process kill test or independent audit is
+claimed. [EN contract](ai-stage3.md), [RU contract](ai-stage3.ru.md).

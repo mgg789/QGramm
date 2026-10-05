@@ -100,12 +100,25 @@ operation_id имеет вид `ai-progress-{job}-{chunk}`.
 затем прерывается локальный активный запрос. Поздняя публикация блокируется;
 уже отправленный внешний эффект или расходы провайдера отмена не откатывает.
 
-## Следующие этапы
+## Границы этапов 2 и 3
 
-[Второй этап AI policy](ai-policy.ru.md) реализует подписанные системные разрешения, подтверждение инструментов, счетчики/бюджеты и события перед внешними plaintext-запросами. Третий: micro-safer
-для LLM/tools и scoped file/RAG/GraphRAG с явным владением ключами. Эти
-возможности третьего этапа пока являются планом. Модель и поиск работают с plaintext внутри
-доверенного узла; шифрование сети не защищает от компрометации этого хоста.
-Независимые MLS interop и криптоаудит отделены от локальных тестов.
+[Второй этап AI policy](ai-policy.ru.md) реализует подписанные системные
+разрешения, подтверждение инструментов, счетчики/бюджеты и события перед
+внешними plaintext-запросами.
+
+Интегрированный storage этапа 3 описан в [ai-stage3.ru.md](ai-stage3.ru.md).
+Это vault в доверенном контейнере с зашифрованными payload ресурсов,
+documents и edges, retrieval по переданным vectors или bounded lexical scan,
+bounded graph и без embedding model/ANN. Storage tool требует generic policy
+approval и отдельный resource grant с другим audience, точными request hash,
+resource/action и destination провайдера. Private user/bot resources доступны
+только в direct-чате из двух участников; полученный context сохраняет tainted
+destination и после успешного использования private history очищается.
+
+Внешний `micro-safer` сам владеет MLS private state endpoint, pin-ит двух
+участников, останавливается при изменении membership/epoch и сохраняет
+зашифрованный uncertain outbox без auto retry. Relay передает только
+ciphertext. Реальные локальные LLM runtimes отдельно не проверялись; текущая
+evidence покрывает HTTP-контракты и локальный mocked transport.
 
 [Полный EN-контракт](ai-network.md).

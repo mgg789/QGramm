@@ -131,6 +131,11 @@ func writeAIProgress(ctx context.Context, c *core.Core, job, kind string, payloa
 	if err != nil || task.Status != "running" || !aiTaskAuthorized(ctx, tx, task) {
 		return errors.New("AI task unavailable or revoked")
 	}
+	if c.Config.Features.AIStorage && aiStorageValidateFinal != nil {
+		if err = aiStorageValidateFinal(ctx, tx, c, job); err != nil {
+			return err
+		}
+	}
 	var index, bytes int
 	err = tx.QueryRowContext(ctx, `SELECT last_chunk+1,stored_bytes FROM ai_progress_heads WHERE job_id=?`, job).Scan(&index, &bytes)
 	if errors.Is(err, sql.ErrNoRows) {

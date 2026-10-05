@@ -263,6 +263,624 @@
         ]
       }
     },
+    "/management/v1/ai/storage/resources/{resource}": {
+      "put": {
+        "operationId": "PUT_management_v1_ai_storage_resources_resource",
+        "summary": "PUT /management/v1/ai/storage/resources/{resource}",
+        "x-source": "internal/modules/ai_storage.go",
+        "parameters": [
+          {
+            "name": "resource",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIStorageResource"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIStorageResourceInput"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "DELETE_management_v1_ai_storage_resources_resource",
+        "summary": "DELETE /management/v1/ai/storage/resources/{resource}",
+        "x-source": "internal/modules/ai_storage.go",
+        "parameters": [
+          {
+            "name": "resource",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIStorageDeleteResult"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ]
+      }
+    },
+    "/management/v1/ai/storage/resources/{resource}/documents/{document}": {
+      "put": {
+        "operationId": "PUT_management_v1_ai_storage_resources_resource_documents_document",
+        "summary": "PUT /management/v1/ai/storage/resources/{resource}/documents/{document}",
+        "x-source": "internal/modules/ai_storage.go",
+        "parameters": [
+          {
+            "name": "resource",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "document",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "resource_id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "resource_id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIStorageDocumentInput"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "GET_management_v1_ai_storage_resources_resource_documents_document",
+        "summary": "GET /management/v1/ai/storage/resources/{resource}/documents/{document}",
+        "x-source": "internal/modules/ai_storage.go",
+        "parameters": [
+          {
+            "name": "resource",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "document",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIStorageDocumentResult"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "DELETE_management_v1_ai_storage_resources_resource_documents_document",
+        "summary": "DELETE /management/v1/ai/storage/resources/{resource}/documents/{document}",
+        "x-source": "internal/modules/ai_storage.go",
+        "parameters": [
+          {
+            "name": "resource",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "document",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIStorageDeleteResult"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ]
+      }
+    },
+    "/management/v1/ai/storage/resources/{resource}/edges/{edge}": {
+      "put": {
+        "operationId": "PUT_management_v1_ai_storage_resources_resource_edges_edge",
+        "summary": "PUT /management/v1/ai/storage/resources/{resource}/edges/{edge}",
+        "x-source": "internal/modules/ai_storage.go",
+        "parameters": [
+          {
+            "name": "resource",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "edge",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIStorageEdge"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIStorageEdgeInput"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "DELETE_management_v1_ai_storage_resources_resource_edges_edge",
+        "summary": "DELETE /management/v1/ai/storage/resources/{resource}/edges/{edge}",
+        "x-source": "internal/modules/ai_storage.go",
+        "parameters": [
+          {
+            "name": "resource",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "edge",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIStorageDeleteResult"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ]
+      }
+    },
+    "/management/v1/ai/storage/requests/{request}": {
+      "get": {
+        "operationId": "GET_management_v1_ai_storage_requests_request",
+        "summary": "GET /management/v1/ai/storage/requests/{request}",
+        "x-source": "internal/modules/ai_storage.go",
+        "parameters": [
+          {
+            "name": "request",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIStorageRequest"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ]
+      }
+    },
+    "/management/v1/ai/storage/grants": {
+      "post": {
+        "operationId": "POST_management_v1_ai_storage_grants",
+        "summary": "POST /management/v1/ai/storage/grants",
+        "x-source": "internal/modules/ai_storage.go",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIStorageGrantResult"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIStorageGrantInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/management/v1/ai/storage/grants/{nonce}": {
+      "delete": {
+        "operationId": "DELETE_management_v1_ai_storage_grants_nonce",
+        "summary": "DELETE /management/v1/ai/storage/grants/{nonce}",
+        "x-source": "internal/modules/ai_storage.go",
+        "parameters": [
+          {
+            "name": "nonce",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIStorageRevokeResult"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ]
+      }
+    },
+    "/management/v1/ai/storage/mcp": {
+      "post": {
+        "operationId": "POST_management_v1_ai_storage_mcp",
+        "summary": "POST /management/v1/ai/storage/mcp",
+        "x-source": "internal/modules/ai_storage.go",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIStorageMCPResponse"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Successful response"
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIStorageMCPRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/management/v1/ai/endpoints/{endpoint}": {
+      "put": {
+        "operationId": "PUT_management_v1_ai_endpoints_endpoint",
+        "summary": "PUT /management/v1/ai/endpoints/{endpoint}",
+        "x-source": "internal/modules/ai_endpoint.go",
+        "parameters": [
+          {
+            "name": "endpoint",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIEndpointResult"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "managementBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIEndpointInput"
+              }
+            }
+          }
+        }
+      }
+    },
     "/healthz": {
       "get": {
         "operationId": "GET_healthz",
@@ -442,6 +1060,50 @@
                     "ai_trust_boundary"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "deviceJWT": []
+          }
+        ]
+      }
+    },
+    "/v1/chats/{chat}/ai/endpoints": {
+      "get": {
+        "operationId": "GET_v1_chats_chat_ai_endpoints",
+        "summary": "GET /v1/chats/{chat}/ai/endpoints",
+        "x-source": "internal/modules/ai_endpoint.go",
+        "parameters": [
+          {
+            "name": "chat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "JSON error; validation, authorization, conflict, quota/capacity or storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIEndpointList"
                 }
               }
             }
@@ -5200,7 +5862,11 @@
                     "type": "string"
                   },
                   "confidentiality": {
-                    "const": "external_plaintext"
+                    "type": "string",
+                    "enum": [
+                      "external_plaintext",
+                      "integrated_storage"
+                    ]
                   }
                 },
                 "required": [
@@ -5991,6 +6657,506 @@
         ],
         "additionalProperties": false,
         "description": "Estimated accounting, not reconciled invoices. One invocation appears in several scopes; filter one scope rather than summing all rows. Missing usage retains the reserve."
+      },
+      "AIStorageResourceInput": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "shared",
+              "bot",
+              "user"
+            ]
+          },
+          "owner": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "scope",
+          "owner"
+        ],
+        "additionalProperties": false
+      },
+      "AIStorageResource": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "shared",
+              "bot",
+              "user"
+            ]
+          },
+          "owner": {
+            "type": "string"
+          },
+          "routing_visible": {
+            "type": "boolean"
+          },
+          "metadata": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "owner",
+          "routing_visible",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "AIStorageDocumentInput": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "vector": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "filename": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string",
+            "contentEncoding": "base64"
+          },
+          "metadata": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "AIStorageDocument": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "resource_id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "vector": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "filename": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string",
+            "contentEncoding": "base64"
+          },
+          "metadata": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "resource_id"
+        ],
+        "additionalProperties": false
+      },
+      "AIStorageDocumentResult": {
+        "type": "object",
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/AIStorageDocument"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/AIStorageResource"
+          },
+          "score": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "document",
+          "resource",
+          "score"
+        ],
+        "additionalProperties": false
+      },
+      "AIStorageEdgeInput": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "vector": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "additionalProperties": false
+      },
+      "AIStorageEdge": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "resource_id": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "vector": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "resource_id",
+          "from",
+          "to"
+        ],
+        "additionalProperties": false
+      },
+      "AIStorageRequest": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string"
+          },
+          "request_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "chat_id": {
+            "type": "string"
+          },
+          "source_user": {
+            "type": "string"
+          },
+          "ai_user": {
+            "type": "string"
+          },
+          "resource": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "read",
+              "search",
+              "graph"
+            ]
+          },
+          "destination": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "request_hash",
+          "chat_id",
+          "source_user",
+          "ai_user",
+          "resource",
+          "action",
+          "destination",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "AIStorageGrantInput": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "additionalProperties": false
+      },
+      "AIStorageGrantResult": {
+        "type": "object",
+        "properties": {
+          "nonce": {
+            "type": "string"
+          },
+          "status": {
+            "const": "granted"
+          }
+        },
+        "required": [
+          "nonce",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "AIStorageDeleteResult": {
+        "type": "object",
+        "properties": {
+          "deleted": {
+            "const": true
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "additionalProperties": false
+      },
+      "AIStorageRevokeResult": {
+        "type": "object",
+        "properties": {
+          "revoked": {
+            "const": true
+          }
+        },
+        "required": [
+          "revoked"
+        ],
+        "additionalProperties": false
+      },
+      "AIEndpointInput": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "device_id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "llm",
+              "tools",
+              "storage"
+            ]
+          }
+        },
+        "required": [
+          "user_id",
+          "device_id",
+          "kind"
+        ],
+        "additionalProperties": false
+      },
+      "AIEndpointResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "participant_owner": {
+            "const": "endpoint"
+          },
+          "plaintext_boundary": {
+            "const": "endpoint_host"
+          }
+        },
+        "required": [
+          "id",
+          "participant_owner",
+          "plaintext_boundary"
+        ],
+        "additionalProperties": false
+      },
+      "AIEndpointItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          },
+          "device_id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "llm",
+              "tools",
+              "storage"
+            ]
+          },
+          "participant_owner": {
+            "const": "endpoint"
+          },
+          "transport": {
+            "const": "mls"
+          },
+          "plaintext_boundary": {
+            "const": "endpoint_host"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "device_id",
+          "kind",
+          "participant_owner",
+          "transport",
+          "plaintext_boundary"
+        ],
+        "additionalProperties": false
+      },
+      "AIEndpointList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AIEndpointItem"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "AIStorageMCPRequest": {
+        "type": "object",
+        "properties": {
+          "jsonrpc": {
+            "const": "2.0"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer",
+                "format": "int64"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "method": {
+            "type": "string"
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ],
+        "additionalProperties": false
+      },
+      "AIStorageMCPResponse": {
+        "type": "object",
+        "properties": {
+          "jsonrpc": {
+            "const": "2.0"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer",
+                "format": "int64"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "error": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id"
+        ],
+        "additionalProperties": false
       }
     },
     "securitySchemes": {

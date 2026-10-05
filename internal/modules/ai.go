@@ -59,6 +59,24 @@ var aiSavedContinuation func(context.Context, *sql.Tx, *core.Core, string) ([]by
 var aiReadUsage func(string, []byte, aiUsage, bool) (aiUsage, error)
 var aiPolicyActive func(context.Context) bool
 
+type aiStorageBoundary struct {
+	Label       string   `json:"label"`
+	Destination string   `json:"destination"`
+	Requests    []string `json:"requests"`
+}
+type aiVaultRuntimeKey struct{}
+type aiVaultRuntime struct {
+	Core     *core.Core
+	Job      string
+	Boundary **aiStorageBoundary
+}
+
+var aiStorageInstall func(*core.Core) error
+var aiStorageRelease func(context.Context, *core.Core, string, *aiStorageBoundary, string, string) error
+var aiStorageContextFilter func(context.Context, *core.Core, string, []aiTurn) ([]aiTurn, error)
+var aiStorageValidateFinal func(context.Context, *sql.Tx, *core.Core, string) error
+var aiStoragePreflight func(context.Context, *core.Core, string, config.Tool, string) error
+
 func aiAssertPolicyEffect(ctx context.Context, enabled bool) error {
 	if enabled && (aiPolicyActive == nil || !aiPolicyActive(ctx)) {
 		return errors.New("AI policy gateway required")
@@ -161,6 +179,14 @@ CREATE TABLE IF NOT EXISTS ai_audit(id INTEGER PRIMARY KEY,job_id TEXT NOT NULL,
 	}
 	if c.Config.Features.AIPolicy && !c.Config.Features.AIStreaming {
 		c.AddRoute("POST /v1/chats/{chat}/ai/jobs/{job}/cancel", func(w http.ResponseWriter, r *http.Request, id core.Identity) { cancelAIJob(c, w, r, id) })
+	}
+	if c.Config.Features.AIStorage {
+		if aiStorageInstall == nil {
+			return errors.New("AI storage module unavailable")
+		}
+		if e = aiStorageInstall(c); e != nil {
+			return e
+		}
 	}
 	// In-flight external effects have unknown outcomes after a restart. Never
 	// reissue them automatically, including provider calls or side-effect tools.
@@ -828,6 +854,12 @@ func aiComplete(ctx context.Context, c *core.Core, job, chat, user, device, mode
 		return
 	}
 	turns = aiBoundContext(append(turns, aiTurn{Role: "assistant", Content: answer}), settings)
+	if c.Config.Features.AIStorage && aiStorageContextFilter != nil {
+		turns, e = aiStorageContextFilter(ctx, c, job, turns)
+		if e != nil {
+			return
+		}
+	}
 	raw, _ := json.Marshal(turns)
 	if len(raw) > settings.MaxContextBytes {
 		aiFinishError(c, job, "failed")
@@ -842,6 +874,11 @@ func aiComplete(ctx context.Context, c *core.Core, job, chat, user, device, mode
 		return
 	}
 	defer tx.Rollback()
+	if c.Config.Features.AIStorage && aiStorageValidateFinal != nil {
+		if e = aiStorageValidateFinal(ctx, tx, c, job); e != nil {
+			return
+		}
+	}
 	task, lookupErr := aiTaskLookup(ctx, tx, job)
 	if lookupErr != nil || task.Status != "running" {
 		return

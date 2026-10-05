@@ -34,7 +34,7 @@ For automatic capacity fields, `sources` reports the final value as `derived`; `
 | `server` | `listen`, TLS certificate/key paths, `allow_insecure_loopback`, `trusted_proxy`, allowed browser `origins` |
 | `storage` | SQLite `path`, encrypted chunk directory `files`, optional `checkpoint_interval_ms` and `wal_checkpoint_bytes`; container paths should be beneath `/data` |
 | `security` | JWT `issuer`/`audience`; references `token_public_key_env`, `management_secret_env`, `master_key_env`, `hpke_key_env`; bounded retired-key reference lists `previous_master_key_envs`, `previous_hpke_key_envs` |
-| `features` | Boolean `groups`, `files`, `e2ee`, `calls`, `delete`, `edit`, `reply`, `forward`, `reactions`, `openai`, `anthropic`, `ai_streaming`, `ai_policy`, `mcp`, `http_tools` |
+| `features` | Boolean `groups`, `files`, `e2ee`, `calls`, `delete`, `edit`, `reply`, `forward`, `reactions`, `openai`, `anthropic`, `ai_streaming`, `ai_policy`, `ai_storage`, `ai_endpoint`, `mcp`, `http_tools` |
 | `capacity` | `expected_concurrent_users`; optional explicit `max_connections`, `queue_depth`, `workers` |
 | `policy` | `history` since_join/all; `delete_mode` global/author_only; reaction type dictionary; event/dedup/upload retention; message/batch/file/chunk/storage limits |
 | `ai` | Legacy provider URLs/key references plus `model`, `max_steps`, `max_context_turns`, `max_context_bytes`, `timeout_seconds`, `max_response_bytes`, `max_output_tokens`, `tools`; named profiles use `endpoints`, `bots` and `default_bot` |
@@ -47,6 +47,32 @@ Each `[[ai.tools]]` defines `name`, `kind`, `url`, `methods`, `secret_env`, `all
 ### AI approvals and budgets
 
 `[ai_policy]` configures `grant_public_key_env`, `issuer`, `audience`, `approval_ttl_seconds`, `require_provider_approval`, `provider_reserve_microunits`, `global_daily_budget_microunits`, `per_bot_daily_budget_microunits`, `per_user_daily_budget_microunits`, `currency`. `[ai]` and endpoint profiles configure input/output prices per million tokens. Tools select approval and fixed cost independently. See [all defaults/ranges and accounting limits](ai-policy.md) and [example](../configs/ai-policy.toml). A signed grant is required only where configured; every effect still receives a durable reservation and egress notice when the module is enabled.
+
+### Scoped encrypted AI storage
+
+`features.ai_storage` requires `features.ai_policy` and a provider feature. The
+`[ai_storage]` block contains `grant_public_key_env`, `issuer`, a storage-only
+`audience`, `grant_ttl_seconds`, `max_resources`,
+`max_documents_per_resource`, `max_item_bytes`, `max_vector_dimensions`,
+`max_results` and `max_graph_depth`. The storage audience is distinct from both
+`security.audience` and `ai_policy.audience`: policy approval and the independent
+resource grant are separate contracts. Limits are positive and bounded by the
+package ceilings; the encrypted store adds payload and scan bounds.
+
+Storage tools use `kind = "storage"`, a fixed `resource`, one
+`storage_action` (`read`, `search` or `graph`) and `require_approval = true`.
+They cannot configure an HTTP URL, secret, methods or `allow_private`. Private
+`user`/`bot` resources are restricted to the matching participant in a
+two-member direct chat; `shared` resources require explicit sharing. See
+[stage 3](ai-stage3.md) and the [storage example](../configs/ai-storage.toml).
+
+### External MLS endpoint registry
+
+`features.ai_endpoint` requires `features.e2ee` and registers external endpoint
+devices with `kind = "llm"`, `"tools"` or `"storage"`. The registry does not own
+endpoint MLS private state; the external worker owns its encrypted singleton
+state and pinned membership. See [stage 3](ai-stage3.md) and
+[configs/ai-endpoint-relay.toml](../configs/ai-endpoint-relay.toml).
 
 ### Named AI endpoints and bots
 

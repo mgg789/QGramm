@@ -36,13 +36,13 @@ AI-preset требует явного `ai.model`; provider/model не угады
 | `server` | `listen`: адрес; `tls_cert`, `tls_key`: пути TLS; `allow_insecure_loopback`: только разработка на loopback; `trusted_proxy`: доверять HTTPS-заголовку из изолированного ingress; `origins`: разрешенные browser origins |
 | `storage` | `path`: SQLite; `files`: каталог зашифрованных частей файлов |
 | `security` | `issuer`, `audience`: JWT authority; `token_public_key_env`: base64 Ed25519 32-byte verification key; `management_secret_env`: отдельный bearer минимум 32 символа; `master_key_env`: AES-256 32-byte key; `hpke_key_env`: X25519 32-byte private key; `previous_master_key_envs`, `previous_hpke_key_envs`: до четырех старых ключей каждого вида |
-| `features` | Независимые boolean: `groups`, `files`, `e2ee`, `calls`, `delete`, `edit`, `reply`, `forward`, `reactions`, `openai`, `anthropic`, `ai_streaming`, `ai_policy`, `mcp`, `http_tools` |
+| `features` | Независимые boolean: `groups`, `files`, `e2ee`, `calls`, `delete`, `edit`, `reply`, `forward`, `reactions`, `openai`, `anthropic`, `ai_streaming`, `ai_policy`, `ai_storage`, `ai_endpoint`, `mcp`, `http_tools` |
 | `capacity` | `expected_concurrent_users`: одновременно подключенные люди; `max_connections`, `queue_depth`, `workers`: явные пределы, 0 — расчет |
 | `policy` | `history`: `since_join` либо `all` с явным grant внешнего backend; `delete_mode`: `global` либо `author_only`; `reaction_types`: словарь числовых типов с 0; `event_retention_hours`, `dedup_retention_hours`, `upload_ttl_hours`: сроки; `max_message_bytes`, `max_batch`, `max_file_bytes`, `max_chunk_bytes`, `max_storage_bytes`: размеры и квоты |
 | `ai` | Legacy `openai_url`, `anthropic_url` и имена ключей; `model`, `max_steps`, `max_context_turns`, `max_context_bytes`, `timeout_seconds`, `max_response_bytes`, `max_output_tokens`, `tools`; именованные профили используют `endpoints`, `bots`, `default_bot` |
 | `calls` | `turn_urls`: внешний TURN; `turn_secret_env`: имя shared secret; `credential_ttl_seconds`: срок credentials |
 
-Каждый `[[ai.tools]]` задает `name`, `kind` (`http`/`mcp`), `url`, `methods`, `secret_env`, `allow_private`, `schema`, `timeout_seconds`, `max_response_bytes`. Последние два поля при 0 наследуют AI-пределы, положительные значения только сужают их. Defaults AI: 20 turns, 262144 context bytes, 45 секунд, 1048576 response bytes; увеличивать сверх этих safety ceilings нельзя. Точный допустимый поднабор JSON Schema описан в [AI reference](ai.md): неизвестные ограничения не игнорируются. Инструменты требуют AI-provider, соответствующий connector — включенной build-фичи; звонки требуют TURN-настроек. Значения и ограничения проверяет `internal/config/config.go`.
+Каждый `[[ai.tools]]` задает `name`, `kind` (`http`/`mcp`/`storage`), `url`, `methods`, `secret_env`, `allow_private`, `schema`, `timeout_seconds`, `max_response_bytes`, `require_approval`, `cost_microunits`. Для `storage` задаются также `resource` и `storage_action`; URL/secret/methods/allow_private для него запрещены. Последние два поля при 0 наследуют AI-пределы, положительные значения только сужают их. Defaults AI: 20 turns, 262144 context bytes, 45 секунд, 1048576 response bytes; увеличивать сверх этих safety ceilings нельзя. Точный допустимый поднабор JSON Schema описан в [AI reference](ai.md): неизвестные ограничения не игнорируются. Инструменты требуют AI-provider, соответствующий connector — включенной build-фичи; звонки требуют TURN-настроек. Значения и ограничения проверяет `internal/config/config.go`.
 
 Именованный stage-1 профиль разрешается последовательно: глобальная `[ai]` →
 `[ai.endpoints.NAME]` → `[ai.bots.NAME]`. Если глобальная модель отсутствует,
@@ -60,6 +60,32 @@ endpoint: plaintext отправляется в него. Значения се�
 постоянная user/device identity; в stage 1 он подключается только к BASIC
 личным и групповым чатам и запускается явным заданием после обычного сообщения.
 Подключение именованного бота к MLS E2EE отклоняется. Подробности — [AI-сеть](ai-network.ru.md).
+
+## Зашифрованное AI-хранилище по scope
+
+`features.ai_storage` требует `features.ai_policy` и provider feature. Секция
+`[ai_storage]` содержит `grant_public_key_env`, `issuer`, отдельный storage
+`audience`, `grant_ttl_seconds`, `max_resources`,
+`max_documents_per_resource`, `max_item_bytes`, `max_vector_dimensions`,
+`max_results`, `max_graph_depth`. Storage audience отличается от
+`security.audience` и `ai_policy.audience`: approval policy и независимый
+resource grant — разные контракты. Пределы должны быть положительными и
+укладываться в package ceilings; encrypted store добавляет свои bounds.
+
+Storage tool имеет `kind="storage"`, фиксированный `resource`,
+`storage_action` (`read`, `search`, `graph`) и `require_approval=true`. Нельзя
+задавать для него HTTP URL, secret, methods или `allow_private`. Private
+`user`/`bot` resource разрешен соответствующему участнику только в direct-чате
+из двух участников; `shared` требует явного разрешения. См. [этап 3](ai-stage3.ru.md)
+и [пример](../configs/ai-storage.toml).
+
+## Реестр внешних MLS endpoint
+
+`features.ai_endpoint` требует `features.e2ee` и регистрирует внешние endpoint
+devices с `kind="llm"`, `"tools"` или `"storage"`. Registry не владеет private
+MLS state endpoint; внешний worker владеет зашифрованным singleton state и
+прикрепленным составом участников. См. [этап 3](ai-stage3.ru.md) и
+[configs/ai-endpoint-relay.toml](../configs/ai-endpoint-relay.toml).
 
 ## AI policy второго этапа
 

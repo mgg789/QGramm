@@ -478,7 +478,11 @@ func aiPolicyDispatchTx(ctx context.Context, tx *sql.Tx, c *core.Core, id string
 		return err
 	}
 	origin := aiPolicyOrigin(effect.Destination)
-	if err := aiPolicyEvent(ctx, tx, c, task.Chat, "ai.egress.notice", map[string]any{"destination_origin": origin, "action": effect.Action, "name": effect.Name, "job": effect.Job, "request_id": id, "confidentiality": "external_plaintext"}); err != nil {
+	confidentiality := "external_plaintext"
+	if strings.HasPrefix(effect.Destination, "vault://") {
+		confidentiality = "integrated_storage"
+	}
+	if err := aiPolicyEvent(ctx, tx, c, task.Chat, "ai.egress.notice", map[string]any{"destination_origin": origin, "action": effect.Action, "name": effect.Name, "job": effect.Job, "request_id": id, "confidentiality": confidentiality}); err != nil {
 		return err
 	}
 	_, err := tx.ExecContext(ctx, `UPDATE ai_policy_requests SET status='dispatched',dispatched_at=?,updated_at=? WHERE id=? AND status='approved'`, now, now, id)

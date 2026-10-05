@@ -17,15 +17,16 @@ import (
 )
 
 type Config struct {
-	Server   Server   `toml:"server"`
-	Storage  Storage  `toml:"storage"`
-	Security Security `toml:"security"`
-	Features Features `toml:"features"`
-	Capacity Capacity `toml:"capacity"`
-	Policy   Policy   `toml:"policy"`
-	AI       AI       `toml:"ai"`
-	AIPolicy AIPolicy `toml:"ai_policy"`
-	Calls    Calls    `toml:"calls"`
+	Server    Server    `toml:"server"`
+	Storage   Storage   `toml:"storage"`
+	Security  Security  `toml:"security"`
+	Features  Features  `toml:"features"`
+	Capacity  Capacity  `toml:"capacity"`
+	Policy    Policy    `toml:"policy"`
+	AI        AI        `toml:"ai"`
+	AIPolicy  AIPolicy  `toml:"ai_policy"`
+	AIStorage AIStorage `toml:"ai_storage"`
+	Calls     Calls     `toml:"calls"`
 }
 
 // ConfigDetails describes the effective configuration without reading any
@@ -138,10 +139,12 @@ type Features struct {
 	MCP         bool `toml:"mcp"`
 	HTTPTools   bool `toml:"http_tools"`
 	AIPolicy    bool `toml:"ai_policy"`
+	AIStorage   bool `toml:"ai_storage"`
+	AIEndpoint  bool `toml:"ai_endpoint"`
 }
 
 func (f Features) Enabled() []string {
-	names := map[string]bool{"groups": f.Groups, "files": f.Files, "e2ee": f.E2EE, "calls": f.Calls, "delete": f.Delete, "edit": f.Edit, "reply": f.Reply, "forward": f.Forward, "reactions": f.Reactions, "openai": f.OpenAI, "anthropic": f.Anthropic, "ai_streaming": f.AIStreaming, "mcp": f.MCP, "http_tools": f.HTTPTools, "ai_policy": f.AIPolicy}
+	names := map[string]bool{"groups": f.Groups, "files": f.Files, "e2ee": f.E2EE, "calls": f.Calls, "delete": f.Delete, "edit": f.Edit, "reply": f.Reply, "forward": f.Forward, "reactions": f.Reactions, "openai": f.OpenAI, "anthropic": f.Anthropic, "ai_streaming": f.AIStreaming, "mcp": f.MCP, "http_tools": f.HTTPTools, "ai_policy": f.AIPolicy, "ai_storage": f.AIStorage, "ai_endpoint": f.AIEndpoint}
 	out := []string{}
 	for name, enabled := range names {
 		if enabled {
@@ -382,6 +385,8 @@ type Tool struct {
 	AllowPrivate     bool           `toml:"allow_private"`
 	RequireApproval  bool           `toml:"require_approval"`
 	CostMicrounits   int64          `toml:"cost_microunits"`
+	Resource         string         `toml:"resource"`
+	StorageAction    string         `toml:"storage_action"`
 	Schema           map[string]any `toml:"schema"`
 	TimeoutSeconds   int            `toml:"timeout_seconds"`
 	MaxResponseBytes int            `toml:"max_response_bytes"`
@@ -408,15 +413,31 @@ type Calls struct {
 	CredentialTTLSeconds int      `toml:"credential_ttl_seconds"`
 }
 
+// AIStorage bounds encrypted integrated storage. Embeddings are supplied by
+// the integrator; no model or external embedding service is started here.
+type AIStorage struct {
+	GrantPublicKeyEnv   string `toml:"grant_public_key_env"`
+	Issuer              string `toml:"issuer"`
+	Audience            string `toml:"audience"`
+	GrantTTLSeconds     int    `toml:"grant_ttl_seconds"`
+	MaxResources        int    `toml:"max_resources"`
+	MaxDocuments        int    `toml:"max_documents_per_resource"`
+	MaxItemBytes        int    `toml:"max_item_bytes"`
+	MaxVectorDimensions int    `toml:"max_vector_dimensions"`
+	MaxResults          int    `toml:"max_results"`
+	MaxGraphDepth       int    `toml:"max_graph_depth"`
+}
+
 func Defaults() Config {
 	return Config{
 		Server: Server{Listen: "127.0.0.1:8080"}, Storage: Storage{Path: "data/qgramm.db", Files: "data/files"},
-		Security: Security{Issuer: "qgramm", Audience: "qgramm", TokenPublicKeyEnv: "QGRAMM_TOKEN_PUBLIC_KEY", ManagementSecretEnv: "QGRAMM_MANAGEMENT_SECRET", MasterKeyEnv: "QGRAMM_MASTER_KEY", HPKEKeyEnv: "QGRAMM_HPKE_KEY"},
-		Capacity: Capacity{ExpectedConcurrentUsers: 100},
-		Policy:   Policy{History: "since_join", DeleteMode: "global", ReactionTypes: []string{"👍", "❤️", "👎"}, EventRetentionHours: 720, DedupRetentionHours: 24, MaxMessageBytes: 65536, MaxBatch: 100, MaxFileBytes: 67108864, MaxChunkBytes: 1048576, MaxStorageBytes: 10737418240, UploadTTLHours: 24},
-		AI:       AI{OpenAIURL: "https://api.openai.com/v1", AnthropicURL: "https://api.anthropic.com/v1", MaxSteps: 8, MaxContextTurns: 20, MaxContextBytes: 262144, TimeoutSeconds: 45, MaxResponseBytes: 1048576, MaxOutputTokens: 2048, Auth: "bearer"},
-		AIPolicy: AIPolicy{GrantPublicKeyEnv: "QGRAMM_AI_GRANT_PUBLIC_KEY", Issuer: "qgramm-backend", Audience: "qgramm-ai-control", ApprovalTTLSeconds: 300, ProviderReserveMicrounits: 1000000, Currency: "USD"},
-		Calls:    Calls{CredentialTTLSeconds: 600},
+		Security:  Security{Issuer: "qgramm", Audience: "qgramm", TokenPublicKeyEnv: "QGRAMM_TOKEN_PUBLIC_KEY", ManagementSecretEnv: "QGRAMM_MANAGEMENT_SECRET", MasterKeyEnv: "QGRAMM_MASTER_KEY", HPKEKeyEnv: "QGRAMM_HPKE_KEY"},
+		Capacity:  Capacity{ExpectedConcurrentUsers: 100},
+		Policy:    Policy{History: "since_join", DeleteMode: "global", ReactionTypes: []string{"👍", "❤️", "👎"}, EventRetentionHours: 720, DedupRetentionHours: 24, MaxMessageBytes: 65536, MaxBatch: 100, MaxFileBytes: 67108864, MaxChunkBytes: 1048576, MaxStorageBytes: 10737418240, UploadTTLHours: 24},
+		AI:        AI{OpenAIURL: "https://api.openai.com/v1", AnthropicURL: "https://api.anthropic.com/v1", MaxSteps: 8, MaxContextTurns: 20, MaxContextBytes: 262144, TimeoutSeconds: 45, MaxResponseBytes: 1048576, MaxOutputTokens: 2048, Auth: "bearer"},
+		AIPolicy:  AIPolicy{GrantPublicKeyEnv: "QGRAMM_AI_GRANT_PUBLIC_KEY", Issuer: "qgramm-backend", Audience: "qgramm-ai-control", ApprovalTTLSeconds: 300, ProviderReserveMicrounits: 1000000, Currency: "USD"},
+		AIStorage: AIStorage{GrantPublicKeyEnv: "QGRAMM_AI_STORAGE_GRANT_PUBLIC_KEY", Issuer: "qgramm-backend", Audience: "qgramm-ai-storage", GrantTTLSeconds: 300, MaxResources: 64, MaxDocuments: 4096, MaxItemBytes: 1048576, MaxVectorDimensions: 1536, MaxResults: 32, MaxGraphDepth: 4},
+		Calls:     Calls{CredentialTTLSeconds: 600},
 	}
 }
 
@@ -486,6 +507,12 @@ func parseDetailed(data []byte, resources Resources) (ConfigDetails, error) {
 	}
 	for _, k := range md.Undecoded() {
 		path := strings.Join([]string(k), ".")
+		// JSON Schema is an intentionally open map, unlike the surrounding
+		// configuration. TOML reports nested map keys as undecoded even though
+		// they are present in Tool.Schema; keep strict checking outside it.
+		if len(k) > 3 && k[0] == "ai" && k[1] == "tools" && k[2] == "schema" {
+			continue
+		}
 		if path != "preset" {
 			unknown = append(unknown, k.String())
 		}
@@ -707,6 +734,9 @@ func SecretReferences(c Config) []string {
 	}
 	if c.Features.AIPolicy && c.AIPolicy.GrantPublicKeyEnv != "" {
 		refs = append(refs, c.AIPolicy.GrantPublicKeyEnv)
+	}
+	if c.Features.AIStorage {
+		refs = append(refs, c.AIStorage.GrantPublicKeyEnv)
 	}
 	seen := make(map[string]bool, len(refs))
 	out := make([]string, 0, len(refs))
@@ -1064,6 +1094,12 @@ func (c Config) Validate() error {
 	if err := c.validateAIPolicyConfig(); err != nil {
 		return err
 	}
+	if c.Features.AIEndpoint && !c.Features.E2EE {
+		return fmt.Errorf("ai_endpoint requires e2ee")
+	}
+	if err := c.validateAIStorageConfig(); err != nil {
+		return err
+	}
 	for field, refs := range map[string][]string{"previous_master_key_envs": c.Security.PreviousMasterKeyEnvs, "previous_hpke_key_envs": c.Security.PreviousHPKEKeyEnvs} {
 		if len(refs) > 4 {
 			return fmt.Errorf("security.%s allows at most four retired keys", field)
@@ -1177,10 +1213,22 @@ func (c Config) Validate() error {
 			if !c.Features.HTTPTools {
 				return fmt.Errorf("HTTP tool requires http_tools feature")
 			}
+		} else if tool.Kind == "storage" {
+			if !c.Features.AIStorage || tool.Resource == "" || !tool.RequireApproval || tool.URL != "" || tool.SecretEnv != "" || len(tool.Methods) != 0 || tool.AllowPrivate {
+				return fmt.Errorf("storage tool requires ai_storage, resource, require_approval=true and no external HTTP settings")
+			}
+			switch tool.StorageAction {
+			case "read", "search", "graph":
+			default:
+				return fmt.Errorf("storage_action must be read, search or graph")
+			}
 		} else {
-			return fmt.Errorf("tool.kind must be mcp or http")
+			return fmt.Errorf("tool.kind must be mcp, http or storage")
 		}
-		if err := endpoint("tool.url", tool.URL); err != nil {
+		if tool.Kind != "storage" && (tool.Resource != "" || tool.StorageAction != "") {
+			return fmt.Errorf("resource/storage_action require storage tool kind")
+		}
+		if err := endpoint("tool.url", tool.URL); tool.Kind != "storage" && err != nil {
 			return err
 		}
 		if err := secretRef("tool.secret_env", tool.SecretEnv, false); err != nil {

@@ -1,0 +1,8 @@
+# Build a relay, or select -target micro-safer to build the external worker.
+# The worker uses a separate endpoint deployment qgramm.toml at runtime.
+[server]
+listen = "127.0.0.1:8080"
+allow_insecure_loopback = true
+[features]
+e2ee = true
+ai_endpoint = true

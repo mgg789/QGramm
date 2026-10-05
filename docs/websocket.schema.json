@@ -1338,7 +1338,11 @@
                   "type": "string"
                 },
                 "confidentiality": {
-                  "const": "external_plaintext"
+                  "type": "string",
+                  "enum": [
+                    "external_plaintext",
+                    "integrated_storage"
+                  ]
                 }
               },
               "required": [
@@ -2129,6 +2133,506 @@
       ],
       "additionalProperties": false,
       "description": "Estimated accounting, not reconciled invoices. One invocation appears in several scopes; filter one scope rather than summing all rows. Missing usage retains the reserve."
+    },
+    "AIStorageResourceInput": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "shared",
+            "bot",
+            "user"
+          ]
+        },
+        "owner": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": [
+            "object",
+            "array",
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "scope",
+        "owner"
+      ],
+      "additionalProperties": false
+    },
+    "AIStorageResource": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "shared",
+            "bot",
+            "user"
+          ]
+        },
+        "owner": {
+          "type": "string"
+        },
+        "routing_visible": {
+          "type": "boolean"
+        },
+        "metadata": {
+          "type": [
+            "object",
+            "array",
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        },
+        "created_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "owner",
+        "routing_visible",
+        "created_at"
+      ],
+      "additionalProperties": false
+    },
+    "AIStorageDocumentInput": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "vector": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "filename": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string",
+          "contentEncoding": "base64"
+        },
+        "metadata": {
+          "type": [
+            "object",
+            "array",
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "AIStorageDocument": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "resource_id": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "vector": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "filename": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string",
+          "contentEncoding": "base64"
+        },
+        "metadata": {
+          "type": [
+            "object",
+            "array",
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "resource_id"
+      ],
+      "additionalProperties": false
+    },
+    "AIStorageDocumentResult": {
+      "type": "object",
+      "properties": {
+        "document": {
+          "$ref": "#/$defs/AIStorageDocument"
+        },
+        "resource": {
+          "$ref": "#/$defs/AIStorageResource"
+        },
+        "score": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "document",
+        "resource",
+        "score"
+      ],
+      "additionalProperties": false
+    },
+    "AIStorageEdgeInput": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "vector": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "additionalProperties": false
+    },
+    "AIStorageEdge": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "resource_id": {
+          "type": "string"
+        },
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "vector": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "resource_id",
+        "from",
+        "to"
+      ],
+      "additionalProperties": false
+    },
+    "AIStorageRequest": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string"
+        },
+        "request_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "chat_id": {
+          "type": "string"
+        },
+        "source_user": {
+          "type": "string"
+        },
+        "ai_user": {
+          "type": "string"
+        },
+        "resource": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "read",
+            "search",
+            "graph"
+          ]
+        },
+        "destination": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "request_hash",
+        "chat_id",
+        "source_user",
+        "ai_user",
+        "resource",
+        "action",
+        "destination",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "AIStorageGrantInput": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "token"
+      ],
+      "additionalProperties": false
+    },
+    "AIStorageGrantResult": {
+      "type": "object",
+      "properties": {
+        "nonce": {
+          "type": "string"
+        },
+        "status": {
+          "const": "granted"
+        }
+      },
+      "required": [
+        "nonce",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "AIStorageDeleteResult": {
+      "type": "object",
+      "properties": {
+        "deleted": {
+          "const": true
+        }
+      },
+      "required": [
+        "deleted"
+      ],
+      "additionalProperties": false
+    },
+    "AIStorageRevokeResult": {
+      "type": "object",
+      "properties": {
+        "revoked": {
+          "const": true
+        }
+      },
+      "required": [
+        "revoked"
+      ],
+      "additionalProperties": false
+    },
+    "AIEndpointInput": {
+      "type": "object",
+      "properties": {
+        "user_id": {
+          "type": "string"
+        },
+        "device_id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "llm",
+            "tools",
+            "storage"
+          ]
+        }
+      },
+      "required": [
+        "user_id",
+        "device_id",
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "AIEndpointResult": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "participant_owner": {
+          "const": "endpoint"
+        },
+        "plaintext_boundary": {
+          "const": "endpoint_host"
+        }
+      },
+      "required": [
+        "id",
+        "participant_owner",
+        "plaintext_boundary"
+      ],
+      "additionalProperties": false
+    },
+    "AIEndpointItem": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "device_id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "llm",
+            "tools",
+            "storage"
+          ]
+        },
+        "participant_owner": {
+          "const": "endpoint"
+        },
+        "transport": {
+          "const": "mls"
+        },
+        "plaintext_boundary": {
+          "const": "endpoint_host"
+        }
+      },
+      "required": [
+        "id",
+        "user_id",
+        "device_id",
+        "kind",
+        "participant_owner",
+        "transport",
+        "plaintext_boundary"
+      ],
+      "additionalProperties": false
+    },
+    "AIEndpointList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AIEndpointItem"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "AIStorageMCPRequest": {
+      "type": "object",
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer",
+              "format": "int64"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "method": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "id",
+        "method"
+      ],
+      "additionalProperties": false
+    },
+    "AIStorageMCPResponse": {
+      "type": "object",
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer",
+              "format": "int64"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "error": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "id"
+      ],
+      "additionalProperties": false
     },
     "Subscribe": {
       "type": "object",
