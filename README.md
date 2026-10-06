@@ -1,14 +1,47 @@
 # QGramm
 
-Self-hosted Go messaging core for support conversations, user chats and protected AI channels. Integrate the HTTP/WebSocket protocol into your application; QGramm supplies the backend, not a client UI or an account-registration system.
+<p align="center">
+  <a href="https://github.com/mgg789/QGramm"><img src="docs/assets/qgramm-wordmark.png" alt="QGramm" width="800"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/mgg789/QGramm/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/mgg789/QGramm?display_name=tag"></a>
+  <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
+  <a href="go.mod"><img alt="Go 1.26+" src="https://img.shields.io/badge/Go-1.26%2B-00ADD8?logo=go&logoColor=white"></a>
+  <a href="Dockerfile"><img alt="Docker" src="https://img.shields.io/badge/deploy-Docker-2496ED?logo=docker&logoColor=white"></a>
+  <a href="docs/openapi.json"><img alt="HTTP API v1" src="https://img.shields.io/badge/API-v1-6f42c1"></a>
+</p>
+
+**Add messaging to your product without adopting somebody else’s chat application.** QGramm is a self-hosted Go service for persistent conversations, delivery and access rules. Connect it to the users, interface and identity system you already have.
 
 [Русский](README.ru.md) · [Integration](docs/integration.md) · [Security](docs/security.md) · [Configuration](docs/configuration.md) · [API](docs/openapi.json)
 
 The original Swift messenger and its backend are preserved on [`messenger`](https://github.com/mgg789/QGramm/tree/messenger). Core development takes place on `dev`; `main` is reserved for reviewed stages. Original Git history is retained.
 
-## Why QGramm?
+## Why teams choose QGramm
 
-Choose QGramm when your application already owns users and UI, and needs persistent chats, device permissions, encrypted payloads and optional AI recipients in one service. Optional features are compiled out. There is no federation or horizontal cluster in this release; clients implement the encryption and WebRTC contracts. QGramm is a pre-release, not a claim of greater security or maturity than established alternatives.
+Your product keeps its account system, user experience and client apps. QGramm supplies the messaging service behind them: versioned HTTP commands, WebSocket events, durable history and reconnect recovery, per-device receipts, chat permissions, and optional files, groups, MLS encryption and AI participants.
+
+Run it as one container with SQLite and a persistent volume. Select the features you use in TOML; build tags remove unused modules from the binary. Your backend provisions identities and access, while your clients implement the API and any client-side cryptography.
+
+## Where it fits best
+
+- **Customer support:** add a conversation between a customer and your support team inside an existing app.
+- **User communities:** provide direct or group chats while keeping your own accounts, roles and interface.
+- **AI-enabled products:** let AI participants join conversations, with optional tool approvals, scoped knowledge retrieval or a separate MLS endpoint.
+
+QGramm fits teams that want messaging infrastructure they can operate and integrate. For a ready-to-use collaboration product or federated network, Matrix or Zulip may fit better; for a live event bus without chat semantics, use Centrifugo or NATS. The table below compares these roles.
+
+## Deploy
+
+Build a Compose file from the container profile, add the configured secret values to `.env`, then start the service:
+
+```sh
+go run ./cmd/qgramm-build compose -config configs/container.toml -out compose.yaml
+docker compose --env-file .env up -d --build
+```
+
+The generated deployment keeps its port on loopback and stores SQLite data and files in a persistent volume. Put an HTTPS reverse proxy in front of it. Your backend issues Ed25519 tokens and provisions users and chats; see the [integration guide](docs/integration.md). For a local end-to-end example, run `go run ./examples/basic`.
 
 | Project | Best fit | Storage / deployment | Encryption scope | What your application still supplies |
 |---|---|---|---|---|
@@ -18,45 +51,18 @@ Choose QGramm when your application already owns users and UI, and needs persist
 | [Zulip](https://github.com/zulip/zulip/blob/main/docs/production/deployment.md) | Ready-to-use team chat with topics and search | PostgreSQL, RabbitMQ, Redis, Memcached; upload storage | [Mobile push E2EE](https://docs.zulip.com/security/); ordinary chat is server-readable | Product customization; external call-provider integration |
 | [NATS + JetStream](https://docs.nats.io/learn/core-nats/) | Service messaging and durable event streams | NATS server; JetStream disk storage | TLS / optional storage encryption; chat E2EE is application-level | User/device model, chat API/ACL, client encryption, calls and AI |
 
-These are different scopes, not comparative performance measurements. Matrix and Zulip provide broader communication platforms; Centrifugo and NATS provide infrastructure. QGramm packages chat persistence and protocol semantics for integration, with [explicit acceptance limits](docs/verification.md).
+These projects serve different needs. Matrix and Zulip are broader messaging products; Centrifugo and NATS are infrastructure. QGramm packages chat persistence and protocol semantics for integration. The table describes roles and contracts, not a performance ranking. See the [acceptance limits](docs/verification.md).
 
-### Active conversations, groups and recovery
+## Benchmark reports
 
-The expanded campaign measures 2,000 connections across 1,000 independent chats, 4 KiB payloads, 100-recipient groups, reconnect, 10,000 idle connections, five-minute load and concurrent attachments. Two-repeat ranges on the shared M5 Pro / Docker Desktop host, 4 CPU / 8 GiB quotas:
+We publish the full measurements and rejected runs, including workload, hardware, p95/p99 latency, CPU/RAM sampling, admission failures, and message integrity checks. Results come from a shared Docker Desktop host; they are not a dedicated Linux/SSD qualification or a universal performance ranking.
 
-| Service/profile | 1,000 chats, 500/s: delivery p99, ms | 100 recipients × 100/s: delivery p99, ms | RAM at 500/s, MiB |
-|---|---:|---:|---:|
-| QGramm, HPKE + SQLite FULL | 4.89–5.56 | 13.43–16.09 | 89–97 |
-| NATS 2.15.0, FILE stream/FILE consumers | 9.11–51.99 | 3,960–4,598 | 262–265 |
-| Centrifugo 6.9.7, memory history | 1.26–1.74 | 3.77–3.79 | 129–170 |
-
-Separate NATS control: FILE stream/MEMORY consumers gives group p99 **3.16–3.28 ms**, retaining disk-synchronized publications but changing consumer-state restart guarantees. QGramm's fixture does not persist device delivery receipts. These are different crypto/ACK/storage contracts, not a universal protocol ranking. Five-minute results preserve admission failures/skips; Centrifugo 4 KiB history OOM and QGramm's initial 10k setup failure remain visible. [Method, p95/p99, all attempts, resource windows and files](docs/scenario-benchmark.md).
-
-QGramm-only follow-up retains indexed, bounded retention cleanup: final 500/s ×300s had zero server rejections,149859 accepted and141 generator skips; all accepted data verified. Mean CPU rose31.4→35.3%. Replay query fusion was reverted after group-tail regression. Final group p99 varied11.31–79.20ms; no universal CPU/latency gain is claimed. [Final, rejected and refreshed-control runs](docs/performance-retention-fanout.md).
-
-### Measured latency and resources
-
-Two repetitions on Apple M5 Pro / Docker Desktop Linux arm64, 4 CPU / 8 GiB limits, 10,000 sockets and one active chat. The table shows ranges across the two runs: steady-phase delivery latency, mean sampled CPU and phase sampled maximum RAM. Load: 100/s for 30 seconds, then 1,000/s for five seconds.
-
-| Configuration | Delivery p95 / p99, ms | Mean CPU¹ | RAM, MiB |
-|---|---:|---:|---:|
-| QGramm before optimization | 5.31 / 7.34–7.65 | 19.5–20.2% | 583–588 |
-| QGramm after, full response | 5.13–5.26 / 7.02–7.26 | 14.3–14.8% | 272–282 |
-| QGramm after, compact receipt | 5.19–5.26 / 7.18–7.19 | 13.5–14.1% | 271–272 |
-| NATS JetStream, fsync each publication | 4.30–4.97 / 6.52–6.75 | 4.0–4.4% | 459–466 |
-| Centrifugo, in-memory history | 3.13–3.54 / 5.18–5.21 | 7.8–8.2% | 425–479 |
-
-¹ 100% means one CPU. QGramm steady RAM fell 52–54% and CPU about 27%. Full-response burst runs returned 83/20 managed 503 rejections; compact receipts had none. All accepted messages were delivered and stored. Whole-run delivery p99 was 29–71 ms for full responses and 7.6–25.4 ms for compact receipts. Baselines omit per-send HPKE/device/chat ACL and chat transactions; Centrifugo history is volatile. This is neither maximum throughput nor an equivalent-feature ranking. [Method, per-run p95/p99, profiles and raw evidence](docs/performance-dynamics.md). [Earlier baseline](docs/comparison-benchmark.en.md).
-
-Previous iteration: with all 10,000 sockets subscribed, the first three further changes reduced steady CPU 77% and RAM 34%; whole-run delivery p99 was6.5–7.4 ms. Same-container Redis showed no repeatable gain and has been removed. [Two-repeat comparison, limits and raw data](docs/performance-iteration.md).
-
-Previous commit/GC/SQL iteration: Redis removed. Diagnostic read-helper calls/accepted fell27.5% and allocations/accepted3%; primary CPU fell2–4%, but p95 rose slightly and one subscribed burst tail worsened. [Before/after results and limits](docs/performance-sql-gc.md).
-
-Experimental replay/WAL work on dev adds one-query history, bounded single-event replay and a request-scoped parsed HPKE key. PASSIVE checkpoint is opt-in; FULL and automatic checkpoint remain. Local replay improved8.1%, but final steady p99 rose8.9%/18.4%; the candidate remains on dev. Initial SQL regression, correction and natural-GC diagnostics are published separately. [Measurements and limitations](docs/performance-tail.md).
-
-Next three experiments (dev): bounded HTTP batch commits and optional compact ACK together lowered ready-batch steady p99 by27.2% and CPU13.3%, with RAM3.4% higher. Idle-buffer reuse was reverted after a38.8% whole-run p99 regression; single-message speed gains were not consistent. [All18 runs, controls and selection](docs/performance-three.md).
-
-Further isolated batch-read experiments did not show a convincing gain: grouped full responses had steady p99+3.8%/CPU+2.8%; preliminary reads CPU−2.3% but p99+2.3%. Neither was retained; no conditional combination was run. [Six controlled runs and archived experiments](docs/performance-batch-reads.md).
+- [Cross-service scenarios: chats, groups, reconnect, idle sockets and files](docs/scenario-benchmark.md)
+- [QGramm and NATS/Centrifugo comparison runs](docs/comparison-benchmark.en.md)
+- [Latency and resource measurements](docs/performance-dynamics.md)
+- [Group fan-out and retention follow-up](docs/performance-retention-fanout.md)
+- [Commit, GC, SQL and replay investigations](docs/performance-sql-gc.md), [replay/WAL](docs/performance-tail.md)
+- [Selected optimizations](docs/performance-three.md), [batch-read experiments](docs/performance-batch-reads.md), and [Redis evaluation](docs/performance-iteration.md)
 
 ## Small integration example
 
